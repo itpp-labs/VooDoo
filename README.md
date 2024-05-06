@@ -1,3 +1,4 @@
 # Odoo PE
 
-[![image](https://github.com/itpp-labs/VooDoo/assets/186131/ab573ef2-389b-4138-83ec-3afee81eb581)](https://pull.git.ci/process/itpp-labs/VooDoo)
+[![image](https://github.com/itpp-labs/VooDoo/assets/186131/3af79323-8d95-4313-9199-9cfa4b9f0f36)](https://pull.git.ci/process/itpp-labs/VooDoo)
+
