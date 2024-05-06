@@ -2,38 +2,38 @@ version: "1"
 label: ":alien:"  # Optional
 rules:
   - base: master
-    upstream: odoo:master
+    upstream: "odoo:master
     mergeMethod: merge
   - base: "17.0"
-    upstream: odoo:17.0
+    upstream: "odoo:17.0"
     mergeMethod: merge
   - base: "16.0"
-    upstream: odoo:16.0
+    upstream: "odoo:16.0"
     mergeMethod: merge
   - base: "15.0"
-    upstream: odoo:15.0
+    upstream: "odoo:15.0"
     mergeMethod: merge
   - base: "14.0"
-    upstream: odoo:14.0
+    upstream: "odoo:14.0"
     mergeMethod: merge
   - base: "13.0"
-    upstream: odoo:13.0
+    upstream: "odoo:13.0"
     mergeMethod: merge
   - base: "12.0"
-    upstream: odoo:12.0
+    upstream: "odoo:12.0"
     mergeMethod: merge
   - base: "11.0"
-    upstream: odoo:11.0
+    upstream: "odoo:11.0"
     mergeMethod: merge
   - base: "10.0"
-    upstream: odoo:10.0
+    upstream: "odoo:10.0"
     mergeMethod: merge
   - base: "9.0"
-    upstream: odoo:9.0
+    upstream: "odoo:9.0"
     mergeMethod: merge
   - base: "8.0"
-    upstream: odoo:8.0
+    upstream: "odoo:8.0"
     mergeMethod: merge
   - base: "7.0"
-    upstream: odoo:7.0
+    upstream: "odoo:7.0"
     mergeMethod: merge
