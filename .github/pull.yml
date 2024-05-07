@@ -1,8 +1,8 @@
 version: "1"
-label: ":alien:"  # Optional
+label: ":alien:"
 rules:
   - base: master
-    upstream: "odoo:master
+    upstream: "odoo:master"
     mergeMethod: merge
   - base: "17.0"
     upstream: "odoo:17.0"
