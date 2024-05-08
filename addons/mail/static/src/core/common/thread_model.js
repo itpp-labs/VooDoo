@@ -137,7 +137,7 @@ export class Thread extends Record {
         inverse: "thread",
         onDelete: (r) => r.delete(),
     });
-    correspondent = Record.one("Persona", {
+    correspondent = Record.one("ChannelMember", {
         compute() {
             return this.computeCorrespondent();
         },
@@ -189,7 +189,7 @@ export class Thread extends Record {
     }
     isCorrespondentOdooBot = Record.attr(undefined, {
         compute() {
-            return this.correspondent?.eq(this.store.odoobot);
+            return this.correspondent?.persona.eq(this.store.odoobot);
         },
     });
     isLoadingAttachments = false;
@@ -367,7 +367,7 @@ export class Thread extends Record {
     get allowCalls() {
         return (
             this.typesAllowingCalls.includes(this.channel_type) &&
-            !this.correspondent?.eq(this.store.odoobot)
+            !this.correspondent?.persona.eq(this.store.odoobot)
         );
     }
 
@@ -385,7 +385,7 @@ export class Thread extends Record {
 
     get displayName() {
         if (this.channel_type === "chat" && this.correspondent) {
-            return this.custom_channel_name || this.correspondent.nameOrDisplayName;
+            return this.custom_channel_name || this.correspondent.persona.nameOrDisplayName;
         }
         if (this.channel_type === "group" && !this.name) {
             const listFormatter = new Intl.ListFormat(user.lang?.replace("_", "-"), {
@@ -399,15 +399,8 @@ export class Thread extends Record {
         return this.name;
     }
 
-    /** @type {import("models").Persona[]} */
     get correspondents() {
-        const members = [];
-        for (const channelMember of this.channelMembers) {
-            if (channelMember.persona.notEq(this.store.self)) {
-                members.push(channelMember.persona);
-            }
-        }
-        return members;
+        return this.channelMembers.filter(({ persona }) => persona.notEq(this.store.self));
     }
 
     computeCorrespondent() {
@@ -421,7 +414,7 @@ export class Thread extends Record {
         }
         if (correspondents.length === 0 && this.channelMembers.length === 1) {
             // Self-chat.
-            return this.store.self;
+            return this.channelMembers[0];
         }
         return undefined;
     }
@@ -783,11 +776,6 @@ export class Thread extends Record {
         return "/mail/thread/messages";
     }
 
-    /** @param {import("models").Persona} persona */
-    getMemberName(persona) {
-        return persona.name;
-    }
-
     getPreviousMessage(message) {
         const previousMessages = this.nonEmptyMessages.filter(({ id }) => id < message.id);
         if (previousMessages.length === 0) {
@@ -843,13 +831,7 @@ export class Thread extends Record {
                 ["res_id", "=", this.id],
             ],
         ]);
-        if (this.selfMember) {
-            this.selfMember.seen_message_id = this.newestPersistentNotEmptyOfAllMessage;
-        }
-        Object.assign(this, {
-            message_unread_counter: 0,
-            message_needaction_counter: 0,
-        });
+        this.message_needaction_counter = 0;
     }
 
     async markAsFetched() {
@@ -874,17 +856,11 @@ export class Thread extends Record {
             rpc("/discuss/channel/set_last_seen_message", {
                 channel_id: this.id,
                 last_message_id: newestPersistentMessage.id,
-            })
-                .then(() => {
-                    this.updateSeen(newestPersistentMessage);
-                })
-                .catch((e) => {
-                    if (e.code !== 404) {
-                        throw e;
-                    }
-                });
-        } else if (newestPersistentMessage) {
-            this.updateSeen();
+            }).catch((e) => {
+                if (e.code !== 404) {
+                    throw e;
+                }
+            });
         }
         if (this.needactionMessages.length > 0) {
             this.markAllMessagesAsRead();
@@ -928,7 +904,7 @@ export class Thread extends Record {
             notify = true;
         }
         if (
-            this.correspondent?.eq(this.store.odoobot) ||
+            this.isCorrespondentOdooBot ||
             this.mute_until_dt ||
             this.custom_notifications === "no_notif" ||
             (this.custom_notifications === "mentions" &&
@@ -1128,27 +1104,6 @@ export class Thread extends Record {
                 { pinned: false }
             );
         }
-    }
-
-    updateSeen(lastSeen = this.newestPersistentOfAllMessage) {
-        const lastReadIndex = this.messages.findIndex((message) => message.eq(lastSeen));
-        let newNeedactionCounter = 0;
-        let newUnreadCounter = 0;
-        for (const message of this.messages.slice(lastReadIndex + 1)) {
-            if (message.isNeedaction) {
-                newNeedactionCounter++;
-            }
-            if (Number.isInteger(message.id)) {
-                newUnreadCounter++;
-            }
-        }
-        if (this.selfMember) {
-            this.selfMember.seen_message_id = lastSeen;
-        }
-        Object.assign(this, {
-            message_needaction_counter: newNeedactionCounter,
-            message_unread_counter: newUnreadCounter,
-        });
     }
 
     /**
