@@ -14,6 +14,6 @@ Don't let your dreams remain tangled in the web. Your future customers are searc
 
 A website acts as a modern-day **Dream 🪬 Catcher**: it filters the noise of the internet, giving your brand visibility and helping potential customers find you. It captures their imagination with a seamless user experience, a design that embodies your brand, and content that resonates.
 
-[![image](https://github.com/itpp-labs/VooDoo/assets/186131/097601f3-13ca-4b35-bf15-e3d291e5259f)](https://www.odoo.com/app/website?debug=%F0%9F%AA%AC)
+[![image](https://github.com/itpp-labs/VooDoo/assets/186131/097601f3-13ca-4b35-bf15-e3d291e5259f)](https://pull.git.ci/process/itpp-labs/VooDoo)
 
 Make your business's dreams a reality *today!* [*Build your website*](https://www.odoo.com/app/website?debug=%F0%9F%AA%AC) and let it guide people toward your brand like a beacon in the digital realm.
