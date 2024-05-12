@@ -3994,12 +3994,14 @@ class BaseModel(metaclass=MetaModel):
             # the query may involve several tables: we need fully-qualified names
             sql_terms = [SQL.identifier(self._table, 'id')]
             for field in column_fields:
-                # flushing is necessary to retrieve the en_US value of fields without a translation
-                sql = self._field_to_sql(self._table, field.name, query, flush=field.translate)
                 if field.type == 'binary' and (
                         context.get('bin_size') or context.get('bin_size_' + field.name)):
                     # PG 9.2 introduces conflicting pg_size_pretty(numeric) -> need ::cast
+                    sql = self._field_to_sql(self._table, field.name, query)
                     sql = SQL("pg_size_pretty(length(%s)::bigint)", sql)
+                else:
+                    # flushing is necessary to retrieve the en_US value of fields without a translation
+                    sql = self._field_to_sql(self._table, field.name, query, flush=field.translate)
                 sql_terms.append(sql)
 
             # select the given columns from the rows in the query
@@ -4907,13 +4909,14 @@ class BaseModel(metaclass=MetaModel):
             ids.extend(id_ for id_, in cr.fetchall())
 
         # put the new records in cache, and update inverse fields, for many2one
+        # (using bin_size=False to put binary values in the right place)
         #
         # cachetoclear is an optimization to avoid modified()'s cost until other_fields are processed
         cachetoclear = []
         records = self.browse(ids)
         inverses_update = defaultdict(list)     # {(field, value): ids}
         common_set_vals = set(LOG_ACCESS_COLUMNS + ['id', 'parent_path'])
-        for data, record in zip(data_list, records):
+        for data, record in zip(data_list, records.with_context(bin_size=False)):
             data['record'] = record
             # DLE P104: test_inherit.py, test_50_search_one2many
             vals = dict({k: v for d in data['inherited'].values() for k, v in d.items()}, **data['stored'])
@@ -5983,7 +5986,7 @@ class BaseModel(metaclass=MetaModel):
             return self
 
         company_id = int(company)
-        allowed_company_ids = self.env.context.get('allowed_company_ids', [])
+        allowed_company_ids = self.env.context.get('allowed_company_ids') or []
         if allowed_company_ids and company_id == allowed_company_ids[0]:
             return self
         # Copy the allowed_company_ids list
@@ -6385,7 +6388,7 @@ class BaseModel(metaclass=MetaModel):
 
         # if any field is context-dependent, the values to flush should
         # be found with a context where the context keys are all None
-        model = self.with_context(context={})
+        model = self.with_context({})
         id_vals = defaultdict(dict)
         for field in self._fields.values():
             ids = self.env.cache.clear_dirty_field(field)
