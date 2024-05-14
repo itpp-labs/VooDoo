@@ -28,13 +28,9 @@
         });
     }
 
-    // Replace all `"` character by `&quot;`, all `'` character by `&apos;` and
-    // all "`" character by `&lsquo;`.
+    // Replace all `"` character by `&quot;`.
     const getQuotesEncodedName = function (name) {
-            return name.replaceAll(/"/g, character => `&quot;`)
-                       .replaceAll(/'/g, character => `&apos;`)
-                       .replaceAll(/`/g, character => `&lsquo;`)
-                       .replaceAll("\\", character => `&bsol;`);
+            return name.replaceAll(/"/g, character => `&quot;`);
     };
 
     const triggerFieldByLabel = (label) => {
@@ -114,7 +110,7 @@
         if (type !== 'checkbox' && type !== 'radio' && type !== 'select') {
             let inputType = type === 'textarea' ? type : `input[type="${type}"]`;
             const nameAttribute = isCustom && label ? getQuotesEncodedName(label) : name;
-            testText += `:has(${inputType}[name="${nameAttribute}"]${required ? "[required]" : ""})`;
+            testText += `:has(${inputType}[name="${CSS.escape(nameAttribute)}"]${required ? "[required]" : ""})`;
         }
         ret.push({
             content: "Check the resulting field",
@@ -931,6 +927,46 @@
             run: "click",
         },
         ...wTourUtils.clickOnSave(),
+    ]);
+
+    wTourUtils.registerWebsitePreviewTour("website_form_special_characters", {
+        test: true,
+        url: "/",
+        edition: true,
+    }, () => [
+        {
+            ...wTourUtils.dragNDrop({id: "s_website_form", name: "Form"}),
+            run: "drag_and_drop :iframe #wrap",
+        },
+        {
+            content: "Select form by clicking on an input field",
+            extra_trigger: ":iframe .s_website_form_field",
+            trigger: ":iframe section.s_website_form input",
+        },
+        ...addCustomField("char", "text", `Test1"'`, false),
+        ...addCustomField("char", "text", 'Test2`\\', false),
+        ...wTourUtils.clickOnSave(),
+        ...essentialFieldsForDefaultFormFillInSteps,
+        {
+            content: "Complete 'Your Question' field",
+            trigger: ":iframe textarea[name='description']",
+            run: "edit test",
+        }, {
+            content: "Complete the first added field",
+            trigger: `:iframe input[name="${CSS.escape("Test1&quot;'")}"]`,
+            run: "edit test1",
+        }, {
+            content: "Complete the second added field",
+            trigger: `:iframe input[name="${CSS.escape("Test2`\\")}"]`,
+            run: "edit test2",
+        }, {
+            content: "Click on 'Submit'",
+            trigger: ":iframe a.s_website_form_send",
+        }, {
+            content: "Check the form was again sent (success page without form)",
+            trigger: ":iframe body:not(:has([data-snippet='s_website_form'])) .fa-check-circle",
+            isCheck: true,
+        },
     ]);
 
     export default {};
