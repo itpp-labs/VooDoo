@@ -121,6 +121,7 @@ class SaleOrder(models.Model):
 
     validity_date = fields.Date(
         string="Expiration",
+        help="Validity of the order, after that you will not able to sign & pay the quotation.",
         compute='_compute_validity_date',
         store=True, readonly=False, copy=False, precompute=True)
     journal_id = fields.Many2one(
@@ -881,7 +882,7 @@ class SaleOrder(models.Model):
             'force_email': True,
             'model_description': self.with_context(lang=lang).type_name,
         }
-        return {
+        action = {
             'type': 'ir.actions.act_window',
             'view_mode': 'form',
             'res_model': 'mail.compose.message',
@@ -890,6 +891,20 @@ class SaleOrder(models.Model):
             'target': 'new',
             'context': ctx,
         }
+        if (
+            self.env.context.get('check_document_layout')
+            and not self.env.context.get('discard_logo_check')
+            and self.env.is_admin()
+            and not self.env.company.external_report_layout_id
+        ):
+            layout_action = self.env['ir.actions.report']._action_configure_external_report_layout(
+                action,
+            )
+            # Need to remove this context for windows action
+            action.pop('close_on_report_download', None)
+            layout_action['context']['dialog_size'] = 'extra-large'
+            return layout_action
+        return action
 
     def _find_mail_template(self):
         """ Get the appropriate mail template for the current sales order based on its state.
@@ -1481,17 +1496,6 @@ class SaleOrder(models.Model):
         return moves
 
     # MAIL #
-
-    def _track_finalize(self):
-        """ Override of `mail` to prevent logging changes when the SO is in a draft state. """
-        if (len(self) == 1
-            # The method _track_finalize is sometimes called too early or too late and it
-            # might cause a desynchronization with the cache, thus this condition is needed.
-            and self.env.cache.contains(self, self._fields['state']) and self.state == 'draft'):
-            self.env.cr.precommit.data.pop(f'mail.tracking.{self._name}', {})
-            self.env.flush_all()
-            return
-        return super()._track_finalize()
 
     @api.returns('mail.message', lambda value: value.id)
     def message_post(self, **kwargs):

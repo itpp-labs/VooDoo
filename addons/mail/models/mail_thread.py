@@ -25,7 +25,7 @@ from werkzeug import urls
 from xmlrpc import client as xmlrpclib
 from markupsafe import Markup, escape
 
-from odoo import _, api, exceptions, fields, models, tools, registry, SUPERUSER_ID, Command
+from odoo import _, api, exceptions, fields, models, tools, Command
 from odoo.addons.mail.tools.web_push import push_to_end_point, DeviceUnreachableError
 from odoo.exceptions import MissingError, AccessError
 from odoo.osv import expression
@@ -3170,7 +3170,7 @@ class MailThread(models.AbstractModel):
 
             MailMessage = self.env['mail.message']
             messages_format_prepared = MailMessage._message_format_personalized_prepare(
-                message._message_format(msg_vals=msg_vals), partner_ids=inbox_pids)
+                message._message_format(msg_vals=msg_vals, for_current_user=True), partner_ids=inbox_pids)
             for partner_id in inbox_pids:
                 bus_notifications.append(
                     (self.env['res.partner'].browse(partner_id),
@@ -3309,16 +3309,7 @@ class MailThread(models.AbstractModel):
             # unless asked specifically, send emails after the transaction to
             # avoid side effects due to emails being sent while the transaction fails
             if not test_mode and send_after_commit:
-                email_ids = emails.ids
-                dbname = self.env.cr.dbname
-                _context = self._context
-
-                @self.env.cr.postcommit.add
-                def send_notifications():
-                    db_registry = registry(dbname)
-                    with db_registry.cursor() as cr:
-                        env = api.Environment(cr, SUPERUSER_ID, _context)
-                        env['mail.mail'].browse(email_ids).send()
+                emails.send_after_commit()
             else:
                 emails.send()
 

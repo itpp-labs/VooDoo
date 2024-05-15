@@ -270,6 +270,7 @@ class ProductTemplate(models.Model):
         sales_prices = pricelist._get_products_price(self, 1.0)
         show_discount = pricelist and pricelist.discount_policy == 'without_discount'
         show_strike_price = self.env.user.has_group('website_sale.group_product_price_comparison')
+        website = self.env['website'].get_current_website()
 
         base_sales_prices = self._price_compute('list_price', currency=currency)
 
@@ -303,11 +304,11 @@ class ProductTemplate(models.Model):
 
                 # Compare_list_price are never tax included
                 base_price = self._apply_taxes_to_price(
-                    base_price, currency, product_taxes, taxes, self,
+                    base_price, currency, product_taxes, taxes, self, website=website,
                 )
 
             price_reduce = self._apply_taxes_to_price(
-                price_reduce, currency, product_taxes, taxes, self,
+                price_reduce, currency, product_taxes, taxes, self, website=website,
             )
 
             template_price_vals = {
@@ -528,6 +529,7 @@ class ProductTemplate(models.Model):
                     product_taxes,
                     taxes,
                     product_or_template,
+                    website=website,
                 )
 
         combination_info.update({
@@ -551,20 +553,14 @@ class ProductTemplate(models.Model):
             # probably to keep product sales price hidden from customers ?
             combination_info['list_price'] = combination_info['price']
 
-        if website.is_view_active('website_sale.product_tags') and product_or_template.is_product_variant:
-            combination_info['product_tags'] = self.env['ir.ui.view']._render_template(
-                'website_sale.product_tags', values={
-                    'all_product_tags': product_or_template.all_product_tag_ids.filtered('visible_on_ecommerce')
-                }
-            )
-
         return combination_info
 
     @api.model
     def _apply_taxes_to_price(
         self, price, currency, product_taxes, taxes, product_or_template,
+        website=None,
     ):
-        website = self.env['website'].get_current_website()
+        website = website or self.env['website'].get_current_website()
         price = self.env['product.product']._get_tax_included_unit_price_from_price(
             price,
             product_taxes,
@@ -862,5 +858,7 @@ class ProductTemplate(models.Model):
         return pricelist
 
     def _website_show_quick_add(self):
+        self.ensure_one()
+        # TODO VFE pass website as param and avoid existence check
         website = self.env['website'].get_current_website()
         return self.sale_ok and (not website.prevent_zero_price_sale or self._get_contextual_price())

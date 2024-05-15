@@ -125,6 +125,8 @@ class Product(models.Model):
             **kwargs)
 
     def _website_show_quick_add(self):
+        self.ensure_one()
+        # TODO VFE pass website as param and avoid existence check
         website = self.env['website'].get_current_website()
         return self.sale_ok and (not website.prevent_zero_price_sale or self._get_contextual_price())
 
@@ -134,16 +136,3 @@ class Product(models.Model):
         website = self.env['website'].get_current_website()
         return (is_product_salable and website.has_ecommerce_access()) \
                or self.env.user.has_group('base.group_system')
-
-    def _get_contextual_price_tax_selection(self):
-        self.ensure_one()
-        website = self.env['website'].get_current_website()
-        fiscal_position_sudo = website.sudo().fiscal_position_id
-        product_taxes = self.sudo().taxes_id._filter_taxes_by_company(self.env.company)
-        return self.env['product.template']._apply_taxes_to_price(
-            self._get_contextual_price(),
-            website.currency_id,
-            product_taxes,
-            fiscal_position_sudo.map_tax(product_taxes),
-            self,
-        )

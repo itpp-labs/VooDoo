@@ -226,7 +226,19 @@
         <field name="mode">primary</field>
         <field name="arch" type="xml">
             <xpath expr="//tree" position="attributes">
-                <attribute name="banner_route">/onboarding/sale_quotation</attribute>
+                <attribute name="js_class">sale_onboarding_list</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_quotation_kanban_with_onboarding" model="ir.ui.view">
+        <field name="name">sale.order.kanban</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="view_sale_order_kanban"/>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban" position="attributes">
+                <attribute name="js_class">sale_onboarding_kanban</attribute>
             </xpath>
         </field>
     </record>
@@ -254,7 +266,7 @@
                     invisible="invoice_status != 'no' or state != 'sale'"/>
                 <button name="action_quotation_send" id="send_by_email_primary" string="Send by Email" type="object" data-hotkey="g"
                     invisible="state != 'draft'" class="btn-primary"
-                    context="{'validate_analytic': True}"/>
+                    context="{'validate_analytic': True, 'check_document_layout': True}"/>
                 <button name="action_quotation_send" id="send_proforma_primary" type="object" string="Send PRO-FORMA Invoice" class="btn-primary"
                     groups="sale.group_proforma_sales"
                     invisible="state != 'draft' or invoice_count &gt;= 1" context="{'proforma': True, 'validate_analytic': True}"/>
@@ -265,7 +277,7 @@
                     string="Confirm" type="object" context="{'validate_analytic': True}"
                     invisible="state != 'draft'"/>
                 <button name="action_quotation_send" id="send_proforma" type="object" string="Send PRO-FORMA Invoice" groups="sale.group_proforma_sales" invisible="state == 'draft' or invoice_count &gt;= 1" context="{'proforma': True, 'validate_analytic': True}"/>
-                <button name="action_quotation_send" id="send_by_email" string="Send by Email" type="object" invisible="state not in ('sent', 'sale')" data-hotkey="g" context="{'validate_analytic': True}"/>
+                <button name="action_quotation_send" id="send_by_email" string="Send by Email" type="object" invisible="state not in ('sent', 'sale')" data-hotkey="g" context="{'validate_analytic': True, 'check_document_layout': True}"/>
 
                 <!-- allow to unlock locked orders even if setting is not enabled (e.g. orders synchronized from connectors) -->
                 <button name="action_unlock" type="object" string="Unlock"
@@ -931,11 +943,20 @@
         <field name="search_view_id" ref="sale_order_view_search_inherit_quotation"/>
         <field name="context">{'search_default_my_quotation': 1}</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-            Create a new quotation, the first step of a new sale!
-            </p><p>
-            Once the quotation is confirmed by the customer, it becomes a sales order.<br/> You will be able to create an invoice and collect the payment.
+            <br/>
+            <h2>
+            Beat competitors with stunning quotations!
+            </h2><p>
+            Boost sales with online payments or signatures, upsells, and a great customer portal.
             </p>
+            <a
+                role="button"
+                class="btn btn-secondary"
+                href="https://www.odoo.com/documentation/17.0/_downloads/56a93429515b36105d952e1d2b802f9e/sample_quotation.pdf"
+                target="_blank"
+            >
+                Check a sample. It's clean!
+            </a>
         </field>
     </record>
 
@@ -947,25 +968,33 @@
         <field name="context">{'search_default_my_quotation': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-            Create a new quotation, the first step of a new sale!
+            Beat competitors with stunning quotations!
             </p><p>
-            Once the quotation is confirmed by the customer, it becomes a sales order.<br/> You will be able to create an invoice and collect the payment.
+            Boost sales with online payments or signatures, upsells, and a great customer portal.
             </p>
+            <a
+                role="button"
+                class="btn btn-secondary"
+                href="https://www.odoo.com/documentation/17.0/_downloads/56a93429515b36105d952e1d2b802f9e/sample_quotation.pdf"
+                target="_blank"
+            >
+                Check a sample. It's clean!
+            </a>
         </field>
     </record>
 
     <record id="sale_order_action_view_quotation_tree" model="ir.actions.act_window.view">
         <field name="sequence" eval="1"/>
         <field name="view_mode">tree</field>
-        <field name="view_id" ref="sale.view_quotation_tree"/>
-        <field name="act_window_id" ref="action_quotations"/>
+        <field name="view_id" ref="sale.view_quotation_tree_with_onboarding"/>
+        <field name="act_window_id" ref="action_quotations_with_onboarding"/>
     </record>
 
     <record id="sale_order_action_view_quotation_kanban" model="ir.actions.act_window.view">
         <field name="sequence" eval="2"/>
         <field name="view_mode">kanban</field>
-        <field name="view_id" ref="sale.view_sale_order_kanban"/>
-        <field name="act_window_id" ref="action_quotations"/>
+        <field name="view_id" ref="sale.view_quotation_kanban_with_onboarding"/>
+        <field name="act_window_id" ref="action_quotations_with_onboarding"/>
     </record>
 
     <record id="sale_order_action_view_quotation_form" model="ir.actions.act_window.view">

@@ -5,7 +5,6 @@ import logging
 from unittest.mock import patch
 from odoo import Command
 
-from odoo.api import Environment
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 from odoo.tests import loaded_demo_data, tagged
 from odoo.addons.account.tests.common import AccountTestInvoicingHttpCommon
@@ -40,12 +39,12 @@ class TestPointOfSaleHttpCommon(AccountTestInvoicingHttpCommon):
         account_obj = env['account.account']
         main_company = cls._get_main_company()
 
-        account_receivable = account_obj.create({'code': 'X1012',
+        cls.account_receivable = account_obj.create({'code': 'X1012',
                                                  'name': 'Account Receivable - Test',
                                                  'account_type': 'asset_receivable',
                                                  'reconcile': True})
-        env.company.account_default_pos_receivable_account_id = account_receivable
-        env['ir.property']._set_default('property_account_receivable_id', 'res.partner', account_receivable, main_company)
+        env.company.account_default_pos_receivable_account_id = cls.account_receivable
+        env['ir.property']._set_default('property_account_receivable_id', 'res.partner', cls.account_receivable, main_company)
         # Pricelists are set below, do not take demo data into account
         env['ir.property'].sudo().search([('name', '=', 'property_product_pricelist')]).unlink()
 
@@ -58,6 +57,7 @@ class TestPointOfSaleHttpCommon(AccountTestInvoicingHttpCommon):
                 (4, cls.env.ref('base.group_user').id),
                 (4, cls.env.ref('point_of_sale.group_pos_user').id),
             ],
+            'tz': 'US/Eastern',
         })
         cls.pos_admin = cls.env['res.users'].create({
             'name': 'A powerful PoS man!',
@@ -66,6 +66,7 @@ class TestPointOfSaleHttpCommon(AccountTestInvoicingHttpCommon):
             'groups_id': [
                 (4, cls.env.ref('point_of_sale.group_pos_manager').id),
             ],
+            'tz': 'US/Eastern',
         })
 
         cls.pos_user.partner_id.email = 'pos_user@test.com'
@@ -79,7 +80,7 @@ class TestPointOfSaleHttpCommon(AccountTestInvoicingHttpCommon):
             'sequence': 10,
         })
 
-        env['pos.payment.method'].create({
+        cls.bank_payment_method = env['pos.payment.method'].create({
             'name': 'Bank',
             'journal_id': cls.bank_journal.id,
         })
@@ -503,7 +504,7 @@ class TestPointOfSaleHttpCommon(AccountTestInvoicingHttpCommon):
             'invoice_journal_id': test_sale_journal.id,
             'payment_method_ids': [(0, 0, { 'name': 'Cash',
                                             'journal_id': cash_journal.id,
-                                            'receivable_account_id': account_receivable.id,
+                                            'receivable_account_id': cls.account_receivable.id,
             })],
             'use_pricelist': True,
             'pricelist_id': public_pricelist.id,
@@ -1225,6 +1226,9 @@ class TestUi(TestPointOfSaleHttpCommon):
 
             warning_outputs = [o for o in log_catcher.output if 'WARNING' in o]
             self.assertEqual(len(warning_outputs), 1, "Exactly one warning should be logged")
+
+    def test_customer_display(self):
+        self.start_tour(f"/pos_customer_display/{self.main_pos_config.id}/{self.main_pos_config.access_token}", 'CustomerDisplayTour', login="pos_user")
 
 # This class just runs the same tests as above but with mobile emulation
 class MobileTestUi(TestUi):

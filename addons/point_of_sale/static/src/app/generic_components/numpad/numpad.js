@@ -1,5 +1,6 @@
 import { useService } from "@web/core/utils/hooks";
 import { Component } from "@odoo/owl";
+import { localization } from "@web/core/l10n/localization";
 
 export const buttonsType = {
     type: Array,
@@ -17,7 +18,17 @@ export const buttonsType = {
         String,
     ],
 };
-export function getButtons(env, rightColumn) {
+
+export const DECIMAL = {
+    get value() {
+        return localization.decimalPoint;
+    },
+};
+export const BACKSPACE = { value: "Backspace", text: "⌫" };
+export const ZERO = { value: "0" };
+export const DEFAULT_LAST_ROW = [{ value: "-", text: "+/-" }, ZERO, DECIMAL];
+
+export function getButtons(lastRow, rightColumn) {
     return [
         { value: "1" },
         { value: "2" },
@@ -31,18 +42,17 @@ export function getButtons(env, rightColumn) {
         { value: "8" },
         { value: "9" },
         ...(rightColumn ? [rightColumn[2]] : []),
+        ...lastRow,
         ...(rightColumn ? [rightColumn[3]] : []),
-        { value: "0" },
-        { value: env.services.localization.decimalPoint },
-        { value: "Backspace", text: "⌫" },
     ];
 }
-export function enhancedButtons(env) {
-    return getButtons(env, [
+
+export function enhancedButtons() {
+    return getButtons(DEFAULT_LAST_ROW, [
         { value: "+10" },
         { value: "+20" },
         { value: "+50" },
-        { value: "-", text: "+/-" },
+        BACKSPACE,
     ]);
 }
 
@@ -57,7 +67,7 @@ export class Numpad extends Component {
         class: "",
     };
     get buttons() {
-        return this.props.buttons || getButtons(this.env);
+        return this.props.buttons || getButtons([DECIMAL, ZERO, BACKSPACE]);
     }
     setup() {
         if (!this.props.onClick) {
