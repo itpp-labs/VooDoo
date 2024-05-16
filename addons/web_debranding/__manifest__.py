@@ -1,4 +1,4 @@
-# Copyright 2015-2023 Ivan Yelizariev <https://twitter.com/yelizariev>
+# Copyright 2015-2024 Ivan Yelizariev <https://twitter.com/yelizariev>
 # Copyright 2017 Ilmir Karamov <https://it-projects.info/team/ilmir-k>
 # Copyright 2018-2019 Kolushov Alexandr <https://it-projects.info/team/KolushovAlexandr>
 # Copyright 2018 Ildar Nasyrov <https://it-projects.info/team/iledarn>
@@ -46,7 +46,7 @@
             "web_debranding/static/src/js/translation.js",
         ],
     },
-    "auto_install": False,
+    "auto_install": True,
     "uninstall_hook": "uninstall_hook",
     "installable": True,
 }
