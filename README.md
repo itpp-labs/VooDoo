@@ -16,4 +16,4 @@ A website acts as a modern-day **Dream 🪬 Catcher**: it filters the noise of t
 
 [![image](https://github.com/itpp-labs/VooDoo/assets/186131/097601f3-13ca-4b35-bf15-e3d291e5259f)](https://pull.git.ci/process/itpp-labs/VooDoo)
 
-Make your business's dreams a reality *today!* [*Build your website*](https://www.odoo.com/app/website?debug=%F0%9F%AA%AC) and let it guide people toward your brand like a beacon in the digital realm.
+Make your business's dreams a reality *today!* [*Build your website*](https://www.odoo.com/zh_CN/app/website?debug=%F0%9F%AA%AC) and let it guide people toward your brand like a beacon in the digital realm.
