@@ -7,6 +7,7 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError
 from odoo.http import request
 from odoo.osv import expression
+from odoo.tools import str2bool
 
 
 class SaleOrder(models.Model):
@@ -160,6 +161,14 @@ class SaleOrder(models.Model):
             request.session.pop('successful_code')
         return code
 
+    def _set_delivery_method(self, *args, **kwargs):
+        super()._set_delivery_method(*args, **kwargs)
+        self._update_programs_and_rewards()
+
+    def _remove_delivery_line(self):
+        super()._remove_delivery_line()
+        self._update_programs_and_rewards()
+
     def _cart_update(self, *args, **kwargs):
         product_id, set_qty = kwargs['product_id'], kwargs.get('set_qty')
 
@@ -240,3 +249,11 @@ class SaleOrder(models.Model):
         lines = super()._cart_find_product_line(product_id, line_id, **kwargs)
         lines = lines.filtered(lambda l: not l.is_reward_line) if not line_id else lines
         return lines
+
+    def _validate_zero_amount_cart(self):
+        super()._validate_zero_amount_cart()
+        auto_invoice = self.env['ir.config_parameter'].get_param('sale.automatic_invoice')
+        if str2bool(auto_invoice) and self.reward_amount:
+            # create an invoice for order with zero total amount and automatic invoice enabled
+            invoice = self._create_invoices(final=True)
+            invoice.action_post()
