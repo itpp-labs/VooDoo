@@ -175,6 +175,7 @@
                     <button name="action_confirm" invisible="state != 'draft'" string="Confirm" type="object" class="oe_highlight" data-hotkey="q"/>
                     <button name="button_plan" invisible="state not in ('confirmed', 'progress', 'to_close') or not workorder_ids or is_planned" type="object" string="Plan" class="oe_highlight" data-hotkey="z"/>
                     <button name="button_unplan" type="object" string="Unplan" invisible="not is_planned or state == 'cancel'" data-hotkey="z"/>
+                    <button name="action_start"  type="object" string="Start" invisible="state != 'confirmed'"/>
                     <button name="action_assign" invisible="state in ('draft', 'done', 'cancel') or not reserve_visible" string="Check availability" type="object" data-hotkey="c"/>
                     <button name="do_unreserve" type="object" string="Unreserve" invisible="not unreserve_visible" data-hotkey="w"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,done"/>
@@ -452,7 +453,10 @@
                             </field>
                         </page>
                         <page string="Work Orders" name="operations" groups="mrp.group_mrp_routings">
-                            <field name="workorder_ids" readonly="state == 'cancel' or (state == 'done' and is_locked)" context="{'tree_view_ref': 'mrp.mrp_production_workorder_tree_editable_view', 'default_product_uom_id': product_uom_id, 'from_manufacturing_order': True}"/>
+                            <field name="workorder_ids"
+                                widget="mrp_workorder_one2many"
+                                readonly="state == 'cancel' or (state == 'done' and is_locked)"
+                                context="{'tree_view_ref': 'mrp.mrp_production_workorder_tree_editable_view_mo_form', 'default_product_uom_id': product_uom_id, 'from_manufacturing_order': True}"/>
                         </page>
                         <page string="By-Products" name="finished_products" groups="mrp.group_mrp_byproducts">
                             <field name="move_byproduct_ids"

@@ -931,24 +931,25 @@
                                        options="{'no_create': True}" context="{'show_total_amount': True}"/>
                             </group>
                             <group id="header_right_group">
-
-                                <!-- Invoice date (only invoices / receipts) -->
                                 <label for="invoice_date" string="Invoice Date" style="font-weight:bold;"
-                                       invisible="move_type not in ('out_invoice', 'out_refund', 'out_receipt')"
-                                       placeholder="Today"/>
-                                <label for="invoice_date" string="Bill Date" style="font-weight:bold;"
-                                       invisible="move_type not in ('in_invoice', 'in_refund', 'in_receipt')"
-                                       placeholder="Today"/>
+                                       invisible="move_type not in ('out_invoice', 'out_refund', 'out_receipt')"/>
                                 <field name="invoice_date" nolabel="1" options="{'warn_future': true}"
-                                       invisible="move_type not in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt')"
+                                       invisible="move_type not in ('out_invoice', 'out_refund', 'out_receipt')"
                                        readonly="state != 'draft'" placeholder="Today"/>
+
+                                <label for="invoice_date" string="Bill Date" style="font-weight:bold;"
+                                       invisible="move_type not in ('in_invoice', 'in_refund', 'in_receipt')"/>
+                                <field name="invoice_date" nolabel="1" options="{'warn_future': true}"
+                                       invisible="move_type not in ('in_invoice', 'in_refund', 'in_receipt')"
+                                       readonly="state != 'draft'"/>
 
                                 <field name="date" string="Accounting Date"
                                        invisible="move_type in ('out_invoice', 'out_refund', 'out_receipt') and not quick_edit_mode and not (state == 'posted' and date != invoice_date)"
                                        readonly="state != 'draft'"/>
                                 <field name="payment_reference"
                                        invisible="move_type not in ('in_invoice', 'in_refund', 'out_receipt', 'in_receipt')"
-                                       readonly="inalterable_hash != False"/>
+                                       readonly="inalterable_hash != False"
+                                       placeholder="Use Bill Reference"/>
                                 <field name="partner_bank_id"
                                        context="{'default_partner_id': bank_partner_id, 'display_account_trust': True}"
                                        domain="[('partner_id', '=', bank_partner_id)]"
@@ -1772,7 +1773,7 @@
             <field name="view_mode">tree</field>
             <field name="view_id" ref="view_move_line_payment_tree"/>
             <field name="search_view_id" ref="view_account_move_line_payment_filter"/>
-            <field name="domain">[('parent_state', '=', 'posted'), ('date_maturity', '!=', False), ('amount_residual', '&gt;', 0), ('account_id.reconcile', '=', True), ('journal_id.type', '=', 'purchase')]</field>
+            <field name="domain">[('parent_state', '=', 'posted'), ('date_maturity', '!=', False), ('amount_residual', '&lt;', 0), ('account_id.reconcile', '=', True), ('journal_id.type', '=', 'purchase')]</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">
                     Amounts to settle
