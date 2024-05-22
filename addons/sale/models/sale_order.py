@@ -646,16 +646,11 @@ class SaleOrder(models.Model):
                 order.amount_to_invoice = 0.0
                 return
 
-            order.amount_to_invoice = order.amount_total
-            for invoice in order.invoice_ids.filtered(lambda x: x.state == 'posted'):
-                prices = sum(invoice.line_ids.filtered(lambda x: order in x.sale_line_ids.order_id).mapped('price_total'))
-                invoice_amount_currency = invoice.currency_id._convert(
-                    prices * -invoice.direction_sign,
-                    order.currency_id,
-                    invoice.company_id,
-                    invoice.date,
-                )
-                order.amount_to_invoice -= invoice_amount_currency
+            invoices = order.invoice_ids.filtered(lambda x: x.state == 'posted')
+            # Note: A negative amount can happen, since we can invoice more than the sales order amount.
+            # Care has to be taken when summing amount_to_invoice of multiple orders.
+            # E.g. consider one invoiced order with -100 and one uninvoiced order of 100: 100 + -100 = 0
+            order.amount_to_invoice = order.amount_total - invoices._get_sale_order_invoiced_amount(order)
 
     @api.depends('amount_total', 'amount_to_invoice')
     def _compute_amount_invoiced(self):
@@ -683,7 +678,7 @@ class SaleOrder(models.Model):
             order.tax_totals = self.env['account.tax']._prepare_tax_totals(
                 [x._convert_to_tax_base_line_dict() for x in order_lines],
                 order.currency_id or order.company_id.currency_id or self.env.company.currency_id,
-                order.company_id,
+                order.company_id or self.env.company,
             )
 
     @api.depends('state')
