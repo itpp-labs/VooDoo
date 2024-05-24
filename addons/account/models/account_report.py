@@ -183,8 +183,8 @@ class AccountReport(models.Model):
         for line in self.line_ids:
             if line.parent_id and line.parent_id not in previous_lines:
                 raise ValidationError(
-                    _('Line "%s" defines line "%s" as its parent, but appears before it in the report. '
-                      'The parent must always come first.', line.name, line.parent_id.name))
+                    _('Line "%(line)s" defines line "%(parent_line)s" as its parent, but appears before it in the report. '
+                      'The parent must always come first.', line=line.name, parent_line=line.parent_id.name))
             previous_lines |= line
 
     @api.constrains('section_report_ids')
@@ -566,8 +566,8 @@ class AccountReportExpression(models.Model):
                 domain = ast.literal_eval(expression.formula)
                 self.env['account.move.line']._where_calc(domain)
             except:
-                raise UserError(_("Invalid domain for expression '%s' of line '%s': %s",
-                                expression.label, expression.report_line_name, expression.formula))
+                raise UserError(_("Invalid domain for expression '%(label)s' of line '%(line)s': %(formula)s",
+                                label=expression.label, line=expression.report_line_name, formula=expression.formula))
 
     @api.depends('engine')
     def _compute_auditable(self):
@@ -805,24 +805,6 @@ class AccountReportExpression(models.Model):
             raise UserError(_("Could not determine carryover target automatically for expression %s.", self.label))
 
         return auto_chosen_target
-
-    def action_view_carryover_lines(self, options, column_group_key=None):
-        if column_group_key:
-            options = self.report_line_id.report_id._get_column_group_options(options, column_group_key)
-
-        date_from, date_to, dummy = self.report_line_id.report_id._get_date_bounds_info(options, self.date_scope)
-
-        return {
-            'type': 'ir.actions.act_window',
-            'name': _('Carryover lines for: %s', self.report_line_name),
-            'res_model': 'account.report.external.value',
-            'views': [(False, 'list')],
-            'domain': [
-                ('target_report_expression_id', '=', self.id),
-                ('date', '>=', date_from),
-                ('date', '<=', date_to),
-            ],
-        }
 
 
 class AccountReportColumn(models.Model):
