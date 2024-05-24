@@ -418,7 +418,7 @@ class MrpProduction(models.Model):
         for production in self:
             production.duration = sum(production.workorder_ids.mapped('duration'))
 
-    @api.depends("workorder_ids.date_start", "workorder_ids.date_finished")
+    @api.depends("workorder_ids.date_start", "workorder_ids.date_finished", "date_start")
     def _compute_is_planned(self):
         for production in self:
             if production.workorder_ids:
@@ -524,7 +524,7 @@ class MrpProduction(models.Model):
         produce and all work orders has been finished.
         """
         for production in self:
-            if not production.state or not production.product_uom_id:
+            if not production.state or not production.product_uom_id or not (production.id or production._origin.id):
                 production.state = 'draft'
             elif production.state == 'cancel' or (production.move_finished_ids and all(move.state == 'cancel' for move in production.move_finished_ids)):
                 production.state = 'cancel'
@@ -689,7 +689,7 @@ class MrpProduction(models.Model):
             warehouse = order.location_dest_id.warehouse_id
             order.forecasted_issue = False
             if order.product_id:
-                virtual_available = order.product_id.with_context(warehouse=warehouse.id, to_date=order.date_start).virtual_available
+                virtual_available = order.product_id.with_context(warehouse_id=warehouse.id, to_date=order.date_start).virtual_available
                 if order.state == 'draft':
                     virtual_available += order.product_uom_qty
                 if virtual_available < 0:
@@ -1025,7 +1025,7 @@ class MrpProduction(models.Model):
         }
         warehouse = self.picking_type_id.warehouse_id
         if warehouse:
-            action['context']['warehouse'] = warehouse.id
+            action['context']['warehouse_id'] = warehouse.id
         return action
 
     def action_update_bom(self):
@@ -1500,6 +1500,7 @@ class MrpProduction(models.Model):
         self.ensure_one()
 
         if not self.workorder_ids:
+            self.is_planned = True
             return
 
         self._link_workorders_and_moves()
@@ -1531,6 +1532,7 @@ class MrpProduction(models.Model):
             'date_start': False,
             'date_finished': False,
         })
+        self.is_planned = False
 
     def _get_consumption_issues(self):
         """Compare the quantity consumed of the components, the expected quantity

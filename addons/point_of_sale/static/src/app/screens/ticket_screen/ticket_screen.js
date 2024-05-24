@@ -226,14 +226,16 @@ export class TicketScreen extends Component {
                 const quantity = Math.abs(parseFloat(buffer));
                 if (quantity > refundableQty) {
                     this.numberBuffer.reset();
-                    this.dialog.add(AlertDialog, {
-                        title: _t("Maximum Exceeded"),
-                        body: _t(
-                            "The requested quantity to be refunded is higher than the ordered quantity. %s is requested while only %s can be refunded.",
-                            quantity,
-                            refundableQty
-                        ),
-                    });
+                    if (!toRefundDetail.line.combo_parent_id) {
+                        this.dialog.add(AlertDialog, {
+                            title: _t("Maximum Exceeded"),
+                            body: _t(
+                                "The requested quantity to be refunded is higher than the ordered quantity. %s is requested while only %s can be refunded.",
+                                quantity,
+                                refundableQty
+                            ),
+                        });
+                    }
                 } else {
                     toRefundDetail.qty = quantity;
                 }
@@ -250,18 +252,11 @@ export class TicketScreen extends Component {
             }
         }
 
-        if (!order) {
-            this.state.highlightHeaderNote = !this.state.highlightHeaderNote;
+        if (!order || !this.getHasItemsToRefund()) {
             return;
         }
 
         const partner = order.get_partner();
-        const allToRefundDetails = this._getRefundableDetails(partner, order);
-
-        if (!allToRefundDetails) {
-            this.state.highlightHeaderNote = !this.state.highlightHeaderNote;
-            return;
-        }
         // The order that will contain the refund orderlines.
         // Use the destinationOrder from props if the order to refund has the same
         // partner as the destinationOrder.
@@ -279,7 +274,7 @@ export class TicketScreen extends Component {
         destinationOrder.takeaway = order.takeaway;
         // Add orderline for each toRefundDetail to the destinationOrder.
         const lines = [];
-        for (const refundDetail of allToRefundDetails) {
+        for (const refundDetail of this._getRefundableDetails(partner, order)) {
             const refundLine = refundDetail.line;
             const line = this.pos.models["pos.order.line"].create({
                 qty: -refundDetail.qty,

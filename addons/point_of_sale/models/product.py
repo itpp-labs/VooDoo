@@ -39,6 +39,11 @@ class ProductTemplate(models.Model):
         if not self.sale_ok:
             self.available_in_pos = False
 
+    @api.onchange('available_in_pos')
+    def _onchange_available_in_pos(self):
+        if self.available_in_pos and not self.sale_ok:
+            self.sale_ok = True
+
     @api.constrains('available_in_pos')
     def _check_combo_inclusions(self):
         for product in self:
@@ -179,8 +184,8 @@ class ProductProduct(models.Model):
         # Warehouses
         warehouse_list = [
             {'name': w.name,
-            'available_quantity': self.with_context({'warehouse': w.id}).qty_available,
-            'forecasted_quantity': self.with_context({'warehouse': w.id}).virtual_available,
+            'available_quantity': self.with_context({'warehouse_id': w.id}).qty_available,
+            'forecasted_quantity': self.with_context({'warehouse_id': w.id}).virtual_available,
             'uom': self.uom_name}
             for w in self.env['stock.warehouse'].search([])]
 

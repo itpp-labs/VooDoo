@@ -1,5 +1,6 @@
 import { click, queryAll, queryAllTexts, queryAllValues, queryFirst } from "@odoo/hoot-dom";
 import { expect } from "@odoo/hoot";
+import { animationFrame } from "@odoo/hoot-mock";
 
 const PICKER_ROWS = 6;
 const PICKER_COLS = 7;
@@ -139,9 +140,14 @@ export function assertDateTimePicker(expectedParams) {
 
 /**
  * @param {RegExp | string} expr
+ * @param {boolean} [inBounds=false]
  */
-export function getPickerCell(expr) {
-    const cells = queryAll(`.o_datetime_picker .o_date_item_cell:contains("/^${expr}$/")`);
+export function getPickerCell(expr, inBounds = false) {
+    const cells = queryAll(
+        `.o_datetime_picker .o_date_item_cell${
+            inBounds ? ":not(.o_out_of_range)" : ""
+        }:contains("/^${expr}$/")`
+    );
     return cells.length === 1 ? cells[0] : cells;
 }
 
@@ -149,8 +155,9 @@ export function getPickerApplyButton() {
     return queryFirst(".o_datetime_picker .o_datetime_buttons .o_apply");
 }
 
-export function zoomOut() {
-    return click(".o_zoom_out");
+export async function zoomOut() {
+    click(".o_zoom_out");
+    await animationFrame();
 }
 
 export function getTimePickers({ parse = false } = {}) {

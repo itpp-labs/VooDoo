@@ -522,6 +522,13 @@ export class Thread extends Record {
         return Boolean(this.selfMember);
     }
 
+    hasSeenFeature = Record.attr(false, {
+        /** @this {import("models").Thread} */
+        compute() {
+            return this.store.channel_types_with_seen_infos.includes(this.channel_type);
+        },
+    });
+
     get invitationLink() {
         if (!this.uuid || this.channel_type === "chat") {
             return undefined;
@@ -556,7 +563,7 @@ export class Thread extends Record {
     /** @type {undefined|number[]} */
     lastMessageSeenByAllId = Record.attr(undefined, {
         compute() {
-            if (!this.store.channel_types_with_seen_infos.includes(this.channel_type)) {
+            if (!this.hasSeenFeature) {
                 return;
             }
             const otherMembers = this.channelMembers.filter((member) =>
@@ -1025,6 +1032,7 @@ export class Thread extends Record {
         } = {}
     ) {
         let tmpMsg;
+        attachments = [...attachments]; // to not lose them on composer clear
         const params = await this.store.getMessagePostParams({
             attachments,
             body,
@@ -1064,6 +1072,7 @@ export class Thread extends Record {
                 {
                     ...tmpData,
                     body: prettyContent,
+                    isPending: true,
                     thread: this,
                     temporary_id: tmpId,
                 },
@@ -1075,9 +1084,8 @@ export class Thread extends Record {
                 this.selfMember.localNewMessageSeparator = tmpMsg + 1;
             }
         }
-        const data = await rpc("/mail/message/post", params);
+        const data = await this.store.doMessagePost(params, tmpMsg);
         if (!data) {
-            tmpMsg?.delete();
             return;
         }
         if (data.id in this.store.Message.records) {
