@@ -169,7 +169,7 @@ export class Base {
     serialize(options = {}) {
         const orm = options.orm ?? false;
 
-        const serializedData = this.model.serialize(this, { excludeLocal: orm });
+        const serializedData = this.model.serialize(this, { orm });
 
         if (orm) {
             const fields = this.model.modelFields;
@@ -180,7 +180,7 @@ export class Base {
                 if (params.dummy) {
                     continue;
                 }
-                if (orm && params.local) {
+                if (params.local || params.related || params.compute) {
                     continue;
                 }
 
@@ -644,14 +644,14 @@ export function createRelatedModels(modelDefs, modelClasses = {}, indexes = {}) 
             },
             /**
              * @param {object} options
-             * @param {boolean} options.excludeLocal - Exclude local fields from the serialization
+             * @param {boolean} options.orm - Exclude local & related fields from the serialization
              */
             serialize(record, options = {}) {
-                const excludeLocal = options.excludeLocal ?? false;
+                const orm = options.orm ?? false;
                 const result = {};
                 for (const name in fields) {
                     const field = fields[name];
-                    if (excludeLocal && field.local) {
+                    if ((orm && field.local) || (orm && field.related) || (orm && field.compute)) {
                         continue;
                     }
 
@@ -746,6 +746,31 @@ export function createRelatedModels(modelDefs, modelClasses = {}, indexes = {}) 
     }
 
     const models = mapObj(processedModelDefs, (model, fields) => createCRUD(model, fields));
+
+    function replaceDataByKey(key, rawData) {
+        for (const model in rawData) {
+            const uiState = {};
+            const rawDataIdx = rawData[model].map((r) => r[key]);
+            const rec = records[model];
+
+            for (const data of Object.values(rec)) {
+                if (rawDataIdx.includes(data[key])) {
+                    if (data.uiState) {
+                        uiState[data[key]] = { ...data.uiState };
+                    }
+                    data.delete();
+                }
+            }
+
+            const data = rawData[model];
+            const newRec = this.loadData({ [model]: data });
+            for (const record of newRec[model]) {
+                if (uiState[record[key]]) {
+                    record.uiState = uiState[record[key]];
+                }
+            }
+        }
+    }
 
     /**
      * Load the data without the relations then link the related records.
@@ -923,6 +948,7 @@ export function createRelatedModels(modelDefs, modelClasses = {}, indexes = {}) 
     }
 
     models.loadData = loadData;
+    models.replaceDataByKey = replaceDataByKey;
 
     return { models, records, indexedRecords, orderedRecords };
 }
