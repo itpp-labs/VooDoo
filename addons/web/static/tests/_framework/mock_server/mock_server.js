@@ -124,6 +124,7 @@ const getCurrentParams = createJobScopedGetter(
     (previous) => ({
         ...previous,
         actions: deepCopy(previous?.actions || {}),
+        embedded_actions: deepCopy(previous?.embedded_actions || []),
         menus: deepCopy(previous?.menus || []),
         models: [...(previous?.models || [])], // own instance getters, no need to deep copy
         routes: [...(previous?.routes || [])], // functions, no need to deep copy
@@ -300,6 +301,8 @@ export class MockServer {
     // Data
     /** @type {Record<string, ActionDefinition>} */
     actions = {};
+    /** @type {Record<string, ActionDefinition>[]} */
+    embedded_actions = [];
     /** @type {MenuDefinition[]} */
     menus = [DEFAULT_MENU];
     /** @type {Record<string, Model>} */
@@ -389,6 +392,9 @@ export class MockServer {
     configure(params) {
         if (params.actions) {
             Object.assign(this.actions, params.actions);
+        }
+        if (params.embedded_actions) {
+            this.embedded_actions.push(...params.embedded_actions);
         }
         if (params.lang) {
             serverState.lang = params.lang;
@@ -915,18 +921,10 @@ export class MockServer {
                 message: `The action ${JSON.stringify(params.action_id)} does not exist`,
             });
         }
-        if (action.type === "ir.actions.server") {
-            if (action.state !== "code") {
-                throw new Error("Only server actions with code are supported on the mock server");
-            }
-            const result = action.code();
-            if (!result) {
-                return { type: "ir.actions.act_window_close" };
-            }
-            if (action.path) {
-                result.path = action.path;
-            }
-            return result;
+        if (action.type === "ir.actions.act_window") {
+            action["embedded_action_ids"] = this.embedded_actions.filter(
+                (el) => el && el.parent_action_id === params.action_id
+            );
         }
         return action;
     }
@@ -1036,6 +1034,16 @@ export function defineActions(actions) {
         { actions: Object.fromEntries(actions.map((a) => [a.id || a.xml_id, { ...a }])) },
         "add"
     ).actions;
+}
+
+/**
+ * @param {ActionDefinition[]} actions
+ */
+export function defineEmbeddedActions(actions) {
+    return defineParams(
+        { embedded_actions: Object.fromEntries(actions.map((a) => [a.id || a.xml_id, { ...a }])) },
+        "add"
+    ).embedded_actions;
 }
 
 /**

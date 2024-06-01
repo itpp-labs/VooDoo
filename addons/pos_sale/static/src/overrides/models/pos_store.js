@@ -153,7 +153,7 @@ patch(PosStore.prototype, {
         }
     },
     async downPaymentSO(sale_order, isPercentage) {
-        if (!this.config.down_payment_product_id) {
+        if (!this.config.down_payment_product_id && this.config.raw.down_payment_product_id) {
             await this.data.read("product.product", [this.config.raw.down_payment_product_id]);
         }
         if (!this.config.down_payment_product_id) {
@@ -225,7 +225,7 @@ patch(PosStore.prototype, {
                     total: line.price_total,
                 })),
         });
-        new_line.uiState.price_type = "automatic";
+        new_line.price_type = "automatic";
         new_line.set_unit_price(proposed_down_payment);
     },
     selectOrderLine(order, line) {

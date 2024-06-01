@@ -562,7 +562,15 @@ Please change the quantity done or the rounding precision of your unit of measur
                     days = move.picking_type_id.reservation_days_before_priority
                 move.reservation_date = fields.Date.to_date(move.date) - timedelta(days=days)
 
-    @api.depends('has_tracking', 'picking_type_id.use_create_lots', 'picking_type_id.use_existing_lots', 'state', 'origin_returned_move_id', 'product_id.detailed_type', 'picking_code')
+    @api.depends(
+        'has_tracking',
+        'picking_type_id.use_create_lots',
+        'picking_type_id.use_existing_lots',
+        'state',
+        'origin_returned_move_id',
+        'product_id.type',
+        'picking_code',
+    )
     def _compute_show_info(self):
         for move in self:
             move.show_quant = move.picking_code != 'incoming'\
@@ -766,25 +774,6 @@ Please change the quantity done or the rounding precision of your unit of measur
                 self.env.context,
             ),
         }
-
-    def action_assign_serial_show_details(self):
-        """ On `self.move_line_ids`, assign `lot_name` according to
-        `self.next_serial` before returning `self.action_show_details`.
-        """
-        self.ensure_one()
-        if not self.next_serial:
-            raise UserError(_("You need to set a Serial Number before generating more."))
-        self._generate_serial_numbers()
-        return self.action_show_details()
-
-    def action_clear_lines_show_details(self):
-        """ Unlink `self.move_line_ids` before returning `self.action_show_details`.
-        Useful for if a user creates too many SNs by accident via action_assign_serial_show_details
-        since there's no way to undo the action.
-        """
-        self.ensure_one()
-        self.move_line_ids.unlink()
-        return self.action_show_details()
 
     def action_assign_serial(self):
         """ Opens a wizard to assign SN's name on each move lines.

@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from functools import wraps
 from lxml import etree
 from unittest import SkipTest
+from unittest.mock import patch
 
 
 class AccountTestInvoicingCommon(ProductCommon):
@@ -598,16 +599,19 @@ class AccountTestInvoicingCommon(ProductCommon):
             :param node_dict:           The node to compare with.
             :param expected_node_dict:  The expected node.
             '''
+            if expected_node_dict['text'] == '___ignore___':
+                return
             # Check tag.
             self.assertEqual(node_dict['tag'], expected_node_dict['tag'])
 
             # Check attributes.
-            node_dict_attrib = {k: '___ignore___' if expected_node_dict['attrib'].get(k) == '___ignore___' else v
-                                for k, v in node_dict['attrib'].items()}
-            expected_node_dict_attrib = {k: v for k, v in expected_node_dict['attrib'].items() if v != '___remove___'}
+            for k, v in expected_node_dict['attrib'].items():
+                if v == '___ignore___':
+                    node_dict['attrib'][k] = '___ignore___'
+
             self.assertDictEqual(
-                node_dict_attrib,
-                expected_node_dict_attrib,
+                node_dict['attrib'],
+                expected_node_dict['attrib'],
                 f"Element attributes are different for node {node_dict['full_path']}",
             )
 
@@ -672,7 +676,39 @@ class AccountTestInvoicingCommon(ProductCommon):
         finally:
             self.env.registry.leave_test_mode()
 
-class AccountTestInvoicingHttpCommon(AccountTestInvoicingCommon, HttpCase):
+
+class AccountTestMockOnlineSyncCommon(HttpCase):
+    def start_tour(self, url_path, tour_name, step_delay=None, **kwargs):
+        with self.mock_online_sync_favorite_institutions():
+            super().start_tour(url_path, tour_name, step_delay, **kwargs)
+
+    @classmethod
+    @contextmanager
+    def mock_online_sync_favorite_institutions(cls):
+        def get_institutions(*args, **kwargs):
+            return [
+                {
+                    'country': 'US',
+                    'id': 3245,
+                    'name': 'BMO Business Banking',
+                    'picture': '/base/static/img/logo_white.png',
+                },
+                {
+                    'country': 'US',
+                    'id': 8192,
+                    'name': 'Banc of California',
+                    'picture': '/base/static/img/logo_white.png'
+                },
+            ]
+        with patch.object(
+             target=cls.registry['account.journal'],
+             attribute='fetch_online_sync_favorite_institutions',
+             new=get_institutions,
+             create=True):
+            yield
+
+
+class AccountTestInvoicingHttpCommon(AccountTestInvoicingCommon, AccountTestMockOnlineSyncCommon):
     pass
 
 

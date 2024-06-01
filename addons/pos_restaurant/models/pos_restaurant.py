@@ -15,7 +15,7 @@ class RestaurantFloor(models.Model):
     name = fields.Char('Floor Name', required=True)
     pos_config_ids = fields.Many2many('pos.config', string='Point of Sales', domain="[('module_pos_restaurant', '=', True)]")
     background_image = fields.Binary('Background Image')
-    background_color = fields.Char('Background Color', help='The background color of the floor in a html-compatible format', default='rgb(210, 210, 210)')
+    background_color = fields.Char('Background Color', help='The background color of the floor in a html-compatible format', default='rgb(249,250,251)')
     table_ids = fields.One2many('restaurant.table', 'floor_id', string='Tables')
     sequence = fields.Integer('Sequence', default=1)
     active = fields.Boolean(default=True)
@@ -27,7 +27,7 @@ class RestaurantFloor(models.Model):
 
     @api.model
     def _load_pos_data_fields(self, config_id):
-        return ['name', 'background_color', 'table_ids', 'sequence', 'floor_background_image']
+        return ['name', 'background_color', 'table_ids', 'sequence', 'pos_config_ids', 'floor_background_image']
 
     @api.ondelete(at_uninstall=False)
     def _unlink_except_active_pos_session(self):

@@ -349,7 +349,7 @@ export function makeActionManager(env, router = _router) {
             delete ctx.params;
             const key = `${JSON.stringify(actionRequest)},${JSON.stringify(ctx)}`;
             let action = await actionCache[key];
-            if (!action || action.type === "ir.actions.act_window_close") {
+            if (!action) {
                 actionCache[key] = rpc("/web/action/load", {
                     action_id: actionRequest,
                     context: ctx,
@@ -692,12 +692,22 @@ export function makeActionManager(env, router = _router) {
         delete action.context.no_breadcrumbs;
 
         let resId = viewProps.resId;
+        const embeddedActions =
+            view.type === "form"
+                ? []
+                : context.parent_action_embedded_actions || action.embedded_action_ids;
+        const parentActionId = (view.type !== "form" && context.parent_action_id) || false;
+        const currentEmbeddedActionId = context.current_embedded_action_id || false;
         return {
             props: viewProps,
             resId: () => resId,
             config: {
                 actionId: action.id,
+                actionName: action.name,
                 actionType: "ir.actions.act_window",
+                embeddedActions,
+                parentActionId,
+                currentEmbeddedActionId,
                 actionFlags: action.flags,
                 views: action.views,
                 viewSwitcherEntries,
@@ -783,6 +793,12 @@ export function makeActionManager(env, router = _router) {
                 controller.config.breadcrumbs.push(undefined);
                 controller.config.breadcrumbs.pop();
             }
+        };
+        controller.config.setCurrentEmbeddedAction = (embeddedActionId) => {
+            controller.currentEmbeddedActionId = embeddedActionId;
+        };
+        controller.config.setEmbeddedActions = (embeddedActions) => {
+            controller.embeddedActions = embeddedActions;
         };
         controller.config.historyBack = () => {
             const previousController = controllerStack[controllerStack.length - 2];
@@ -923,7 +939,7 @@ export function makeActionManager(env, router = _router) {
             if (size) {
                 actionDialogProps.size = size;
             }
-
+            actionDialogProps.footer = action.context.footer ?? actionDialogProps.footer;
             const onClose = _removeDialog();
             removeDialogFn = env.services.dialog.add(ActionDialog, actionDialogProps, {
                 onClose: () => {
@@ -1224,6 +1240,34 @@ export function makeActionManager(env, router = _router) {
         }
     }
 
+    // ---------------------------------------------------------------------------
+    // ir.actions.server
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Executes an action of type 'ir.actions.server'.
+     *
+     * @private
+     * @param {ServerAction} action
+     * @param {ActionOptions} options
+     * @returns {Promise<void>}
+     */
+    async function _executeServerAction(action, options) {
+        const runProm = rpc("/web/action/run", {
+            action_id: action.id,
+            context: makeContext([user.context, action.context]),
+        });
+        let nextAction = await keepLast.add(runProm);
+        if (nextAction.help) {
+            nextAction.help = markup(nextAction.help);
+        }
+        nextAction = nextAction || { type: "ir.actions.act_window_close" };
+        if (typeof nextAction === "object") {
+            nextAction.path ||= action.path;
+        }
+        return doAction(nextAction, options);
+    }
+
     async function _executeCloseAction(params = {}) {
         let onClose;
         if (dialog) {
@@ -1269,6 +1313,8 @@ export function makeActionManager(env, router = _router) {
                 return _executeCloseAction({ onClose: options.onClose, onCloseInfo: action.infos });
             case "ir.actions.client":
                 return _executeClientAction(action, options);
+            case "ir.actions.server":
+                return _executeServerAction(action, options);
             case "ir.actions.report":
                 return _executeReportAction(action, options);
             default: {
@@ -1354,7 +1400,8 @@ export function makeActionManager(env, router = _router) {
         // in case an effect is returned from python and there is already an effect
         // attribute on the button, the priority is given to the button attribute
         const effect = params.effect ? evaluateExpr(params.effect) : action.effect;
-        const options = { onClose: params.onClose };
+        const { onClose, stackPosition, viewType } = params;
+        const options = { onClose, stackPosition, viewType };
         await doAction(action, options);
         if (params.close) {
             await _executeCloseAction();

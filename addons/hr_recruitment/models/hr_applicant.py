@@ -1,14 +1,15 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+import re
+
+import re
 
 from markupsafe import Markup
+from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models, tools, SUPERUSER_ID
 from odoo.exceptions import AccessError, UserError
 from odoo.osv import expression
 from odoo.tools.translate import _
-
-from dateutil.relativedelta import relativedelta
 
 AVAILABLE_PRIORITIES = [
     ('0', 'Normal'),
@@ -420,10 +421,6 @@ class Applicant(models.Model):
         # user_id change: update date_open
         if vals.get('user_id'):
             vals['date_open'] = fields.Datetime.now()
-        if vals.get('email_from'):
-            vals['email_from'] = vals['email_from'].strip()
-            if self._email_is_blacklisted(vals['email_from']):
-                del vals['email_from']
         old_interviewers = self.interviewer_ids
         # stage_id: track last stage before update
         if 'stage_id' in vals:
@@ -448,10 +445,6 @@ class Applicant(models.Model):
         if self.emp_id:
             raise UserError(_("The applicant is linked to an employee, to avoid losing information, archive it instead."))
 
-    def _email_is_blacklisted(self, mail):
-        normalized_mail = tools.email_normalize(mail)
-        return normalized_mail in [m.strip() for m in self.env['ir.config_parameter'].sudo().get_param('hr_recruitment.blacklisted_emails', '').split(',')]
-
     def get_empty_list_help(self, help_message):
         if 'active_id' in self.env.context and self.env.context.get('active_model') == 'hr.job':
             hr_job = self.env['hr.job'].browse(self.env.context['active_id'])
@@ -462,10 +455,21 @@ class Applicant(models.Model):
 
         nocontent_body = Markup("""
 <p class="o_view_nocontent_smiling_face">%(help_title)s</p>
-<p>%(para_1)s<br/>%(para_2)s</p>""") % {
+<p class="mb-0">%(para_1)s<br/>%(para_2)s</p>""") % {
             'help_title': _("No application found. Let's create one !"),
             'para_1': _('People can also apply by email to save time.'),
             'para_2': _("You can search into attachment's content, like resumes, with the searchbar."),
+        }
+
+        if hr_job:
+            pattern = r'(.*)<a>(.*?)<\/a>(.*)'
+            match = re.fullmatch(pattern, _('Have you tried to <a>add skills to your job position</a> and search into the Reserve ?'))
+            nocontent_body += Markup("""
+<p>%(para_1)s<a href="%(link)s">%(para_2)s</a>%(para_3)s</p>""") % {
+            'para_1': match[1],
+            'para_2': match[2],
+            'para_3': match[3],
+            'link': f'/odoo/recruitement/{hr_job.id}',
         }
 
         if hr_job.alias_email:
@@ -570,7 +574,10 @@ class Applicant(models.Model):
         applicant = self[0]
         # When applcant is unarchived, they are put back to the default stage automatically. In this case,
         # don't post automated message related to the stage change.
-        if 'stage_id' in changes and applicant.exists() and applicant.stage_id.template_id and not applicant._context.get('just_unarchived'):
+        if 'stage_id' in changes and applicant.exists()\
+            and applicant.stage_id.template_id\
+            and not applicant._context.get('just_moved')\
+            and not applicant._context.get('just_unarchived'):
             res['stage_id'] = (applicant.stage_id.template_id, {
                 'auto_delete_keep_log': False,
                 'subtype_id': self.env['ir.model.data']._xmlid_to_res_id('mail.mt_note'),
@@ -634,10 +641,14 @@ class Applicant(models.Model):
             'name': msg.get('subject') or _("No Subject"),
             'partner_name': partner_name or email_from_normalized,
         }
-        if msg.get('from') and not self._email_is_blacklisted(msg.get('from')):
+        job_platform = self.env['hr.job.platform'].search([('email', '=', email_from_normalized)], limit=1)
+        if msg.get('from') and not job_platform:
             defaults['email_from'] = msg.get('from')
             defaults['partner_id'] = msg.get('author_id', False)
-        if msg.get('email_from') and self._email_is_blacklisted(msg.get('email_from')):
+        if msg.get('email_from') and job_platform:
+            subject_pattern = re.compile(job_platform.regex or '')
+            regex_results = re.findall(subject_pattern, msg.get('subject')) + re.findall(subject_pattern, msg.get('body'))
+            defaults['partner_name'] = regex_results[0] if regex_results else partner_name
             del msg['email_from']
         if msg.get('priority'):
             defaults['priority'] = msg.get('priority')

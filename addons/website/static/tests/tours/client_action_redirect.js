@@ -34,6 +34,7 @@ const checkEditorSteps = [{
 }, {
     content: "exit edit mode",
     trigger: '.o_we_website_top_actions button.btn-primary:contains("Save")',
+    run: "click",
 }, {
     content: "wait for editor to close",
     trigger: ':iframe body:not(.editor_enable)',
@@ -49,6 +50,7 @@ registry.category("web_tour.tours").add('client_action_redirect', {
     {
         content: "Click on the link to frontend",
         trigger: '#test_contact_FE',
+        run: "click",
     },
     ...checkEditorSteps,
 
@@ -57,6 +59,7 @@ registry.category("web_tour.tours").add('client_action_redirect', {
     {
         content: "Click on the link to backend",
         trigger: '#test_contact_BE',
+        run: "click",
     },
     ...checkEditorSteps,
 
@@ -75,6 +78,7 @@ registry.category("web_tour.tours").add('client_action_redirect', {
     {
         content: "Click on the link to backend (2)",
         trigger: ':iframe #test_contact_BE',
+        run: "click",
     },
     ...checkEditorSteps,
 ]});

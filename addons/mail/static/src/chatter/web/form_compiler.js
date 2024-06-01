@@ -1,7 +1,6 @@
 import { registry } from "@web/core/registry";
-import { SIZES } from "@web/core/ui/ui_service";
 import { patch } from "@web/core/utils/patch";
-import { append, createElement, setAttributes } from "@web/core/utils/xml";
+import { append, createElement, extractAttributes, setAttributes } from "@web/core/utils/xml";
 import { FormCompiler } from "@web/views/form/form_compiler";
 
 function compileChatter(node, params) {
@@ -20,6 +19,7 @@ function compileChatter(node, params) {
     });
     const chatterContainerHookXml = createElement("div");
     chatterContainerHookXml.classList.add("o-mail-ChatterContainer", "o-mail-Form-chatter");
+    setAttributes(chatterContainerHookXml, { "t-if": "!__comp__.env.inDialog" });
     append(chatterContainerHookXml, chatterContainerXml);
     return chatterContainerHookXml;
 }
@@ -49,7 +49,6 @@ registry.category("form_compilers").add("attachment_preview_compiler", {
 
 patch(FormCompiler.prototype, {
     compile(node, params) {
-        // TODO no chatter if in dialog?
         const res = super.compile(node, params);
         const chatterContainerHookXml = res.querySelector(".o-mail-Form-chatter");
         if (!chatterContainerHookXml) {
@@ -73,15 +72,16 @@ patch(FormCompiler.prototype, {
         }
 
         const webClientViewAttachmentViewHookXml = res.querySelector(".o_attachment_preview");
+        const hasPreview = !!webClientViewAttachmentViewHookXml;
         if (webClientViewAttachmentViewHookXml) {
             // in sheet bg (attachment viewer present)
             setAttributes(webClientViewAttachmentViewHookXml, {
-                "t-if": `__comp__.hasFileViewer() and __comp__.uiService.size >= ${SIZES.XXL}`,
+                "t-if": `__comp__.mailLayout(${hasPreview}).includes("COMBO")`,
             });
             const sheetBgChatterContainerHookXml = chatterContainerHookXml.cloneNode(true);
             sheetBgChatterContainerHookXml.classList.add("o-isInFormSheetBg", "w-auto");
             setAttributes(sheetBgChatterContainerHookXml, {
-                "t-if": `__comp__.hasFileViewer() and __comp__.uiService.size >= ${SIZES.XXL}`,
+                "t-if": `__comp__.mailLayout(${hasPreview}) == "COMBO"`,
             });
             append(formSheetBgXml, sheetBgChatterContainerHookXml);
             const sheetBgChatterContainerXml = sheetBgChatterContainerHookXml.querySelector(
@@ -93,24 +93,17 @@ patch(FormCompiler.prototype, {
             });
         }
         // after sheet bg (standard position, either aside or below)
-        if (webClientViewAttachmentViewHookXml) {
-            setAttributes(chatterContainerHookXml, {
-                "t-if": `!(__comp__.hasFileViewer() and __comp__.uiService.size >= ${SIZES.XXL})`,
-                "t-attf-class": `{{ __comp__.uiService.size >= ${SIZES.XXL} and !(__comp__.hasFileViewer() and __comp__.uiService.size >= ${SIZES.XXL}) ? "o-aside" : "" }}`,
-            });
-            setAttributes(chatterContainerXml, {
-                isInFormSheetBg: "__comp__.hasFileViewer()",
-                isChatterAside: `__comp__.uiService.size >= ${SIZES.XXL} and !(__comp__.hasFileViewer() and __comp__.uiService.size >= ${SIZES.XXL})`,
-            });
-        } else {
-            setAttributes(chatterContainerXml, {
-                isInFormSheetBg: "false",
-                isChatterAside: `__comp__.uiService.size >= ${SIZES.XXL}`,
-            });
-            setAttributes(chatterContainerHookXml, {
-                "t-attf-class": `{{ __comp__.uiService.size >= ${SIZES.XXL} ? "o-aside" : "mt-4 mt-md-0" }}`,
-            });
-        }
+        setAttributes(chatterContainerXml, {
+            isInFormSheetBg: `["COMBO", "BOTTOM_CHATTER"].includes(__comp__.mailLayout(${hasPreview}))`,
+            isChatterAside: `["SIDE_CHATTER", "EXTERNAL_COMBO_XXL", "EXTERNAL_COMBO"].includes(__comp__.mailLayout(${hasPreview}))`,
+        });
+        const { ["t-if"]: tIf } = extractAttributes(chatterContainerHookXml, ["t-if"]);
+        setAttributes(chatterContainerHookXml, {
+            "t-if": `${
+                tIf ? tIf : "true"
+            } and (!["COMBO", "NONE"].includes(__comp__.mailLayout(${hasPreview})))`, // opposite of sheetBgChatterContainerHookXml
+            "t-attf-class": `{{ ["SIDE_CHATTER", "EXTERNAL_COMBO_XXL"].includes(__comp__.mailLayout(${hasPreview})) ? "o-aside" : "mt-4 mt-md-0" }}`,
+        });
         append(parentXml, chatterContainerHookXml);
         return res;
     },

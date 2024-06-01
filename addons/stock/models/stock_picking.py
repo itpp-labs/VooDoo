@@ -34,11 +34,11 @@ class PickingType(models.Model):
     sequence_code = fields.Char('Sequence Prefix', required=True)
     default_location_src_id = fields.Many2one(
         'stock.location', 'Default Source Location', compute='_compute_default_location_src_id',
-        check_company=True, store=True, readonly=False, precompute=True,
+        check_company=True, store=True, readonly=False, precompute=True, required=True,
         help="This is the default source location when you create a picking manually with this operation type. It is possible however to change it or that the routes put another location.")
     default_location_dest_id = fields.Many2one(
         'stock.location', 'Default Destination Location', compute='_compute_default_location_dest_id',
-        check_company=True, store=True, readonly=False, precompute=True,
+        check_company=True, store=True, readonly=False, precompute=True, required=True,
         help="This is the default destination location when you create a picking manually with this operation type. It is possible however to change it or that the routes put another location.")
     default_location_return_id = fields.Many2one('stock.location', 'Default returns location', check_company=True,
         help="This is the default location for returns created from a picking with this operation type.",
@@ -449,18 +449,6 @@ class PickingType(models.Model):
         )
 
         return action
-
-    @api.model
-    def get_action_picking_tree_incoming(self):
-        return self._get_action('stock.action_picking_tree_incoming')
-
-    @api.model
-    def get_action_picking_tree_outgoing(self):
-        return self._get_action('stock.action_picking_tree_outgoing')
-
-    @api.model
-    def get_action_picking_tree_internal(self):
-        return self._get_action('stock.action_picking_tree_internal')
 
     def get_action_picking_tree_late(self):
         return self._get_action('stock.action_picking_tree_late')
@@ -1732,6 +1720,30 @@ class Picking(models.Model):
                     return self._post_put_in_pack_hook(package)
                 return res
             raise UserError(_("There is nothing eligible to put in a pack. Either there are no quantities to put in a pack or all products are already in a pack."))
+
+    def _get_action(self, action_xmlid):
+        action = self.env["ir.actions.actions"]._for_xml_id(action_xmlid)
+        context = literal_eval(action['context'])
+
+        action['help'] = self.env['ir.ui.view']._render_template(
+            'stock.help_message_template', {
+                'picking_type_code': context.get('restricted_picking_type_code') or self.picking_type_code,
+            }
+        )
+
+        return action
+
+    @api.model
+    def get_action_picking_tree_incoming(self):
+        return self._get_action('stock.action_picking_tree_incoming')
+
+    @api.model
+    def get_action_picking_tree_outgoing(self):
+        return self._get_action('stock.action_picking_tree_outgoing')
+
+    @api.model
+    def get_action_picking_tree_internal(self):
+        return self._get_action('stock.action_picking_tree_internal')
 
     def button_scrap(self):
         self.ensure_one()

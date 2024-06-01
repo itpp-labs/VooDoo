@@ -44,10 +44,11 @@ class TestSaleExpense(TestExpenseCommon, TestSaleCommon):
             'sheet_id': sheet.id,
             'sale_order_id': so.id,
         })
+        sheet.action_submit_sheet()
         # Approve
         sheet.action_approve_expense_sheets()
-        # Create Expense Entries
-        sheet.action_sheet_move_create()
+        # Post Expense Entries
+        sheet.action_sheet_move_post()
         # expense should now be in sales order
         self.assertIn(self.company_data['product_delivery_cost'], so.mapped('order_line.product_id'), 'Sale Expense: expense product should be in so')
         sol = so.order_line.filtered(lambda sol: sol.product_id.id == self.company_data['product_delivery_cost'].id)
@@ -83,10 +84,11 @@ class TestSaleExpense(TestExpenseCommon, TestSaleCommon):
             'sheet_id': sheet.id,
             'sale_order_id': so.id,
         })
+        sheet.action_submit_sheet()
         # Approve
         sheet.action_approve_expense_sheets()
-        # Create Expense Entries
-        sheet.action_sheet_move_create()
+        # Post Expense Entries
+        sheet.action_sheet_move_post()
         # expense should now be in sales order
         self.assertIn(prod_exp_2, so.mapped('order_line.product_id'), 'Sale Expense: expense product should be in so')
         sol = so.order_line.filtered(lambda sol: sol.product_id.id == prod_exp_2.id)
@@ -106,7 +108,7 @@ class TestSaleExpense(TestExpenseCommon, TestSaleCommon):
         expensed_product = self.env['product.product'].create({
             'name': 'test product',
             'can_be_expensed': True,
-            'detailed_type': 'service',
+            'type': 'service',
             'invoice_policy': 'order',
             'standard_price': 100,
             'expense_policy': 'cost',
@@ -146,7 +148,7 @@ class TestSaleExpense(TestExpenseCommon, TestSaleCommon):
         })
         expense_sheet.action_submit_sheet()
         expense_sheet.action_approve_expense_sheets()
-        expense_sheet.action_sheet_move_create()
+        expense_sheet.action_sheet_move_post()
 
         self.assertTrue(self.env['account.move'].search([('expense_sheet_id', '=', expense_sheet.id)], limit=1))
 

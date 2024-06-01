@@ -39,6 +39,7 @@ wTourUtils.registerWebsitePreviewTour("snippet_popup_and_animations", {
     {
         content: "Open the Cookies Bar.",
         trigger: ".o_we_invisible_el_panel .o_we_invisible_entry",
+        run: "click",
     },
     {
         content: "Scroll to top",
@@ -120,6 +121,7 @@ wTourUtils.registerWebsitePreviewTour("snippet_popup_and_animations", {
     {
         content: "Close the Popup",
         trigger: ".o_we_invisible_el_panel .o_we_invisible_entry:contains('Popup') i.fa-eye",
+        run: "click",
     },
     {
         content: "Check that the popup has been closed",
@@ -171,6 +173,7 @@ wTourUtils.registerWebsitePreviewTour("snippet_popup_and_animations", {
     {
         content: "Click on the 'undo' button",
         trigger: ".o_we_external_history_buttons button.fa-undo",
+        run: "click",
     },
     {
         content: "Check that the Blur filter has been removed from the image",

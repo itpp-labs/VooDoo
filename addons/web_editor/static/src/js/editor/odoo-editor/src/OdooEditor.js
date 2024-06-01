@@ -771,7 +771,11 @@ export class OdooEditor extends EventTarget {
             if (fontSizeInput && !fontSizeInput.readOnly && ev.target.closest('#font-size .dropdown-toggle')) {
                 // If the click opened the font size dropdown, select the input content.
                 fontSizeInput.select();
-            } else if (!this.isSelectionInEditable() && ev.target.nodeName !== 'INPUT') {
+            } else if (
+                !this.isSelectionInEditable() &&
+                ev.target.nodeName !== 'INPUT' &&
+                ev.target.id !== 'image-transform'
+            ) {
                 // Otherwise, if we lost the selection in the editable, restore it.
                 this.historyResetLatestComputedSelection(true);
             }
@@ -4731,7 +4735,6 @@ export class OdooEditor extends EventTarget {
 
             if (isMouseInsideCheckboxBox) {
                 toggleClass(node, 'o_checked');
-                ev.preventDefault();
                 this.historyStep();
                 if (!document.getSelection().isCollapsed) {
                     this._updateToolbar(true);

@@ -4,6 +4,7 @@ export function pickRadio(name) {
             content: `picking radio attribute with name ${name}`,
             trigger: `.attribute-name-cell:contains('${name}') input`,
             in_modal: true,
+            run: "click",
         },
     ];
 }
@@ -23,6 +24,7 @@ export function pickColor(name) {
             content: `picking color attribute with name ${name}`,
             trigger: `.configurator_color[data-color='${name}']`,
             in_modal: true,
+            run: "click",
         },
     ];
 }
@@ -33,6 +35,20 @@ export function fillCustomAttribute(value) {
             trigger: `.custom_value`,
             run: `edit ${value}`,
             in_modal: true,
+        },
+    ];
+}
+
+export function numberRadioOptions(number) {
+    return [
+        {
+            trigger: `.attribute-name-cell`,
+            run: () => {
+                const radio_options = $(".attribute-name-cell").length;
+                if (radio_options !== number) {
+                    throw new Error(`Expected ${number} radio options, got ${radio_options}`);
+                }
+            },
         },
     ];
 }

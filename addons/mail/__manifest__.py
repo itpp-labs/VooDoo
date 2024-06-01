@@ -81,6 +81,7 @@ For more specific needs, you may also assign custom-defined actions
         'views/mail_ice_server_views.xml',
         'views/discuss_channel_member_views.xml',
         'views/discuss_channel_rtc_session_views.xml',
+        'views/discuss_notification_settings_views.xml',
         'views/mail_link_preview_views.xml',
         'views/discuss/discuss_gif_favorite_views.xml',
         'views/discuss_channel_views.xml',
@@ -226,6 +227,7 @@ For more specific needs, you may also assign custom-defined actions
             'mail/static/src/core/common/**/*',
             'mail/static/src/**/common/**/*',
             'mail/static/src/**/public/**/*',
+            'mail/static/lib/selfie_segmentation/selfie_segmentation.js',
             ('remove', 'mail/static/src/**/*.dark.scss'),
             # discuss (loaded last to fix dependencies)
             ('remove', 'mail/static/src/discuss/**/*'),

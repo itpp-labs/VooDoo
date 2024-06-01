@@ -512,7 +512,7 @@ class AccountPaymentRegister(models.TransientModel):
         moves = batch_result['lines'].mapped('move_id')
         for move in moves:
             if early_payment_discount and move._is_eligible_for_early_payment_discount(move.currency_id, self.payment_date):
-                amount += move.invoice_payment_term_id._get_amount_due_after_discount(move.amount_total, move.amount_tax)#todo currencies
+                amount -= move.direction_sign * move.invoice_payment_term_id._get_amount_due_after_discount(move.amount_total, move.amount_tax)
                 mode = 'early_payment'
             else:
                 for aml in batch_result['lines'].filtered(lambda l: l.move_id.id == move.id):
@@ -923,7 +923,8 @@ class AccountPaymentRegister(models.TransientModel):
             ('reconciled', '=', False),
         ]
         for vals in to_process:
-            payment_lines = vals['payment'].line_ids.filtered_domain(domain)
+            payment = vals['payment']
+            payment_lines = payment.line_ids.filtered_domain(domain)
             lines = vals['to_reconcile']
             extra_context = {'forced_rate_from_register_payment': vals['rate']} if 'rate' in vals else {}
 

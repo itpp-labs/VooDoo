@@ -1,6 +1,6 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timezone
 from collections import defaultdict
 from dateutil.relativedelta import relativedelta
 import pytz
@@ -175,7 +175,7 @@ class HrEmployeeBase(models.AbstractModel):
             raise UserError(_('Operation not supported'))
         # This search is only used for the 'Absent Today' filter however
         # this only returns employees that are absent right now.
-        today_date = datetime.utcnow().date()
+        today_date = datetime.now(timezone.utc).date()
         today_start = fields.Datetime.to_string(today_date)
         today_end = fields.Datetime.to_string(today_date + relativedelta(hours=23, minutes=59, seconds=59))
         holidays = self.env['hr.leave'].sudo().search([
@@ -427,7 +427,7 @@ class HrEmployee(models.Model):
         for allocation in allocations:
             allocations_per_employee_type[allocation.employee_id][allocation.holiday_status_id] |= allocation
 
-        # allocation_leaves_consumed is a tuple of two dictionnaries.
+        # _get_consumed_leaves returns a tuple of two dictionnaries.
         # 1) The first is a dictionary to map the number of days/hours of leaves taken per allocation
         # The structure is the following:
         # - KEYS:
@@ -442,9 +442,12 @@ class HrEmployee(models.Model):
         #              |--max_leaves
         #              |--accrual_bonus
         # - VALUES:
-        # Integer representing the number of (virtual) remaining leaves, (virtual) leaves taken or max leaves for each allocation.
+        # Integer representing the number of (virtual) remaining leaves, (virtual) leaves taken or max leaves
+        # for each allocation.
         # leaves_taken and remaining_leaves only take into account validated leaves, while the "virtual" equivalent are
         # also based on leaves in "confirm" or "validate1" state.
+        # Accrual bonus gives the amount of additional leaves that will have been granted at the given
+        # target_date in comparison to today.
         # The unit is in hour or days depending on the leave type request unit
         # 2) The second is a dictionary mapping the remaining days per employee and per leave type that are either
         # not taken into account by the allocations, mainly because accruals don't take future leaves into account.
@@ -468,7 +471,6 @@ class HrEmployee(models.Model):
                     'amount': 0,
                     'is_virtual': True,
                 }),
-                'total_virtual_excess': 0,
                 'exceeding_duration': 0,
                 'to_recheck_leaves': self.env['hr.leave']
             })

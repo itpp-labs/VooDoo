@@ -69,6 +69,7 @@ patch(Chatter.prototype, {
     setup() {
         super.setup(...arguments);
         this.orm = useService("orm");
+        this.mailPopoutService = useService("mail.popout");
         this.recipientsPopover = usePopover(RecipientList);
         Object.assign(this.state, {
             composerType: false,
@@ -314,8 +315,8 @@ patch(Chatter.prototype, {
         this.load(thread, ["suggestedRecipients"]);
     },
 
-    onUploaded(data) {
-        this.attachmentUploader.uploadData(data);
+    async onUploaded(data) {
+        await this.attachmentUploader.uploadData(data);
         if (this.props.hasParentReloadOnAttachmentsChanged) {
             this.reloadParentView();
         }
@@ -371,5 +372,9 @@ patch(Chatter.prototype, {
         if (this.props.hasParentReloadOnAttachmentsChanged) {
             this.reloadParentView();
         }
+    },
+
+    popoutAttachment() {
+        this.mailPopoutService.popout().focus();
     },
 });

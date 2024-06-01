@@ -3,16 +3,34 @@ import { TourError } from "@web_tour/tour_service/tour_utils";
 import { registry } from "@web/core/registry";
 
 registry.category("web_tour.tours").add('test_detailed_op_no_save_1', { test: true, steps: () => [
-    {trigger: '.o_field_x2many_list_row_add > a'},
+    {
+        trigger: '.o_field_x2many_list_row_add > a',
+        run: "click",
+    },
     {
         trigger: ".o_field_widget[name=product_id] input",
         run: "edit Lot",
     },
-    {trigger: ".ui-menu-item > a:contains('Product Lot')"},
-    {trigger: ".btn-primary[name=action_confirm]"},
-    {trigger: ".fa-list"},
-    {trigger: "h4:contains('Stock move')"},
-    {trigger: '.o_field_x2many_list_row_add > a'},
+    {
+        trigger: ".ui-menu-item > a:contains('Product Lot')",
+        run: "click",
+    },
+    {
+        trigger: ".btn-primary[name=action_confirm]",
+        run: "click",
+    },
+    {
+        trigger: ".fa-list",
+        run: "click",
+    },
+    {
+        trigger: "h4:contains('Stock move')",
+        run: "click",
+    },
+    {
+        trigger: '.o_field_x2many_list_row_add > a',
+        run: "click",
+    },
     {
         trigger: ".o_field_widget[name=lot_name] input",
         run: "edit lot1",
@@ -21,19 +39,31 @@ registry.category("web_tour.tours").add('test_detailed_op_no_save_1', { test: tr
         trigger: ".o_field_widget[name=quantity] input",
         run: "edit 4",
     },
-    {trigger: ".o_form_button_save"},
-    {trigger: ".o_optional_columns_dropdown_toggle"},
+    {
+        trigger: ".o_form_button_save",
+        run: "click",
+    },
+    {
+        trigger: ".o_optional_columns_dropdown_toggle",
+        run: "click",
+    },
     {
         trigger: 'input[name="picked"]',
         content: 'Check the picked field to display the column on the list view.',
         run: "check",
     },
-    {trigger: ".o_data_cell[name=picked]"},
+    {
+        trigger: ".o_data_cell[name=picked]",
+        run: "click",
+    },
     {
         trigger: ".o_field_widget[name=picked] input",
         run: "check",
     },
-    {trigger: ".btn-primary[name=button_validate]"},
+    {
+        trigger: ".btn-primary[name=button_validate]",
+        run: "click",
+    },
     {
         trigger: ".o_control_panel_actions button:contains('Traceability')",
         isCheck: true,
@@ -41,17 +71,38 @@ registry.category("web_tour.tours").add('test_detailed_op_no_save_1', { test: tr
 ]});
 
 registry.category("web_tour.tours").add('test_generate_serial_1', { test: true, steps: () => [
-    {trigger: '.o_field_x2many_list_row_add > a'},
+    {
+        trigger: '.o_field_x2many_list_row_add > a',
+        run: "click",
+    },
     {
         trigger: ".o_field_widget[name=product_id] input",
         run: "edit Serial",
     },
-    {trigger: ".ui-menu-item > a:contains('Product Serial')"},
-    {trigger: ".btn-primary[name=action_confirm]"},
-    {trigger: ".fa-list"},
-    {trigger: "h4:contains('Stock move')"},
-    {trigger: '.o_widget_generate_serials > button'},
-    {trigger: "h4:contains('Generate Serial numbers')"},
+    {
+        trigger: ".ui-menu-item > a:contains('Product Serial')",
+        run: "click",
+    },
+    {
+        trigger: ".btn-primary[name=action_confirm]",
+        run: "click",
+    },
+    {
+        trigger: ".fa-list",
+        run: "click",
+    },
+    {
+        trigger: "h4:contains('Stock move')",
+        run: "click",
+    },
+    {
+        trigger: '.o_widget_generate_serials > button',
+        run: "click",
+    },
+    {
+        trigger: "h4:contains('Generate Serial numbers')",
+        run: "click",
+    },
     {
         trigger: "div[name=next_serial] input",
         run: "edit serial_n_1",
@@ -60,7 +111,10 @@ registry.category("web_tour.tours").add('test_generate_serial_1', { test: true, 
         trigger: "div[name=next_serial_count] input",
         run: "edit 5 && click body",
     },
-    {trigger: ".btn-primary:contains('Generate')"},
+    {
+        trigger: ".btn-primary:contains('Generate')",
+        run: "click",
+    },
     {
         trigger: "span[data-tooltip=Quantity]:contains('5')",
         run: () => {
@@ -70,8 +124,14 @@ registry.category("web_tour.tours").add('test_generate_serial_1', { test: true, 
             }
         },
     },
-    {trigger: ".o_form_button_save"},
-    {trigger: ".o_optional_columns_dropdown_toggle"},
+    {
+        trigger: ".o_form_button_save",
+        run: "click",
+    },
+    {
+        trigger: ".o_optional_columns_dropdown_toggle",
+        run: "click",
+    },
     {
         trigger: 'input[name="picked"]',
         content: 'Check the picked field to display the column on the list view.',
@@ -81,7 +141,10 @@ registry.category("web_tour.tours").add('test_generate_serial_1', { test: true, 
             }
         },
     },
-    {trigger: ".o_data_cell[name=picked]"},
+    {
+        trigger: ".o_data_cell[name=picked]",
+        run: "click",
+    },
     {
         trigger: ".o_field_widget[name=picked] input",
         run: function (actions) {
@@ -90,7 +153,10 @@ registry.category("web_tour.tours").add('test_generate_serial_1', { test: true, 
             }
         }
     },
-    {trigger: ".btn-primary[name=button_validate]"},
+    {
+        trigger: ".btn-primary[name=button_validate]",
+        run: "click",
+    },
     {
         trigger: ".o_control_panel_actions button:contains('Traceability')",
         isCheck: true,
@@ -98,22 +164,43 @@ registry.category("web_tour.tours").add('test_generate_serial_1', { test: true, 
 ]});
 
 registry.category("web_tour.tours").add('test_generate_serial_2', { test: true, steps: () => [
-    {trigger: '.o_field_x2many_list_row_add > a'},
+    {
+        trigger: '.o_field_x2many_list_row_add > a',
+        run: "click",
+    },
     {
         trigger: ".o_field_widget[name=product_id] input",
         run: "edit Lot",
     },
-    {trigger: ".ui-menu-item > a:contains('Product Lot 1')"},
+    {
+        trigger: ".ui-menu-item > a:contains('Product Lot 1')",
+        run: "click",
+    },
     {
         trigger: ".o_field_widget[name=product_uom_qty] input",
         run: "edit 100",
     },
-    {trigger: ".btn-primary[name=action_confirm]"},
-    {trigger: ".fa-list"},
-    {trigger: "h4:contains('Stock move')"},
+    {
+        trigger: ".btn-primary[name=action_confirm]",
+        run: "click",
+    },
+    {
+        trigger: ".fa-list",
+        run: "click",
+    },
+    {
+        trigger: "h4:contains('Stock move')",
+        run: "click",
+    },
     // We generate lots for a first batch of 50 products
-    {trigger: '.o_widget_generate_serials > button'},
-    {trigger: "h4:contains('Generate Lot numbers')"},
+    {
+        trigger: '.o_widget_generate_serials > button',
+        run: "click",
+    },
+    {
+        trigger: "h4:contains('Generate Lot numbers')",
+        run: "click",
+    },
     {
         trigger: "div[name=next_serial] input",
         run: "edit lot_n_1_1",
@@ -126,7 +213,10 @@ registry.category("web_tour.tours").add('test_generate_serial_2', { test: true, 
         trigger: "div[name=total_received] input",
         run: "edit 50 && click body",
     },
-    {trigger: ".btn-primary:contains('Generate')"},
+    {
+        trigger: ".btn-primary:contains('Generate')",
+        run: "click",
+    },
     {
         trigger: "span[data-tooltip=Quantity]:contains('50')",
         run: () => {
@@ -137,8 +227,14 @@ registry.category("web_tour.tours").add('test_generate_serial_2', { test: true, 
         },
     },
     // We generate lots for the last 50 products
-    {trigger: '.o_widget_generate_serials > button'},
-    {trigger: "h4:contains('Generate Lot numbers')"},
+    {
+        trigger: '.o_widget_generate_serials > button',
+        run: "click",
+    },
+    {
+        trigger: "h4:contains('Generate Lot numbers')",
+        run: "click",
+    },
     {
         trigger: "div[name=next_serial] input",
         run: "edit lot_n_2_1",
@@ -155,7 +251,10 @@ registry.category("web_tour.tours").add('test_generate_serial_2', { test: true, 
         trigger: "div[name=keep_lines] input",
         run: "click",
     },
-    {trigger: ".btn-primary:contains('Generate')"},
+    {
+        trigger: ".btn-primary:contains('Generate')",
+        run: "click",
+    },
     {
         trigger: "span[data-tooltip=Quantity]:contains('100')",
         run: () => {
@@ -165,8 +264,14 @@ registry.category("web_tour.tours").add('test_generate_serial_2', { test: true, 
             }
         },
     },
-    {trigger: ".o_form_button_save"},
-    {trigger: ".o_optional_columns_dropdown_toggle"},
+    {
+        trigger: ".o_form_button_save",
+        run: "click",
+    },
+    {
+        trigger: ".o_optional_columns_dropdown_toggle",
+        run: "click",
+    },
     {
         trigger: "input[name='picked']",
         content: "Check the picked field to display the column on the list view.",
@@ -176,7 +281,10 @@ registry.category("web_tour.tours").add('test_generate_serial_2', { test: true, 
             }
         },
     },
-    {trigger: ".o_data_cell[name=picked]"},
+    {
+        trigger: ".o_data_cell[name=picked]",
+        run: "click",
+    },
     {
         trigger: ".o_field_widget[name=picked] input",
         run: function (actions) {
@@ -185,7 +293,10 @@ registry.category("web_tour.tours").add('test_generate_serial_2', { test: true, 
             }
         }
     },
-    {trigger: ".btn-primary[name=button_validate]"},
+    {
+        trigger: ".btn-primary[name=button_validate]",
+        run: "click",
+    },
     {
         trigger: ".o_control_panel_actions button:contains('Traceability')",
         isCheck: true,
@@ -193,30 +304,51 @@ registry.category("web_tour.tours").add('test_generate_serial_2', { test: true, 
 ]});
 
 registry.category('web_tour.tours').add('test_inventory_adjustment_apply_all', { test: true, steps: () => [
-    { trigger: '.o_list_button_add' },
+    {
+        trigger: '.o_list_button_add',
+        run: "click",
+    },
     {
         trigger: 'div[name=product_id] input',
         run: "edit Product 1",
     },
-    { trigger: '.ui-menu-item > a:contains("Product 1")' },
+    {
+        trigger: '.ui-menu-item > a:contains("Product 1")',
+        run: "click",
+    },
     {
         trigger: 'div[name=inventory_quantity] input',
         run: "edit 123",
     },
     // Unfocus to show the "New" button again
-    { trigger: '.o_searchview_input_container' },
-    { trigger: '.o_list_button_add' },
+    {
+        trigger: '.o_searchview_input_container',
+        run: "click",
+    },
+    {
+        trigger: '.o_list_button_add',
+        run: "click",
+    },
     {
         trigger: 'div[name=product_id] input',
         run: "edit Product 2",
     },
-    { trigger: '.ui-menu-item > a:contains("Product 2")' },
+    {
+        trigger: '.ui-menu-item > a:contains("Product 2")',
+        run: "click",
+    },
     {
         trigger: 'div[name=inventory_quantity] input',
         run: "edit 456",
     },
-    { trigger: 'button[name=action_apply_all]' },
-    { trigger: '.modal-content button[name=action_apply]' },
+    {
+        trigger: 'button[name=action_apply_all]',
+        run: "click",
+    },
+    {
+        trigger: '.modal-content button[name=action_apply]',
+        run: "click",
+    },
     {
         trigger: '.o_searchview_input_container',
         run: () => {
@@ -233,22 +365,41 @@ registry.category("web_tour.tours").add('test_add_new_line', {
     steps: () => [
         {
             extra_trigger: '.o_form_editable',
-            trigger: '.o_field_x2many_list_row_add > a'
+            trigger: '.o_field_x2many_list_row_add > a',
+            run: "click",
         },
         {
             trigger: ".o_field_widget[name=product_id] input",
             run: 'edit two',
         },
-        { trigger: ".ui-menu-item > a:contains('Product two')" },
-        { trigger: ".fa-list:eq(1)" },
-        { trigger: "h4:contains('Stock move')" },
-        { trigger: '.o_field_x2many_list_row_add > a' },
+        {
+            trigger: ".ui-menu-item > a:contains('Product two')",
+            run: "click",
+        },
+        {
+            trigger: ".fa-list:eq(1)",
+            run: "click",
+        },
+        {
+            trigger: "h4:contains('Stock move')",
+            run: "click",
+        },
+        {
+            trigger: '.o_field_x2many_list_row_add > a',
+            run: "click",
+        },
         {
             trigger: ".o_field_widget[name=lot_name] input",
             run: 'edit two',
         },
-        { trigger: ".o_form_view.modal-content .o_form_button_save" },
-        { trigger: ".o_form_view:not(.modal-content) .o_form_button_save" },
+        {
+            trigger: ".o_form_view.modal-content .o_form_button_save",
+            run: "click",
+        },
+        {
+            trigger: ".o_form_view:not(.modal-content) .o_form_button_save",
+            run: "click",
+        },
         {
             trigger: ".o_form_renderer.o_form_saved",
             isCheck: true,
@@ -259,20 +410,38 @@ registry.category("web_tour.tours").add('test_add_new_line', {
 registry.category("web_tour.tours").add('test_edit_existing_line', {
     test: true,
     steps: () => [
-        { trigger: ".o_data_cell[name=quantity]" },
+        {
+            trigger: ".o_data_cell[name=quantity]",
+            run: "click",
+        },
         {
             trigger: ".o_field_widget[name=quantity] input",
             run: 'edit 2',
         },
-        { trigger: ".fa-list" },
-        { trigger: "h4:contains('Stock move')" },
-        { trigger: ".o_data_cell[name=quantity]:eq(1)" },
+        {
+            trigger: ".fa-list",
+            run: "click",
+        },
+        {
+            trigger: "h4:contains('Stock move')",
+            run: "click",
+        },
+        {
+            trigger: ".o_data_cell[name=quantity]:eq(1)",
+            run: "click",
+        },
         {
             trigger: ".o_field_widget[name=lot_name] input",
             run: 'edit two',
         },
-        { trigger: ".o_form_view.modal-content .o_form_button_save" },
-        { trigger: ".o_form_view:not(.modal-content) .o_form_button_save" },
+        {
+            trigger: ".o_form_view.modal-content .o_form_button_save",
+            run: "click",
+        },
+        {
+            trigger: ".o_form_view:not(.modal-content) .o_form_button_save",
+            run: "click",
+        },
         {
             trigger: ".o_form_renderer.o_form_saved",
             isCheck: true,

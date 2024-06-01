@@ -317,7 +317,7 @@ export class FloorScreen extends Component {
             : null;
     }
     get activeTables() {
-        return this.activeFloor ? this.activeFloor.table_ids : null;
+        return this.activeFloor?.table_ids;
     }
     get selectedTables() {
         return this.state.selectedTableIds.map((id) => this.pos.models["restaurant.table"].get(id));
@@ -351,13 +351,15 @@ export class FloorScreen extends Component {
         this.unselectTables();
     }
     async onClickTable(table, ev) {
-        if (this.pos.isEditMode) {
+        if (this.pos.isEditMode && ["mousedown", "touchstart"].includes(ev.type)) {
             if (ev.ctrlKey || ev.metaKey) {
                 this.state.selectedTableIds.push(table.id);
             } else {
                 this.unselectTables();
                 this.state.selectedTableIds.push(table.id);
             }
+            return;
+        } else if (this.pos.isEditMode || ev.type !== "click") {
             return;
         }
         if (table.parent_id) {
@@ -411,7 +413,7 @@ export class FloorScreen extends Component {
                     [
                         {
                             name: newName,
-                            background_color: "#ACADAD",
+                            background_color: "#FFFFFF",
                             pos_config_ids: [this.pos.config.id],
                         },
                     ],

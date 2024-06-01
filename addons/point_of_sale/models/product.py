@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
@@ -18,9 +17,6 @@ class ProductTemplate(models.Model):
         'pos.category', string='Point of Sale Category',
         help="Category used in the Point of Sale.")
     combo_ids = fields.Many2many('pos.combo', string='Combinations')
-    detailed_type = fields.Selection(selection_add=[
-        ('combo', 'Combo')
-    ], ondelete={'combo': 'set consu'})
     type = fields.Selection(selection_add=[
         ('combo', 'Combo')
     ], ondelete={'combo': 'set consu'})
@@ -43,6 +39,14 @@ class ProductTemplate(models.Model):
     def _onchange_available_in_pos(self):
         if self.available_in_pos and not self.sale_ok:
             self.sale_ok = True
+
+    @api.onchange('type')
+    def _onchange_type(self):
+        res = super()._onchange_type()
+        if self.type == 'combo':
+            self.taxes_id = False
+            self.supplier_taxes_id = False
+        return res
 
     @api.constrains('available_in_pos')
     def _check_combo_inclusions(self):
@@ -88,9 +92,9 @@ class ProductProduct(models.Model):
     @api.model
     def _load_pos_data_fields(self, config_id):
         return [
-            'id', 'display_name', 'lst_price', 'standard_price', 'categ_id', 'pos_categ_ids', 'taxes_id', 'barcode',
-            'default_code', 'to_weight', 'uom_id', 'description_sale', 'description', 'product_tmpl_id', 'tracking',
-            'write_date', 'available_in_pos', 'attribute_line_ids', 'active', 'image_128', 'combo_ids',
+            'id', 'display_name', 'lst_price', 'standard_price', 'categ_id', 'pos_categ_ids', 'taxes_id', 'barcode', 'name',
+            'default_code', 'to_weight', 'uom_id', 'description_sale', 'description', 'product_tmpl_id', 'tracking', 'type',
+            'write_date', 'available_in_pos', 'attribute_line_ids', 'active', 'image_128', 'combo_ids', 'product_template_variant_value_ids',
         ]
 
     def _load_pos_data(self, data):
@@ -221,12 +225,8 @@ class ProductAttribute(models.Model):
     _inherit = ['product.attribute', 'pos.load.mixin']
 
     @api.model
-    def _load_pos_data_domain(self, data):
-        return [('create_variant', '=', 'no_variant')]
-
-    @api.model
     def _load_pos_data_fields(self, config_id):
-        return ['name', 'display_type', 'template_value_ids', 'attribute_line_ids']
+        return ['name', 'display_type', 'template_value_ids', 'attribute_line_ids', 'create_variant']
 
 
 class ProductAttributeCustomValue(models.Model):
@@ -259,7 +259,7 @@ class ProductTemplateAttributeValue(models.Model):
 
     @api.model
     def _load_pos_data_domain(self, data):
-        return [('attribute_id', 'in', [attr['id'] for attr in data['product.attribute']['data']])]
+        return AND([[('ptav_active', '=', True)], [('attribute_id', 'in', [attr['id'] for attr in data['product.attribute']['data']])]])
 
     @api.model
     def _load_pos_data_fields(self, config_id):

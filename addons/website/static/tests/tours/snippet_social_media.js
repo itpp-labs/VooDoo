@@ -35,10 +35,12 @@ const replaceIconByImage = function (url) {
     {
         content: "Go to the Images tab in the media dialog",
         trigger: ".o_select_media_dialog .o_notebook_headers .nav-item a:contains('Images')",
+        run: "click",
     },
     {
         content: "Select the image",
         trigger: ".o_select_media_dialog img[title='s_banner_default_image.jpg']",
+        run: "click",
     },
     ...preventRaceConditionStep,
     ];
@@ -49,6 +51,7 @@ const addNewSocialNetwork = function (optionIndex, linkIndex, url, replaceIcon =
     return [{
         content: "Click on Add New Social Network",
         trigger: 'we-list we-button.o_we_list_add_optional',
+        run: "click",
     },
     {
         content: "Ensure new option is found",
@@ -184,6 +187,7 @@ wTourUtils.registerWebsitePreviewTour('snippet_social_media', {
     {
         content: "Select a new icon",
         trigger: '.o_select_media_dialog .fa-heart',
+        run: "click",
     },
     {
         content: "Check if the result is correct after setting the icon",

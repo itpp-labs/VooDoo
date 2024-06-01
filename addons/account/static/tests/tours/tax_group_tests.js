@@ -1,5 +1,6 @@
 /** @odoo-module */
 
+import { accountTourSteps } from "@account/js/tours/account";
 import { registry } from "@web/core/registry";
 import { stepUtils } from "@web_tour/tour_service/tour_utils";
 
@@ -7,23 +8,22 @@ registry.category("web_tour.tours").add('account_tax_group', {
     test: true,
     url: "/web",
     steps: () => [stepUtils.showAppsMenuItem(),
-    {
-        id: 'account_menu_click',
-        content: "Go to Invoicing",
-        trigger: '.o_app[data-menu-xmlid="account.menu_finance"]',
-    },
+    ...accountTourSteps.goToAccountMenu("Go to Invoicing"),
     {
         content: "Go to Vendors",
         trigger: 'span:contains("Vendors")',
+        run: "click",
     },
     {
         content: "Go to Bills",
         trigger: 'a:contains("Bills")',
+        run: "click",
     },
     {
         content: "Create new bill",
         trigger: '.o_control_panel_main_buttons .o_list_button_add',
         extra_trigger: '.o_breadcrumb .text-truncate:contains("Bills")',
+        run: "click",
     },
     // Set a vendor
     {
@@ -34,11 +34,13 @@ registry.category("web_tour.tours").add('account_tax_group', {
     {
         content: "Valid vendor",
         trigger: '.ui-menu-item a:contains("Account Tax Group Partner")',
+        run: "click",
     },
     // Add First product
     {
         content: "Add items",
         trigger: 'div[name="invoice_line_ids"] .o_field_x2many_list_row_add a:contains("Add a line")',
+        run: "click",
     },
     {
         content: "Select input",
@@ -48,6 +50,7 @@ registry.category("web_tour.tours").add('account_tax_group', {
     {
         content: "Valid item",
         trigger: '.ui-menu-item-wrapper:contains("Account Tax Group Product")',
+        run: "click",
     },
     // Save account.move
     ...stepUtils.saveForm(),
@@ -55,6 +58,7 @@ registry.category("web_tour.tours").add('account_tax_group', {
     {
         content: "Edit tax group amount",
         trigger: '.o_tax_group_edit',
+        run: "click",
     },
     {
         content: "Modify the input value",
@@ -69,11 +73,13 @@ registry.category("web_tour.tours").add('account_tax_group', {
     {
         content: "Valid total amount",
         trigger: 'span[name="amount_total"]:contains("800")',
+        run: "click",
     },
     // Modify the quantity of the object
     {
         content: "Select item quantity",
         trigger: 'div[name="invoice_line_ids"] tbody tr.o_data_row .o_list_number[name="quantity"]',
+        run: "click",
     },
     {
         content: "Change item quantity",
@@ -89,6 +95,7 @@ registry.category("web_tour.tours").add('account_tax_group', {
     {
         content: "Check new value of tax group",
         trigger: '.o_tax_group_amount_value:contains("120")',
+        run: "click",
     },
     // Save form
     ...stepUtils.saveForm(),
@@ -96,6 +103,7 @@ registry.category("web_tour.tours").add('account_tax_group', {
     {
         content: "Check new value of tax group",
         trigger: '.o_tax_group_amount_value:contains("120")',
+        run: "click",
     },
     {
         content: "Edit tax value",
@@ -105,10 +113,12 @@ registry.category("web_tour.tours").add('account_tax_group', {
     {
         content: "Check new value of total",
         trigger: '.oe_subtotal_footer_separator:contains("1,202")',
+        run: "click",
     },
     {
         content: "Discard changes",
         trigger: '.o_form_button_cancel',
+        run: "click",
     },
     {
         content: "Check tax value is reset",

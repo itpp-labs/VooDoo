@@ -58,6 +58,7 @@ export class ViewButton extends Component {
         tag: "button",
         className: "",
         clickParams: {},
+        attrs: {},
     };
 
     setup() {
@@ -74,17 +75,17 @@ export class ViewButton extends Component {
                 string: this.props.string,
                 help: this.clickParams.help,
                 context: this.clickParams.context,
-                invisible: this.props.attrs?.invisible,
-                column_invisible: this.props.attrs?.column_invisible,
-                readonly: this.props.attrs?.readonly,
-                required: this.props.attrs?.required,
+                invisible: this.props.attrs.invisible,
+                column_invisible: this.props.attrs.column_invisible,
+                readonly: this.props.attrs.readonly,
+                required: this.props.attrs.required,
                 special: this.clickParams.special,
                 type: this.clickParams.type,
                 name: this.clickParams.name,
                 title: this.props.title,
             },
             context: this.props.record && this.props.record.context,
-            model: (this.props.record && this.props.record.resModel) || this.props.resModel,
+            model: this.props.record && this.props.record.resModel,
         });
         this.dropdownControl = useDropdownCloser();
     }
@@ -121,7 +122,14 @@ export class ViewButton extends Component {
         this.env.onClickViewButton({
             clickParams: this.clickParams,
             getResParams: () =>
-                pick(this.props.record, "context", "evalContext", "resModel", "resId", "resIds"),
+                pick(
+                    this.props.record || {},
+                    "context",
+                    "evalContext",
+                    "resModel",
+                    "resId",
+                    "resIds"
+                ),
             beforeExecute: () => this.dropdownControl.close(),
         });
     }
