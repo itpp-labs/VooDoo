@@ -110,7 +110,7 @@ class HrEmployeePrivate(models.Model):
         ('master', 'Master'),
         ('doctor', 'Doctor'),
         ('other', 'Other'),
-    ], 'Certificate Level', default='other', groups="hr.group_hr_user", tracking=True)
+    ], 'Certificate Level', groups="hr.group_hr_user", tracking=True)
     study_field = fields.Char("Field of Study", groups="hr.group_hr_user", tracking=True)
     study_school = fields.Char("School", groups="hr.group_hr_user", tracking=True)
     emergency_contact = fields.Char("Contact Name", groups="hr.group_hr_user", tracking=True)
@@ -315,7 +315,7 @@ class HrEmployeePrivate(models.Model):
         public_fields = self.env['hr.employee.public']._fields
         private_fields = [fname for fname in field_names if fname not in public_fields]
         if private_fields:
-            raise AccessError(_('The fields %r you try to read is not available on the public employee profile.', ','.join(private_fields)))
+            raise AccessError(_('The fields “%s”, which you are trying to read, are not available for employee public profiles.', ','.join(private_fields)))
 
     def _copy_cache_from(self, public, field_names):
         # HACK: retrieve publicly available values from hr.employee.public and
