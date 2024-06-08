@@ -476,7 +476,7 @@ class GettextAlias(object):
 
     def _get_lang(self, frame):
         # try, in order: context.get('lang'), kwargs['context'].get('lang'),
-        # self.env.lang, self.localcontext.get('lang'), request.env.lang
+        # self.env.lang, request.env.lang
         lang = None
         if frame.f_locals.get('context'):
             lang = frame.f_locals['context'].get('lang')
@@ -488,9 +488,6 @@ class GettextAlias(object):
             s = frame.f_locals.get('self')
             if hasattr(s, 'env'):
                 lang = s.env.lang
-            if not lang:
-                if hasattr(s, 'localcontext'):
-                    lang = s.localcontext.get('lang')
             if not lang:
                 try:
                     from odoo.http import request
@@ -1715,6 +1712,7 @@ def _get_translation_upgrade_queries(cr, field):
     cleanup_queries = []
 
     if field.translate is True:
+        emtpy_src = """'{"en_US": ""}'::jsonb"""
         query = f"""
             WITH t AS (
                 SELECT it.res_id as res_id, jsonb_object_agg(it.lang, it.value) AS value, bool_or(imd.noupdate) AS noupdate
@@ -1725,7 +1723,8 @@ def _get_translation_upgrade_queries(cr, field):
               GROUP BY it.res_id
             )
             UPDATE {Model._table} m
-               SET "{field.name}" = CASE WHEN t.noupdate IS FALSE THEN t.value || m."{field.name}"
+               SET "{field.name}" = CASE WHEN m."{field.name}" IS NULL THEN {emtpy_src} || t.value
+                                         WHEN t.noupdate IS FALSE THEN t.value || m."{field.name}"
                                          ELSE m."{field.name}" || t.value
                                      END
               FROM t

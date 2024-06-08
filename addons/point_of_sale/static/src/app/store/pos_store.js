@@ -886,13 +886,7 @@ export class PosStore extends Reactive {
             const orders = [...orderToCreate, ...orderToUpdate, ...paidOrdersNotSent];
 
             this.preSyncAllOrders(orders);
-            const idsToDelete = [...this.pendingOrder.delete];
             const context = this.getSyncAllOrdersContext(orders);
-
-            if (idsToDelete.length > 0) {
-                this.pendingOrder.delete.clear();
-                await this.data.ormDelete("pos.order", idsToDelete);
-            }
 
             // Allow us to force the sync of the orders In the case of
             // pos_restaurant is usefull to get unsynced orders
@@ -1402,13 +1396,13 @@ export class PosStore extends Reactive {
         // If pos is not properly loaded, we just go back to /web without
         // doing anything in the order data.
         if (!this) {
-            window.location = "/web#action=point_of_sale.action_client_pos_menu";
+            this.redirectToBackend();
         }
 
         // If there are orders in the db left unsynced, we try to sync.
         const syncSuccess = await this.push_orders_with_closing_popup();
         if (syncSuccess) {
-            window.location = "/web#action=point_of_sale.action_client_pos_menu";
+            this.redirectToBackend();
         }
     }
     shouldShowNavbarButtons() {
@@ -1690,6 +1684,10 @@ export class PosStore extends Reactive {
 
     _shouldLoadOrders() {
         return this.config.raw.trusted_config_ids.length > 0;
+    }
+
+    redirectToBackend() {
+        window.location = "/web#action=point_of_sale.action_client_pos_menu";
     }
 }
 
