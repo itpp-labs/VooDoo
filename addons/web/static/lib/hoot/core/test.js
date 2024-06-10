@@ -1,5 +1,4 @@
 /** @odoo-module */
-/* eslint-disable no-restricted-syntax */
 
 import { reactive } from "@odoo/owl";
 import { HootError } from "../hoot_utils";
@@ -61,7 +60,7 @@ export class Test extends Job {
     /** @type {import("./expect").TestResult[]} */
     results = reactive([]);
     /** @type {() => MaybePromise<void> | null} */
-    runFn = null;
+    run = null;
     status = Test.SKIPPED;
 
     /** @returns {typeof Test["prototype"]["results"][number]} */
@@ -82,19 +81,12 @@ export class Test extends Job {
     }
 
     /**
-     * @param {...unknown} args
-     */
-    async run(...args) {
-        return this.runFn(...args);
-    }
-
-    /**
      * @param {() => MaybePromise<void>} fn
      */
     setRunFn(fn) {
-        this.runFn = fn;
-        if (this.runFn) {
-            this.code = formatFunctionSource(this.runFn);
+        this.run = fn ? async () => fn() : null;
+        if (fn) {
+            this.code = formatFunctionSource(fn);
         }
     }
 }

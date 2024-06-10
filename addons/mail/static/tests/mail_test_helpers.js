@@ -1,13 +1,15 @@
 import { busModels } from "@bus/../tests/bus_test_helpers";
 import { mailGlobal } from "@mail/utils/common/misc";
 import { after, before, getFixture } from "@odoo/hoot";
+import { resize } from "@odoo/hoot-dom";
 import { Component, onRendered, onWillDestroy, status } from "@odoo/owl";
 import { getMockEnv, restoreRegistry } from "@web/../tests/_framework/env_test_helpers";
-import { authenticate, defineParams } from "@web/../tests/_framework/mock_server/mock_server";
 import { parseViewProps } from "@web/../tests/_framework/view_test_helpers";
 import {
     MockServer,
+    authenticate,
     defineModels,
+    defineParams,
     getService,
     makeMockEnv,
     makeMockServer,
@@ -25,6 +27,7 @@ import { WebClient } from "@web/webclient/webclient";
 import { DISCUSS_ACTION_ID, authenticateGuest } from "./mock_server/mail_mock_server";
 import { Base } from "./mock_server/mock_models/base";
 import { DEFAULT_MAIL_VIEW_ID } from "./mock_server/mock_models/constants";
+
 import { DiscussChannel } from "./mock_server/mock_models/discuss_channel";
 import { DiscussChannelMember } from "./mock_server/mock_models/discuss_channel_member";
 import { DiscussChannelRtcSession } from "./mock_server/mock_models/discuss_channel_rtc_session";
@@ -54,6 +57,7 @@ import { ResPartner } from "./mock_server/mock_models/res_partner";
 import { ResUsers } from "./mock_server/mock_models/res_users";
 import { ResUsersSettings } from "./mock_server/mock_models/res_users_settings";
 import { ResUsersSettingsVolumes } from "./mock_server/mock_models/res_users_settings_volumes";
+
 export { SIZES } from "@web/core/ui/ui_service";
 export * from "./mail_test_helpers_contains";
 
@@ -252,8 +256,6 @@ async function addSwitchTabDropdownItem(rootTarget, tabTarget) {
     dropdownDiv.querySelector(".dropdown-menu").appendChild(li);
 }
 
-let NEXT_ENV_ID = 1;
-
 /**
  * @param {{
  *  asTab?: boolean;
@@ -292,12 +294,7 @@ export async function start(options) {
             storeData: ResUsers._init_store_data(),
         });
     }
-    const envId = NEXT_ENV_ID++;
-    const envOptions = { ...options?.env, envId };
     let env;
-
-    mailGlobal.elligibleEnvs.add(envId);
-
     if (options?.asTab) {
         restoreRegistry(registry);
         const rootTarget = target;
@@ -305,20 +302,12 @@ export async function start(options) {
         target.style.width = "100%";
         rootTarget.appendChild(target);
         addSwitchTabDropdownItem(rootTarget, target);
-        env = await makeMockEnv(envOptions, { makeNew: true });
+        env = await makeMockEnv({}, { makeNew: true });
     } else {
-        env = getMockEnv();
-        if (env) {
-            Object.assign(env, envOptions);
-        } else {
-            env = await makeMockEnv(envOptions);
-        }
+        env = getMockEnv() || (await makeMockEnv({}));
     }
-    await mountWithCleanup(WebClient, { target, env });
-    after(() => {
-        mailGlobal.elligibleEnvs.clear();
-    });
-    return Object.assign(getMockEnv(), { target });
+    await mountWithCleanup(WebClient, { env, target });
+    return Object.assign(env, { ...options?.env, target });
 }
 
 export async function startServer() {
@@ -377,10 +366,7 @@ export function patchUiSize({ height, size, width }) {
     size = size === undefined ? getSizeFromWidth(width) : size;
     width = width || getWidthFromSize(size);
 
-    patchWithCleanup(browser, {
-        innerWidth: width,
-        innerHeight: height || browser.innerHeight,
-    });
+    resize({ width, height });
     patchWithCleanup(uiUtils, {
         getSize() {
             return size;

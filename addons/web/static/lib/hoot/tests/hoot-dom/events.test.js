@@ -1,6 +1,6 @@
 /** @odoo-module */
 
-import { Component, xml } from "@odoo/owl";
+import { after, describe, expect, getFixture, mountOnFixture, test } from "@odoo/hoot";
 import {
     clear,
     click,
@@ -23,11 +23,11 @@ import {
     setInputFiles,
     setInputRange,
     uncheck,
-} from "../../../hoot-dom/hoot-dom";
-import { after, describe, expect, mountOnFixture, test } from "../../hoot";
+} from "@odoo/hoot-dom";
+import { Component, xml } from "@odoo/owl";
 import { mockUserAgent } from "../../mock/navigator";
 import { advanceTime, animationFrame } from "../../mock/time";
-import { parseUrl } from "../local_helpers";
+import { parseUrl, waitForIframes } from "../local_helpers";
 
 /**
  * @param {KeyboardEvent} ev
@@ -214,6 +214,28 @@ describe(parseUrl(import.meta.url), () => {
         expect(clickEvent.detail).toBe(1);
     });
 
+    test("click: iframe", async () => {
+        await mountOnFixture(/* xml */ `
+            <button>Click me</button>
+            <iframe srcdoc="&lt;button&gt;iframe button&lt;/button&gt;" />
+        `);
+
+        await waitForIframes();
+
+        expect("button").toHaveCount(1);
+        expect(":iframe button").toHaveCount(1);
+
+        click("button");
+
+        expect("button").toBeFocused();
+        expect(":iframe button").not.toBeFocused();
+
+        click(":iframe button");
+
+        expect("button").not.toBeFocused();
+        expect(":iframe button").toBeFocused();
+    });
+
     test("drag & drop: draggable items", async () => {
         await mountOnFixture(/* xml */ `
             <ul>
@@ -240,6 +262,7 @@ describe(parseUrl(import.meta.url), () => {
             // Drag first
             "first-item.pointerdown",
             "first-item.mousedown",
+            "first-item.focus",
             // Cancel
             "keydown:Escape",
             "keyup:Escape",
@@ -252,6 +275,7 @@ describe(parseUrl(import.meta.url), () => {
             // Drag first
             "first-item.pointerdown",
             "first-item.mousedown",
+            "first-item.focus",
             // Leave first
             "first-item.dragstart",
             "first-item.drag",
@@ -286,6 +310,7 @@ describe(parseUrl(import.meta.url), () => {
             // Drag first
             "first-item.pointerdown",
             "first-item.mousedown",
+            "first-item.focus",
             // Leave first
             "first-item.dragstart",
             "first-item.drag",
@@ -321,6 +346,7 @@ describe(parseUrl(import.meta.url), () => {
             // Drag first
             "first-item.pointerdown",
             "first-item.mousedown",
+            "first-item.focus",
             // Leave first
             "first-item.dragstart",
             "first-item.drag",
@@ -355,6 +381,7 @@ describe(parseUrl(import.meta.url), () => {
             // Drag first
             "first-item.pointerdown",
             "first-item.mousedown",
+            "first-item.focus",
             // Leave first
             "first-item.dragstart",
             "first-item.drag",
@@ -645,6 +672,21 @@ describe(parseUrl(import.meta.url), () => {
                 `keyup:${char}`,
             ]),
         ]).toVerifySteps();
+
+        click(getFixture());
+
+        expect([
+            // Pointer out
+            "pointermove",
+            "mousemove",
+            "pointerout",
+            "mouseout",
+            "pointerleave",
+            "mouseleave",
+            // Change
+            "blur",
+            "change",
+        ]).toVerifySteps();
     });
 
     test("edit on existing value", async () => {
@@ -676,6 +718,38 @@ describe(parseUrl(import.meta.url), () => {
                 `keyup:${char}`,
             ]),
         ]).toVerifySteps();
+    });
+
+    test("edit: iframe", async () => {
+        await mountOnFixture(/* xml */ `
+            <input type="text" />
+            <iframe srcdoc="&lt;input type='text' /&gt;" />
+        `);
+
+        await waitForIframes();
+
+        expect("input").toHaveCount(1);
+        expect(":iframe input").toHaveCount(1);
+
+        on("input", "change", () => expect.step("top:change"));
+        on(":iframe input", "change", () => expect.step("iframe:change"));
+
+        click("input");
+        edit("abc");
+
+        expect([]).toVerifySteps();
+        expect("input").toHaveValue("abc");
+        expect(":iframe input").toHaveValue("");
+
+        click(":iframe input");
+        edit("def");
+
+        expect(["top:change"]).toVerifySteps();
+        expect("input").toHaveValue("abc");
+        expect(":iframe input").toHaveValue("def");
+
+        click(":iframe body");
+        expect(["iframe:change"]).toVerifySteps();
     });
 
     test("setInputFiles: single file", async () => {

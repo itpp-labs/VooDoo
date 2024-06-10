@@ -8,6 +8,7 @@ import { IrRule } from "./_framework/mock_server/mock_models/ir_rule";
 import { IrUiView } from "./_framework/mock_server/mock_models/ir_ui_view";
 import { ResCompany } from "./_framework/mock_server/mock_models/res_company";
 import { ResCountry } from "./_framework/mock_server/mock_models/res_country";
+import { ResCurrency } from "./_framework/mock_server/mock_models/res_currency";
 import { ResGroups } from "./_framework/mock_server/mock_models/res_groups";
 import { ResPartner } from "./_framework/mock_server/mock_models/res_partner";
 import { ResUsers } from "./_framework/mock_server/mock_models/res_users";
@@ -78,7 +79,12 @@ export {
     stepAllNetworkCalls,
     withUser,
 } from "./_framework/mock_server/mock_server";
-export { makeServerError } from "./_framework/mock_server/mock_server_utils";
+export {
+    getKwArgs,
+    makeKwArgs,
+    makeServerError,
+    unmakeKwArgs,
+} from "./_framework/mock_server/mock_server_utils";
 export { serverState } from "./_framework/mock_server_state.hoot";
 export { configureModuleSet } from "./_framework/module_set.hoot";
 export { patchWithCleanup } from "./_framework/patch_test_helpers";
@@ -148,6 +154,7 @@ export const webModels = {
     IrUiView,
     ResCompany,
     ResCountry,
+    ResCurrency,
     ResGroups,
     ResPartner,
     ResUsers,

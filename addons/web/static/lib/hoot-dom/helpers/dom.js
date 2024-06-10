@@ -11,6 +11,11 @@ import { HootDomError, getTag, isFirefox, isIterable, parseRegExp } from "../hoo
  * }} Dimensions
  *
  * @typedef {{
+ *  parent?: Node;
+ *  tabbable?: boolean;
+ * }} FocusableOptions
+ *
+ * @typedef {{
  *  keepInlineTextNodes?: boolean;
  *  tabSize?: number;
  *  type?: "html" | "xml";
@@ -79,7 +84,6 @@ const {
     Boolean,
     cancelAnimationFrame,
     clearTimeout,
-    console: { warn: $warn },
     document,
     DOMParser,
     Map,
@@ -88,7 +92,6 @@ const {
     Number: { isInteger: $isInteger, isNaN: $isNaN, parseInt: $parseInt, parseFloat: $parseFloat },
     Object: { keys: $keys, values: $values },
     Promise,
-    Reflect: { ownKeys: $ownKeys },
     RegExp,
     requestAnimationFrame,
     Set,
@@ -758,11 +761,10 @@ const FOCUSABLE_SELECTOR = [
     "input:enabled",
     "select:enabled",
     "textarea:enabled",
+    "[draggable]",
     "[tabindex]",
     "[contenteditable=true]",
-]
-    .map((sel) => `${sel}:not([tabindex="-1"])`)
-    .join(",");
+].join(",");
 
 const QUERYABLE_NODE_TYPES = [Node.ELEMENT_NODE, Node.DOCUMENT_NODE, Node.DOCUMENT_FRAGMENT_NODE];
 
@@ -923,7 +925,7 @@ export function cleanupDOM() {
     // Observers
     const remainingObservers = observers.size;
     if (remainingObservers) {
-        $warn(`${remainingObservers} observers still running`);
+        console.warn(`${remainingObservers} observers still running`);
         for (const { observer } of observers.values()) {
             observer.disconnect();
         }
@@ -991,25 +993,26 @@ export function getDocument(node) {
  * property.
  *
  * @see {@link isFocusable} for more information
- * @param {Node} [parent] default: current fixture
+ * @param {FocusableOptions} [options]
  * @returns {Element[]}
  * @example
  *  getFocusableElements();
  */
-export function getFocusableElements(parent) {
-    parent ||= getDefaultRoot();
+export function getFocusableElements(options) {
+    const parent = options?.parent || getDefaultRoot();
     if (typeof parent.querySelectorAll !== "function") {
         return [];
     }
     const byTabIndex = {};
     for (const element of parent.querySelectorAll(FOCUSABLE_SELECTOR)) {
-        if (isNodeDisplayed(element)) {
-            const tabindex = element.tabIndex;
-            if (!byTabIndex[tabindex]) {
-                byTabIndex[tabindex] = [];
-            }
-            byTabIndex[tabindex].push(element);
+        const { tabIndex } = element;
+        if ((options?.tabbable && tabIndex < 0) || !isNodeDisplayed(element)) {
+            continue;
         }
+        if (!byTabIndex[tabIndex]) {
+            byTabIndex[tabIndex] = [];
+        }
+        byTabIndex[tabIndex].push(element);
     }
     const withTabIndexZero = byTabIndex[0] || [];
     delete byTabIndex[0];
@@ -1037,14 +1040,14 @@ export function getHeight(dimensions) {
  * contained in the given parent.
  *
  * @see {@link getFocusableElements}
- * @param {Node} [parent] default: current fixture
+ * @param {FocusableOptions} [options]
  * @returns {Element | null}
  * @example
  *  getPreviousFocusableElement();
  */
-export function getNextFocusableElement(parent) {
-    parent ||= getDefaultRoot();
-    const focusableEls = getFocusableElements(parent);
+export function getNextFocusableElement(options) {
+    const parent = options?.parent || getDefaultRoot();
+    const focusableEls = getFocusableElements(parent, options);
     const index = focusableEls.indexOf(getActiveElement(parent));
     return focusableEls[index + 1] || null;
 }
@@ -1155,14 +1158,14 @@ export function getParentFrame(node) {
  * contained in the given parent.
  *
  * @see {@link getFocusableElements}
- * @param {Node} [parent] default: current fixture
+ * @param {FocusableOptions} [options]
  * @returns {Element | null}
  * @example
  *  getPreviousFocusableElement();
  */
-export function getPreviousFocusableElement(parent) {
-    parent ||= getDefaultRoot();
-    const focusableEls = getFocusableElements(parent);
+export function getPreviousFocusableElement(options) {
+    const parent = options?.parent || getDefaultRoot();
+    const focusableEls = getFocusableElements(parent, options);
     const index = focusableEls.indexOf(getActiveElement(parent));
     return index < 0 ? focusableEls.at(-1) : focusableEls[index - 1] || null;
 }
@@ -1328,11 +1331,12 @@ export function isEventTarget(target) {
  *
  * @see {@link FOCUSABLE_SELECTOR}
  * @param {Target} target
+ * @param {FocusableOptions} [options]
  * @returns {boolean}
  */
-export function isFocusable(target) {
-    const nodes = queryAll(target);
-    return nodes.length && nodes.every(isNodeFocusable);
+export function isFocusable(target, options) {
+    const nodes = queryAll(target, { root: options?.parent });
+    return nodes.length && nodes.every((node) => isNodeFocusable(node, options));
 }
 
 /**
@@ -1379,9 +1383,14 @@ export function isNode(object) {
 
 /**
  * @param {Node} node
+ * @param {FocusableOptions} node
  */
-export function isNodeFocusable(node) {
-    return isNodeDisplayed(node) && node.matches?.(FOCUSABLE_SELECTOR);
+export function isNodeFocusable(node, options) {
+    return (
+        isNodeDisplayed(node) &&
+        node.matches?.(FOCUSABLE_SELECTOR) &&
+        (!options?.tabbable || node.tabIndex >= 0)
+    );
 }
 
 /**
@@ -1970,45 +1979,4 @@ export async function waitUntil(predicate, options) {
         cancelAnimationFrame(handle);
         clearTimeout(timeoutId);
     });
-}
-
-/**
- * Returns a function checking that the given target does not contain any unexpected
- * key. The list of accepted keys is the initial list of keys of the target, along
- * with an optional `whiteList` argument.
- *
- * @template T
- * @param {T} target
- * @param {string[]} [whiteList]
- * @example
- *  afterEach(watchKeys(window, ["odoo"]));
- */
-export function watchKeys(target, whiteList) {
-    const acceptedKeys = new Set([...$ownKeys(target), ...(whiteList || [])]);
-
-    /**
-     * @param {{ cleanup?: boolean }} [options]
-     */
-    return function checkKeys(options) {
-        if (!isInDOM(target)) {
-            return;
-        }
-        const keysDiff = $ownKeys(target).filter(
-            (key) => $isNaN($parseFloat(key)) && !acceptedKeys.has(key)
-        );
-        if (keysDiff.length) {
-            if (options?.cleanup) {
-                for (const key of keysDiff) {
-                    delete target[key];
-                }
-            } else {
-                $warn(
-                    `${target.constructor.name} has`,
-                    keysDiff.length,
-                    `unexpected keys:`,
-                    keysDiff
-                );
-            }
-        }
-    };
 }
