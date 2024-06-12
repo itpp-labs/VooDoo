@@ -19,16 +19,6 @@ class ProductTemplate(models.Model):
         help="Manually set quantities on order: Invoice based on the manually entered quantity, without creating an analytic account.\n"
              "Timesheets on contract: Invoice based on the tracked hours on the related timesheet.\n"
              "Create a task and track hours: Create a task on the sales order validation and track the work hours.")
-    service_tracking = fields.Selection(selection=[
-            ('no', 'Nothing'),
-        ],
-        string="Create on Order",
-        default="no",
-        compute="_compute_service_tracking",
-        required=True,
-        store=True,
-        readonly=False,
-    )
     sale_line_warn = fields.Selection(
         WARNING_MESSAGE, string="Sales Order Line",
         help=WARNING_HELP, required=True, default="no-message")
@@ -101,7 +91,7 @@ class ProductTemplate(models.Model):
     def _prepare_service_tracking_tooltip(self):
         return ""
 
-    @api.depends('type', 'sale_ok')
+    @api.depends('sale_ok')
     def _compute_service_tracking(self):
         non_service_products = self.filtered(
             lambda pt: not pt.sale_ok or pt.type != 'service'
@@ -122,19 +112,6 @@ class ProductTemplate(models.Model):
     def _compute_sales_count(self):
         for product in self:
             product.sales_count = float_round(sum([p.sales_count for p in product.with_context(active_test=False).product_variant_ids]), precision_rounding=product.uom_id.rounding)
-
-    @api.depends('attribute_line_ids.value_ids.is_custom', 'attribute_line_ids.attribute_id.create_variant')
-    def _compute_has_configurable_attributes(self):
-        """ A product is considered configurable if:
-        - It has dynamic attributes
-        - It has any attribute line with at least 2 attribute values configured
-        - It has at least one custom attribute value """
-        for product in self:
-            product.has_configurable_attributes = (
-                any(attribute.create_variant == 'dynamic' for attribute in product.attribute_line_ids.attribute_id)
-                or any(len(attribute_line_id.value_ids) >= 2 for attribute_line_id in product.attribute_line_ids)
-                or any(attribute_value.is_custom for attribute_value in product.attribute_line_ids.value_ids)
-            )
 
     @api.constrains('company_id')
     def _check_sale_product_company(self):

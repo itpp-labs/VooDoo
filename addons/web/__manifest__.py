@@ -426,6 +426,7 @@ This module provides the core of the Odoo Web Client.
             ('include', 'web.assets_backend'),
 
             'web/static/src/public/public_component_service.js',
+            'web/static/src/webclient/clickbot/clickbot.js',
         ],
         # Unit test files
         'web.assets_unit_tests': [
@@ -476,7 +477,6 @@ This module provides the core of the Odoo Web Client.
             'web/static/src/webclient/clickbot/clickbot.js',
         ],
         'web.qunit_suite_tests': [
-            'web/static/tests/legacy/env_tests.js',
             'web/static/tests/legacy/reactivity_tests.js',
             'web/static/tests/legacy/core/**/*.js',
             'web/static/tests/legacy/search/**/*.js',

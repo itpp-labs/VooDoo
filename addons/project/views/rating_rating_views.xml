@@ -70,11 +70,11 @@
         <field name="mode">primary</field>
         <field name="priority">64</field>
         <field name="arch" type="xml">
-            <xpath expr="//pivot" position="attributes">
-                <attribute name="js_class">project_rating_pivot</attribute>
-            </xpath>
             <xpath expr="//field[@name='create_date']" position="attributes">
                 <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='rating']" position="attributes">
+                <attribute name="string">Rating (1-5)</attribute>
             </xpath>
         </field>
     </record>
@@ -86,8 +86,8 @@
         <field name="mode">primary</field>
         <field name="priority">64</field>
         <field name="arch" type="xml">
-            <xpath expr="//graph" position="attributes">
-                <attribute name="js_class">project_rating_graph</attribute>
+            <xpath expr="//field[@name='rating']" position="attributes">
+                <attribute name="string">Rating (1-5)</attribute>
             </xpath>
         </field>
     </record>

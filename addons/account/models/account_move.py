@@ -2765,7 +2765,7 @@ class AccountMove(models.Model):
                 ))
             if (move.posted_before and 'journal_id' in vals and move.journal_id.id != vals['journal_id']):
                 raise UserError(_('You cannot edit the journal of an account move if it has been posted once.'))
-            if (move.name and move.name != '/' and move.sequence_number not in (0, 1) and 'journal_id' in vals and move.journal_id.id != vals['journal_id']):
+            if (move.name and move.name != '/' and move.sequence_number not in (0, 1) and 'journal_id' in vals and move.journal_id.id != vals['journal_id'] and not move.quick_edit_mode):
                 raise UserError(_('You cannot edit the journal of an account move if it already has a sequence number assigned.'))
 
             # You can't change the date or name of a move being inside a locked period.
@@ -4889,9 +4889,9 @@ class AccountMove(models.Model):
         if self.invoice_pdf_report_id:
             attachments = self.env['account.move.send']._get_invoice_extra_attachments(self)
         else:
-            content, _ = self.env['ir.actions.report']._render('account.account_invoices', self.ids, data={'proforma': True})
+            content, _ = self.env['ir.actions.report']._pre_render_qweb_pdf('account.account_invoices', self.ids, data={'proforma': True})
             attachments = self.env['ir.attachment'].new({
-                'raw': content,
+                'raw': content[self.id],
                 'name': self._get_invoice_proforma_pdf_report_filename(),
                 'mimetype': 'application/pdf',
                 'res_model': self._name,

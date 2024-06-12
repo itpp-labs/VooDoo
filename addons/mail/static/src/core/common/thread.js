@@ -21,7 +21,8 @@ import { Transition } from "@web/core/transition";
 import { useBus, useService } from "@web/core/utils/hooks";
 import { escape } from "@web/core/utils/strings";
 
-export const PRESENT_THRESHOLD = 2500;
+export const PRESENT_VIEWPORT_THRESHOLD = 3;
+const PRESENT_MESSAGE_THRESHOLD = 10;
 
 /**
  * @typedef {Object} Props
@@ -122,13 +123,12 @@ export class Thread extends Component {
                     } else {
                         if (this.props.order === "desc") {
                             this.scrollableRef.el.scrollTop = 0;
-                            this.props.thread.scrollTop = 0;
                         } else {
                             this.scrollableRef.el.scrollTop =
                                 this.scrollableRef.el.scrollHeight -
                                 this.scrollableRef.el.clientHeight;
-                            this.props.thread.scrollTop = "bottom";
                         }
+                        this.props.thread.scrollTop = "bottom";
                     }
                     this.lastJumpPresent = this.props.jumpPresent;
                 }
@@ -295,10 +295,19 @@ export class Thread extends Component {
         });
         onWillDestroy(() => stopOnChange());
         const saveScroll = () => {
-            toRaw(this.props.thread).scrollTop =
-                ref.el.scrollHeight - ref.el.scrollTop - ref.el.clientHeight < 30
-                    ? "bottom"
-                    : ref.el.scrollTop;
+            const thread = toRaw(this.props.thread);
+            const isBottom =
+                this.props.order === "asc"
+                    ? ref.el.scrollHeight - ref.el.scrollTop - ref.el.clientHeight < 30
+                    : ref.el.scrollTop < 30;
+            if (isBottom) {
+                thread.scrollTop = "bottom";
+            } else {
+                thread.scrollTop =
+                    this.props.order === "asc"
+                        ? ref.el.scrollTop
+                        : ref.el.scrollHeight - ref.el.scrollTop - ref.el.clientHeight;
+            }
         };
         const setScroll = (value) => {
             ref.el.scrollTop = value;
@@ -350,10 +359,16 @@ export class Thread extends Component {
                 !this.env.messageHighlight?.highlightedMessageId &&
                 thread.scrollTop !== undefined
             ) {
-                const value =
-                    thread.scrollTop === "bottom"
-                        ? ref.el.scrollHeight - ref.el.clientHeight
-                        : thread.scrollTop;
+                let value;
+                if (thread.scrollTop === "bottom") {
+                    value =
+                        this.props.order === "asc" ? ref.el.scrollHeight - ref.el.clientHeight : 0;
+                } else {
+                    value =
+                        this.props.order === "asc"
+                            ? thread.scrollTop
+                            : ref.el.scrollHeight - thread.scrollTop - ref.el.clientHeight;
+                }
                 if (lastSetValue === undefined || Math.abs(lastSetValue - value) > 1) {
                     setScroll(value);
                 }
@@ -396,7 +411,14 @@ export class Thread extends Component {
     }
 
     get PRESENT_THRESHOLD() {
-        return this.state.showJumpPresent ? PRESENT_THRESHOLD - 200 : PRESENT_THRESHOLD;
+        const viewportHeight = this.scrollableRef.el?.clientHeight * PRESENT_VIEWPORT_THRESHOLD;
+        const messagesHeight = [...this.props.thread.nonEmptyMessages]
+            .reverse()
+            .slice(0, PRESENT_MESSAGE_THRESHOLD)
+            .map((message) => this.refByMessageId.get(message.id))
+            .reduce((totalHeight, message) => totalHeight + message?.el?.clientHeight, 0);
+        const threshold = Math.max(viewportHeight, messagesHeight);
+        return this.state.showJumpPresent ? threshold - 200 : threshold;
     }
 
     get newMessageBannerText() {
@@ -439,7 +461,7 @@ export class Thread extends Component {
         this.messageHighlight?.clearHighlight();
         await this.props.thread.loadAround();
         this.props.thread.loadNewer = false;
-        this.props.thread.scrollTop = this.props.order === "desc" ? 0 : "bottom";
+        this.props.thread.scrollTop = "bottom";
         this.state.showJumpPresent = false;
     }
 
