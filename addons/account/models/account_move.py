@@ -2347,7 +2347,7 @@ class AccountMove(models.Model):
                     return
 
                 rounding_line_vals.update({
-                    'name': _('%s (rounding)', biggest_tax_line.name),
+                    'name': _("%(tax_name)s (rounding)", tax_name=biggest_tax_line.name),
                     'account_id': biggest_tax_line.account_id.id,
                     'tax_repartition_line_id': biggest_tax_line.tax_repartition_line_id.id,
                     'tax_tag_ids': [(6, 0, biggest_tax_line.tax_tag_ids.ids)],
@@ -3494,20 +3494,26 @@ class AccountMove(models.Model):
             passed_file_data_list.append(file_data)
             attachment = file_data.get('attachment') or file_data.get('originator_pdf')
             if attachment:
-                if attachments_by_invoice[attachment]:
+                if attachments_by_invoice.get(attachment):
                     attachments_by_invoice[attachment] |= invoice
                 else:
                     attachments_by_invoice[attachment] = invoice
 
         file_data_list = attachments._unwrap_edi_attachments()
-        attachments_by_invoice = {
-            attachment: None
-            for attachment in attachments
-        }
+        attachments_by_invoice = {}
         invoices = self
         current_invoice = self
         passed_file_data_list = []
         for file_data in file_data_list:
+
+            # Rogue binaries from mail alias are skipped and unlinked.
+            if (
+                file_data['type'] == 'binary'
+                and self._context.get('from_alias')
+                and not attachments_by_invoice.get(file_data['attachment'])
+            ):
+                close_file(file_data)
+                continue
 
             # The invoice has already been decoded by an embedded file.
             if attachments_by_invoice.get(file_data['attachment']):
@@ -4218,7 +4224,7 @@ class AccountMove(models.Model):
                 validation_msgs.add(_('You need to add a line before posting.'))
             if not soft and move.auto_post != 'no' and move.date > fields.Date.context_today(self):
                 date_msg = move.date.strftime(get_lang(self.env).date_format)
-                validation_msgs.add(_("This move is configured to be auto-posted on %s", date_msg))
+                validation_msgs.add(_("This move is configured to be auto-posted on %(date)s", date=date_msg))
             if not move.journal_id.active:
                 validation_msgs.add(_(
                     "You cannot post an entry in an archived journal (%(journal)s)",
@@ -5041,7 +5047,7 @@ class AccountMove(models.Model):
     def message_new(self, msg_dict, custom_values=None):
         # EXTENDS mail mail.thread
         # Add custom behavior when receiving a new invoice through the mail's gateway.
-        if (custom_values or {}).get('move_type', 'entry') not in ('out_invoice', 'in_invoice'):
+        if (custom_values or {}).get('move_type', 'entry') not in ('out_invoice', 'in_invoice', 'entry'):
             return super().message_new(msg_dict, custom_values=custom_values)
 
         company = self.env['res.company'].browse(custom_values['company_id']) if custom_values.get('company_id') else self.env.company
@@ -5101,17 +5107,17 @@ class AccountMove(models.Model):
         res = super()._message_post_after_hook(new_message, message_values)
 
         attachments = new_message.attachment_ids
-        if not attachments or self.env.context.get('no_new_invoice') or not self.is_invoice(include_receipts=True):
+        if not attachments or self.env.context.get('no_new_invoice'):
             return res
 
         odoobot = self.env.ref('base.partner_root')
-        if attachments and self.state != 'draft':
+        if self.state != 'draft':
             self.message_post(body=_('The invoice is not a draft, it was not updated from the attachment.'),
                               message_type='comment',
                               subtype_xmlid='mail.mt_note',
                               author_id=odoobot.id)
             return res
-        if attachments and self.invoice_line_ids:
+        if self.invoice_line_ids:
             self.message_post(body=_('The invoice already contains lines, it was not updated from the attachment.'),
                               message_type='comment',
                               subtype_xmlid='mail.mt_note',
@@ -5122,10 +5128,15 @@ class AccountMove(models.Model):
         # will enhance the invoice thanks to EDI / OCR / .. capabilities
         results = self._extend_with_attachments(attachments, new=bool(self._context.get('from_alias')))
         attachments_per_invoice = defaultdict(self.env['ir.attachment'].browse)
+        attachments_in_invoices = self.env['ir.attachment']
         for attachment, invoices in results.items():
+            attachments_in_invoices += attachment
             invoices = invoices or self
             for invoice in invoices:
                 attachments_per_invoice[invoice] |= attachment
+
+        # Unlink the unused attachments
+        (attachments - attachments_in_invoices).unlink()
 
         for invoice, attachments in attachments_per_invoice.items():
             if invoice == self:

@@ -245,7 +245,14 @@ export class NameAndSignature extends Component {
      */
     async printImage(imgSrc) {
         this.clear();
-        await this.fromDataURL(imgSrc);
+        // Force the width and height to the canvas size to prevent shrinking
+        // high DPI screens (devicePixelRatio > 1)
+        const options = {
+            width: this.signatureRef.el.width,
+            height: this.signatureRef.el.height,
+            yOffset: 30,
+        };
+        await this.fromDataURL(imgSrc, options);
     }
 
     /**

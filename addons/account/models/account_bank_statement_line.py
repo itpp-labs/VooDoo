@@ -31,12 +31,14 @@ class AccountBankStatementLine(models.Model):
         inherited=True,
         related='move_id.journal_id', store=True, readonly=False, precompute=True,
         index=False,  # covered by account_bank_statement_line_main_idx
+        required=True,
     )
     company_id = fields.Many2one(
         comodel_name='res.company',
         inherited=True,
         related='move_id.company_id', store=True, readonly=False, precompute=True,
         index=False,  # covered by account_bank_statement_line_main_idx
+        required=True,
     )
     statement_id = fields.Many2one(
         comodel_name='account.bank.statement',
@@ -745,8 +747,9 @@ class AccountBankStatementLine(models.Model):
 
                 if len(suspense_lines) > 1:
                     raise UserError(_(
-                        "%s reached an invalid state regarding its related statement line.\n"
-                        "To be consistent, the journal entry must always have exactly one suspense line.", st_line.move_id.display_name
+                        "%(move)s reached an invalid state regarding its related statement line.\n"
+                        "To be consistent, the journal entry must always have exactly one suspense line.",
+                        move=st_line.move_id.display_name,
                     ))
                 elif len(suspense_lines) == 1:
                     if journal_currency and suspense_lines.currency_id == journal_currency:
