@@ -7861,10 +7861,10 @@ msgid ""
 "slots planification and allocated hours.\n"
 msgstr ""
 "\n"
-"Planning integration with hr contract\n"
+"工作規劃與人力資源合約功能整合\n"
 "\n"
-"With this module, planning take into account employee's contracts for\n"
-"slots planification and allocated hours.\n"
+"安裝此模組後，工作規劃會考慮員工合約資料，\n"
+"規劃工作時段及分配工作時間。\n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_planning_holidays
@@ -9449,10 +9449,11 @@ msgid ""
 "    "
 msgstr ""
 "\n"
-"此模組在 CRM 中的一個或多個機會案例上增加捷徑\n"
-"================================================== ==========================\n"
+"此模組在客戶關係程式新增捷徑，用於有一個或多個銷售機會的情況。\n"
+"===========================================================================\n"
 "\n"
-"此捷徑方式允許您根據所選案例建立租賃訂單. "
+"此捷徑讓你可根據所選的使用情況，產生租賃訂單。\n"
+"    "
 
 #. module: base
 #: model:ir.module.module,description:base.module_sale_crm
@@ -11713,6 +11714,10 @@ msgid ""
 "env['res.partner'].create({'name': partner_name})\n"
 "</code>"
 msgstr ""
+"<code style=\"white-space: pre-wrap\">\n"
+"partner_name = record.name + '_code' \\n\n"
+"env['res.partner'].create({'name': partner_name})\n"
+"</code>"
 
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.view_server_action_form
@@ -11851,7 +11856,7 @@ msgstr "<span class=\"badge rounded-pill bg-light border\">停用</span>"
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.res_partner_kanban_view
 msgid "<span class=\"bg-danger\">Archived</span>"
-msgstr ""
+msgstr "<span class=\"bg-danger\">已封存</span>"
 
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.view_base_module_update
@@ -37354,7 +37359,7 @@ msgstr "二進制"
 #: code:addons/base/models/ir_attachment.py:0
 #, python-format
 msgid "binary_field_real_user should be a res.users record."
-msgstr ""
+msgstr "binary_field_real_user 應為一項 res.users 記錄。"
 
 #. module: base
 #: model:ir.model.fields.selection,name:base.selection__ir_model_fields__ttype__boolean
