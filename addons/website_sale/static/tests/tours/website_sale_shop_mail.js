@@ -23,17 +23,19 @@ registry.category("web_tour.tours").add('shop_mail', {
         run: "click",
     },
     {
+        trigger: '.o_statusbar_status .o_arrow_button_current:contains("Sales Order")',
+        allowDisabled: true,
+    },
+    {
         content: "click send by email",
         trigger: '.btn[name="action_quotation_send"]',
-        extra_trigger: '.o_statusbar_status .o_arrow_button_current:contains("Sales Order")',
         run: "click",
     },
     {
+        isActive: ["body:not(:has(.modal-footer button[name='action_send_mail']))"],
         trigger: ".modal-footer button[name='document_layout_save']",
-        extra_trigger: ".modal-footer button[name='document_layout_save']",
         content: "let's continue",
         position: "bottom",
-        skip_trigger: ".modal-footer button[name='action_send_mail']",
         run: "click",
     },
     {
@@ -48,9 +50,11 @@ registry.category("web_tour.tours").add('shop_mail', {
         run: "click",
     },
     {
+        trigger: '.o_badge_text:contains("Azure")',
+    },
+    {
         content: "click Send email",
         trigger: '.btn[name="action_send_mail"]',
-        extra_trigger: '.o_badge_text:contains("Azure")',
         run: "click",
     },
     {

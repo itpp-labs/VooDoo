@@ -25,7 +25,9 @@ export class ImageField extends Component {
     };
     static props = {
         ...standardFieldProps,
+        alt: { type: String, optional: true },
         enableZoom: { type: Boolean, optional: true },
+        imgClass: { type: String, optional: true },
         zoomDelay: { type: Number, optional: true },
         previewImage: { type: String, optional: true },
         acceptedFileExtensions: { type: String, optional: true },
@@ -35,6 +37,8 @@ export class ImageField extends Component {
     };
     static defaultProps = {
         acceptedFileExtensions: "image/*",
+        alt: _t("Binary file"),
+        imgClass: "",
         reload: true,
     };
 
@@ -46,6 +50,27 @@ export class ImageField extends Component {
             isValid: true,
         });
         this.lastURL = undefined;
+
+        if (this.fieldType === "many2one" && !this.props.previewImage) {
+            throw new Error(
+                "ImageField: previewImage must be provided when set on a many2one field"
+            );
+        }
+    }
+
+    get imgAlt() {
+        if (this.fieldType === "many2one" && this.props.record.data[this.props.name]) {
+            return this.props.record.data[this.props.name][1];
+        }
+        return this.props.alt;
+    }
+
+    get imgClass() {
+        return ["img", "img-fluid"].concat(this.props.imgClass.split(" ")).join(" ");
+    }
+
+    get fieldType() {
+        return this.props.record.fields[this.props.name].type;
     }
 
     get rawCacheKey() {
@@ -69,40 +94,42 @@ export class ImageField extends Component {
         return style;
     }
     get hasTooltip() {
-        return (
-            this.props.enableZoom && this.props.record.data[this.props.name]
-        );
+        return this.props.enableZoom && this.props.record.data[this.props.name];
     }
     get tooltipAttributes() {
+        const fieldName = this.fieldType === "many2one" ? this.props.previewImage : this.props.name;
         return {
             template: "web.ImageZoomTooltip",
-            info: JSON.stringify({ url: this.getUrl(this.props.name) }),
+            info: JSON.stringify({ url: this.getUrl(fieldName) }),
         };
     }
 
-    getUrl(previewFieldName) {
+    getUrl(imageFieldName) {
         if (!this.props.reload && this.lastURL) {
             return this.lastURL;
         }
-        if (this.state.isValid && this.props.record.data[this.props.name]) {
-            if (isBinarySize(this.props.record.data[this.props.name])) {
-                this.lastURL = imageUrl(
-                    this.props.record.resModel,
-                    this.props.record.resId,
-                    previewFieldName,
-                    { unique: this.rawCacheKey }
-                );
-            } else {
-                // Use magic-word technique for detecting image type
-                const magic =
-                    fileTypeMagicWordMap[this.props.record.data[this.props.name][0]] || "png";
-                this.lastURL = `data:image/${magic};base64,${
-                    this.props.record.data[this.props.name]
-                }`;
-            }
-            return this.lastURL;
+        if (!this.props.record.data[this.props.name] || !this.state.isValid) {
+            return placeholder;
         }
-        return placeholder;
+        if (this.fieldType === "many2one") {
+            this.lastURL = imageUrl(
+                this.props.record.fields[this.props.name].relation,
+                this.props.record.data[this.props.name][0],
+                imageFieldName
+            );
+        } else if (isBinarySize(this.props.record.data[this.props.name])) {
+            this.lastURL = imageUrl(
+                this.props.record.resModel,
+                this.props.record.resId,
+                imageFieldName,
+                { unique: this.rawCacheKey }
+            );
+        } else {
+            // Use magic-word technique for detecting image type
+            const magic = fileTypeMagicWordMap[this.props.record.data[this.props.name][0]] || "png";
+            this.lastURL = `data:image/${magic};base64,${this.props.record.data[this.props.name]}`;
+        }
+        return this.lastURL;
     }
     onFileRemove() {
         this.state.isValid = true;
@@ -220,11 +247,13 @@ export const imageField = {
             availableTypes: ["binary"],
         },
     ],
-    supportedTypes: ["binary"],
+    supportedTypes: ["binary", "many2one"],
     fieldDependencies: [{ name: "write_date", type: "datetime" }],
     isEmpty: () => false,
     extractProps: ({ attrs, options }) => ({
+        alt: attrs.alt,
         enableZoom: options.zoom,
+        imgClass: options.img_class,
         zoomDelay: options.zoom_delay,
         previewImage: options.preview_image,
         acceptedFileExtensions: options.accepted_file_extensions,

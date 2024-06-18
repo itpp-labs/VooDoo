@@ -248,17 +248,17 @@ class StockMoveLine(models.Model):
         self = self.with_context(do_not_unreserve=True)
         for package, smls in groupby(self, lambda sml: sml.result_package_id):
             smls = self.env['stock.move.line'].concat(*smls)
-            excluded_smls = smls
+            excluded_smls = set(smls.ids)
             if package.package_type_id:
-                best_loc = smls.move_id.location_dest_id.with_context(exclude_sml_ids=excluded_smls.ids, products=smls.product_id)._get_putaway_strategy(self.env['product.product'], package=package)
+                best_loc = smls.move_id.location_dest_id.with_context(exclude_sml_ids=excluded_smls, products=smls.product_id)._get_putaway_strategy(self.env['product.product'], package=package)
                 smls.location_dest_id = smls.package_level_id.location_dest_id = best_loc
             elif package:
                 used_locations = set()
                 for sml in smls:
                     if len(used_locations) > 1:
                         break
-                    sml.location_dest_id = sml.move_id.location_dest_id.with_context(exclude_sml_ids=excluded_smls.ids)._get_putaway_strategy(sml.product_id, quantity=sml.quantity)
-                    excluded_smls -= sml
+                    sml.location_dest_id = sml.move_id.location_dest_id.with_context(exclude_sml_ids=excluded_smls)._get_putaway_strategy(sml.product_id, quantity=sml.quantity)
+                    excluded_smls.discard(sml.id)
                     used_locations.add(sml.location_dest_id)
                 if len(used_locations) > 1:
                     smls.location_dest_id = smls.move_id.location_dest_id
@@ -266,12 +266,12 @@ class StockMoveLine(models.Model):
                     smls.package_level_id.location_dest_id = smls.location_dest_id
             else:
                 for sml in smls:
-                    putaway_loc_id = sml.move_id.location_dest_id.with_context(exclude_sml_ids=excluded_smls.ids)._get_putaway_strategy(
+                    putaway_loc_id = sml.move_id.location_dest_id.with_context(exclude_sml_ids=excluded_smls)._get_putaway_strategy(
                         sml.product_id, quantity=sml.quantity, packaging=sml.move_id.product_packaging_id,
                     )
                     if putaway_loc_id != sml.location_dest_id:
                         sml.location_dest_id = putaway_loc_id
-                    excluded_smls -= sml
+                    excluded_smls.discard(sml.id)
 
     def _get_default_dest_location(self):
         if not self.env.user.has_group('stock.group_stock_multi_locations'):
@@ -486,12 +486,10 @@ class StockMoveLine(models.Model):
 
     def unlink(self):
         precision = self.env['decimal.precision'].precision_get('Product Unit of Measure')
-        quants_by_product = self.env['stock.quant']._get_quants_by_products_locations(self.product_id, self.location_id)
         for ml in self:
             # Unlinking a move line should unreserve.
             if not float_is_zero(ml.quantity_product_uom, precision_digits=precision) and ml.move_id and not ml.move_id._should_bypass_reservation(ml.location_id):
-                quants = quants_by_product[ml.product_id.id]
-                quants._update_reserved_quantity(ml.product_id, ml.location_id, -ml.quantity_product_uom, lot_id=ml.lot_id, package_id=ml.package_id, owner_id=ml.owner_id, strict=True)
+                self.env['stock.quant']._update_reserved_quantity(ml.product_id, ml.location_id, -ml.quantity_product_uom, lot_id=ml.lot_id, package_id=ml.package_id, owner_id=ml.owner_id, strict=True)
         moves = self.mapped('move_id')
         package_levels = self.package_level_id
         res = super().unlink()
@@ -523,6 +521,8 @@ class StockMoveLine(models.Model):
         ml_ids_tracked_without_lot = OrderedSet()
         ml_ids_to_delete = OrderedSet()
         ml_ids_to_create_lot = OrderedSet()
+        ml_ids_to_check = defaultdict(OrderedSet)
+
         for ml in self:
             # Check here if `ml.quantity` respects the rounding of `ml.product_uom_id`.
             uom_qty = float_round(ml.quantity, precision_rounding=ml.product_uom_id.rounding, rounding_method='HALF-UP')
@@ -534,48 +534,53 @@ class StockMoveLine(models.Model):
                                   'rounding precision of your unit of measure.',
                                   product=ml.product_id.display_name, unit=ml.product_uom_id.name))
 
-            quantity_float_compared = float_compare(ml.quantity, 0, precision_rounding=ml.product_uom_id.rounding)
-            if quantity_float_compared > 0:
-                if ml.product_id.tracking != 'none':
-                    picking_type_id = ml.move_id.picking_type_id
-                    if picking_type_id:
-                        if picking_type_id.use_create_lots:
-                            # If a picking type is linked, we may have to create a production lot on
-                            # the fly before assigning it to the move line if the user checked both
-                            # `use_create_lots` and `use_existing_lots`.
-                            if ml.lot_name and not ml.lot_id:
-                                lot = self.env['stock.lot'].search([
-                                    '|', ('company_id', '=', False), ('company_id', '=', ml.company_id.id),
-                                    ('product_id', '=', ml.product_id.id),
-                                    ('name', '=', ml.lot_name),
-                                ], limit=1)
-                                if lot:
-                                    ml.lot_id = lot.id
-                                else:
-                                    ml_ids_to_create_lot.add(ml.id)
-                        elif not picking_type_id.use_create_lots and not picking_type_id.use_existing_lots:
-                            # If the user disabled both `use_create_lots` and `use_existing_lots`
-                            # checkboxes on the picking type, he's allowed to enter tracked
-                            # products without a `lot_id`.
-                            continue
-                    elif ml.is_inventory:
-                        # If an inventory adjustment is linked, the user is allowed to enter
-                        # tracked products without a `lot_id`.
-                        continue
+            qty_done_float_compared = float_compare(ml.quantity, 0, precision_rounding=ml.product_uom_id.rounding)
+            if qty_done_float_compared > 0:
+                if ml.product_id.tracking == 'none':
+                    continue
+                picking_type_id = ml.move_id.picking_type_id
+                if not picking_type_id and not ml.is_inventory and not ml.lot_id:
+                    ml_ids_tracked_without_lot.add(ml.id)
+                    continue
+                if not picking_type_id or ml.lot_id or (not picking_type_id.use_create_lots and not picking_type_id.use_existing_lots):
+                    # If the user disabled both `use_create_lots` and `use_existing_lots`
+                    # checkboxes on the picking type, he's allowed to enter tracked
+                    # products without a `lot_id`.
+                    continue
+                if picking_type_id.use_create_lots:
+                    ml_ids_to_check[(ml.product_id, ml.company_id)].add(ml.id)
+                else:
+                    ml_ids_tracked_without_lot.add(ml.id)
 
-                    if not ml.lot_id and ml.id not in ml_ids_to_create_lot:
-                        ml_ids_tracked_without_lot.add(ml.id)
-            elif quantity_float_compared < 0:
+            elif qty_done_float_compared < 0:
                 raise UserError(_('No negative quantities allowed'))
             elif not ml.is_inventory:
                 ml_ids_to_delete.add(ml.id)
+
+        for (product, company), mls in ml_ids_to_check.items():
+            mls = self.env['stock.move.line'].browse(mls)
+            lots = self.env['stock.lot'].search([
+                '|', ('company_id', '=', False), ('company_id', '=', ml.company_id.id),
+                ('product_id', '=', product.id),
+                ('name', 'in', mls.mapped('lot_name')),
+            ])
+            lots = {lot.name: lot for lot in lots}
+            for ml in mls:
+                lot = lots.get(ml.lot_name)
+                if lot:
+                    ml.lot_id = lot.id
+                elif ml.lot_name:
+                    ml_ids_to_create_lot.add(ml.id)
+                else:
+                    ml_ids_tracked_without_lot.add(ml.id)
 
         if ml_ids_tracked_without_lot:
             mls_tracked_without_lot = self.env['stock.move.line'].browse(ml_ids_tracked_without_lot)
             raise UserError(_('You need to supply a Lot/Serial Number for product: \n - ') +
                               '\n - '.join(mls_tracked_without_lot.mapped('product_id.display_name')))
-        ml_to_create_lot = self.env['stock.move.line'].browse(ml_ids_to_create_lot)
-        ml_to_create_lot._create_and_assign_production_lot()
+
+        if ml_ids_to_create_lot:
+            self.env['stock.move.line'].browse(ml_ids_to_create_lot)._create_and_assign_production_lot()
 
         mls_to_delete = self.env['stock.move.line'].browse(ml_ids_to_delete)
         mls_to_delete.unlink()
@@ -585,8 +590,11 @@ class StockMoveLine(models.Model):
 
         # Now, we can actually move the quant.
         ml_ids_to_ignore = OrderedSet()
+        quants_cache = self.env['stock.quant']._get_quants_by_products_locations(
+            mls_todo.product_id, mls_todo.location_id | mls_todo.location_dest_id,
+            extra_domain=['|', ('lot_id', 'in', mls_todo.lot_id.ids), ('lot_id', '=', False)])
 
-        for ml in mls_todo:
+        for ml in mls_todo.with_context(quants_cache=quants_cache):
             # if this move line is force assigned, unreserve elsewhere if needed
             ml._synchronize_quant(-ml.quantity_product_uom, ml.location_id, action="reserved")
             available_qty, in_date = ml._synchronize_quant(-ml.quantity_product_uom, ml.location_id)

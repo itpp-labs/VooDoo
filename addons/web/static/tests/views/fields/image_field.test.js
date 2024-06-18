@@ -81,7 +81,7 @@ test("ImageField is correctly rendered", async () => {
         resId: 1,
         arch: /* xml */ `
             <form>
-                <field name="document" widget="image" options="{'size': [90, 90]}" />
+                <field name="document" widget="image" options="{'size': [90, 90]}"/>
             </form>
         `,
     });
@@ -123,6 +123,58 @@ test("ImageField is correctly rendered", async () => {
         message:
             'the default value for the attribute "accept" on the "image" widget must be "image/*"',
     });
+});
+
+test("ImageField with img_class option", async () => {
+    await mountView({
+        type: "form",
+        resModel: "partner",
+        resId: 1,
+        arch: `
+            <form>
+                <field name="document" widget="image" options="{'img_class': 'my_custom_class'}"/>
+            </form>`,
+    });
+
+    expect(".o_field_image img").toHaveClass("my_custom_class");
+});
+
+test("ImageField with alt attribute", async () => {
+    await mountView({
+        type: "form",
+        resModel: "partner",
+        resId: 1,
+        arch: `
+            <form>
+                <field name="document" widget="image" alt="something"/>
+            </form>`,
+    });
+
+    expect(".o_field_widget[name='document'] img").toHaveAttribute("data-alt", "something", {
+        message: "the image should correctly set its alt attribute",
+    });
+});
+
+test("ImageField on a many2one", async () => {
+    Partner._fields.parent_id = fields.Many2one({ relation: "partner" });
+    Partner._records[1].parent_id = 1;
+
+    await mountView({
+        type: "form",
+        resModel: "partner",
+        resId: 2,
+        arch: /* xml */ `
+            <form>
+                <field name="parent_id" widget="image" options="{'preview_image': 'document'}"/>
+            </form>`,
+    });
+
+    expect(".o_field_widget[name=parent_id] img").toHaveCount(1);
+    expect('div[name="parent_id"] img').toHaveAttribute(
+        "data-src",
+        `${getOrigin()}/web/image/partner/1/document`
+    );
+    expect(".o_field_widget[name='parent_id'] img").toHaveAttribute("data-alt", "first record");
 });
 
 test("ImageField is correctly replaced when given an incorrect value", async () => {
@@ -493,7 +545,7 @@ test("ImageField in subviews is loaded correctly", async () => {
                         <field name="name" />
                         <templates>
                             <t t-name="kanban-box">
-                                <div class="oe_kanban_global_click">
+                                <div>
                                     <span>
                                         <t t-esc="record.name.value" />
                                     </span>
@@ -510,10 +562,10 @@ test("ImageField in subviews is loaded correctly", async () => {
     });
 
     expect(`img[data-src="data:image/png;base64,${MY_IMAGE}"]`).toHaveCount(1);
-    expect(".o_kanban_record .oe_kanban_global_click").toHaveCount(1);
+    expect(".o_kanban_record:not(.o_kanban_ghost)").toHaveCount(1);
 
     // Actual flow: click on an element of the m2m to get its form view
-    click(".oe_kanban_global_click");
+    click(".o_kanban_record:not(.o_kanban_ghost)");
     await animationFrame();
     expect(".modal").toHaveCount(1, { message: "The modal should have opened" });
 

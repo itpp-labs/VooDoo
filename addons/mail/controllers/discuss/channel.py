@@ -8,6 +8,8 @@ from odoo import fields, http
 from odoo.http import request
 from odoo.addons.mail.controllers.webclient import WebclientController
 from odoo.addons.mail.models.discuss.mail_guest import add_guest_to_context
+from odoo.addons.mail.tools.discuss import Store
+
 
 class DiscussChannelWebclientController(WebclientController):
     """Override to add discuss channel specific features."""
@@ -18,8 +20,8 @@ class DiscussChannelWebclientController(WebclientController):
             channels = request.env["discuss.channel"]._get_channels_as_member()
             # fetch channels data before messages to benefit from prefetching (channel info might
             # prefetch a lot of data that message format could use)
-            store.add({"Thread": channels._channel_info()})
-            store.add({"Message": channels._get_last_messages()._message_format(for_current_user=True)})
+            store.add(channels)
+            store.add("Message", channels._get_last_messages()._message_format(for_current_user=True))
 
 
 class ChannelController(http.Controller):
@@ -44,7 +46,7 @@ class ChannelController(http.Controller):
         channel = request.env["discuss.channel"].search([("id", "=", channel_id)])
         if not channel:
             return
-        return channel._channel_info()[0]
+        return Store(channel).get_result()
 
     @http.route("/discuss/channel/messages", methods=["POST"], type="json", auth="public")
     @add_guest_to_context
@@ -121,8 +123,8 @@ class ChannelController(http.Controller):
             ("is_self", "=", True),
         ])
         if not member:
-            raise NotFound()
-        return member._mark_as_read(last_message_id, sync=sync)
+            return  # ignore if the member left in the meantime
+        member._mark_as_read(last_message_id, sync=sync)
 
     @http.route("/discuss/channel/mark_as_unread", methods=["POST"], type="json", auth="public")
     @add_guest_to_context

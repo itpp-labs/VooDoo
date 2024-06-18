@@ -9,10 +9,12 @@ registry.category("web_tour.tours").add("mail/static/tests/tours/user_modify_own
         {
             content: "Open user account menu",
             trigger: ".o_user_menu button",
+            run: "click",
         },
         {
             content: "Open preferences / profile screen",
             trigger: "[data-menu=settings]",
+            run: "click",
         },
         {
             content: "Update the email address",
@@ -20,9 +22,11 @@ registry.category("web_tour.tours").add("mail/static/tests/tours/user_modify_own
             run: "edit updatedemail@example.com",
         },
         {
+            trigger: "body.modal-open",
+        },
+        {
             content: "Save the form",
             trigger: 'button[name="preference_save"]',
-            extra_trigger: "body.modal-open",
         },
         {
             content: "Wait until the modal is closed",

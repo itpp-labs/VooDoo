@@ -58,11 +58,23 @@ export class DiscussChannel extends models.ServerModel {
         const ResPartner = this.env["res.partner"];
 
         const channel = this._filter([["id", "in", ids]])[0];
+        const custom_store = {
+            Thread: [
+                {
+                    id: channel.id,
+                    is_pinned: false,
+                    isLocallyPinned: false,
+                    model: "discuss.channel",
+                },
+            ],
+        };
+        const [partner] = ResPartner.read(this.env.user.partner_id);
         const [channelMember] = DiscussChannelMember._filter([
             ["channel_id", "in", ids],
             ["partner_id", "=", this.env.user.partner_id],
         ]);
         if (!channelMember) {
+            BusBus._sendone(partner, "discuss.channel/leave", custom_store);
             return true;
         }
         this.write([channel.id], {
@@ -76,16 +88,19 @@ export class DiscussChannel extends models.ServerModel {
                 subtype_xmlid: "mail.mt_comment",
             })
         );
-        const [partner] = ResPartner.read(this.env.user.partner_id);
-        BusBus._sendone(partner, "discuss.channel/leave", { id: channel.id });
-        BusBus._sendone(channel, "mail.record/insert", {
+        // send custom store after message_post to avoid is_pinned reset to True
+        BusBus._sendone(partner, "discuss.channel/leave", custom_store);
+        const store = {
             Thread: {
                 id: channel.id,
                 channelMembers: [["DELETE", { id: channelMember.id }]],
                 memberCount: DiscussChannelMember.search_count([["channel_id", "=", channel.id]]),
                 model: "discuss.channel",
             },
-        });
+        };
+        BusBus._sendone(channel, "mail.record/insert", store);
+        // limitation of mock server, partner already unsubscribed from channel
+        BusBus._sendone(partner, "mail.record/insert", store);
         return true;
     }
 
@@ -207,7 +222,9 @@ export class DiscussChannel extends models.ServerModel {
         );
         const [partner] = ResPartner.read(this.env.user.partner_id);
         this._broadcast(id, [partner]);
-        return this._channel_info([id])[0];
+        const store = {};
+        Object.assign(store, { Thread: this._channel_info([id]) });
+        return store;
     }
 
     /** @param {number[]} ids */
@@ -345,9 +362,6 @@ export class DiscussChannel extends models.ServerModel {
         /** @type {import("mock_models").ResPartner} */
         const ResPartner = this.env["res.partner"];
 
-        if (partners_to.length === 0) {
-            return false;
-        }
         if (!partners_to.includes(this.env.user.partner_id)) {
             partners_to.push(this.env.user.partner_id);
         }
@@ -362,7 +376,9 @@ export class DiscussChannel extends models.ServerModel {
                 channelMemberIds.length === partners.length &&
                 channel.channel_member_ids.length === partners.length
             ) {
-                return this._channel_info([channel.id])[0];
+                const res = {};
+                Object.assign(res, { Thread: this._channel_info([channel.id]) });
+                return res;
             }
         }
         const id = this.create({
@@ -380,7 +396,9 @@ export class DiscussChannel extends models.ServerModel {
             id,
             partners.map(({ id }) => id)
         );
-        return this._channel_info([id])[0];
+        const res = {};
+        Object.assign(res, { Thread: this._channel_info([id]) });
+        return res;
     }
 
     /** @param {number[]} ids */
@@ -508,9 +526,9 @@ export class DiscussChannel extends models.ServerModel {
                 id: channel.id,
             });
         } else {
-            BusBus._sendone(partner, "mail.record/insert", {
-                Thread: this._channel_info([channel.id])[0],
-            });
+            const store = {};
+            Object.assign(store, { Thread: this._channel_info([channel.id]) });
+            BusBus._sendone(partner, "mail.record/insert", store);
         }
     }
 
@@ -583,7 +601,9 @@ export class DiscussChannel extends models.ServerModel {
             id,
             partners.map((partner) => partner.id)
         );
-        return this._channel_info([id])[0];
+        const store = {};
+        Object.assign(store, { Thread: this._channel_info([id]) });
+        return store;
     }
 
     /** @param {number} id */

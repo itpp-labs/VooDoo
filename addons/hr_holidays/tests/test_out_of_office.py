@@ -7,9 +7,10 @@ from odoo import fields
 from odoo.addons.base.tests.common import TransactionCaseWithUserDemo
 from odoo.tests.common import tagged, users, warmup
 from odoo.addons.hr_holidays.tests.common import TestHrHolidaysCommon
+from odoo.addons.mail.tools.discuss import Store
 
 
-@tagged('out_of_office')
+@tagged("post_install", "-at_install", "out_of_office")
 class TestOutOfOffice(TestHrHolidaysCommon):
 
     @classmethod
@@ -47,9 +48,8 @@ class TestOutOfOffice(TestHrHolidaysCommon):
             'channel_type': 'chat',
             'name': 'test'
         })
-        channel_info = channel._channel_info()[0]
-        # shape of channelMembers is [('ADD', data...)], [0][1] accesses the data
-        members_data = channel_info['channelMembers'][0][1]
+        all_members_data = Store(channel).get_result()["ChannelMember"]
+        members_data = [member for member in all_members_data if member["thread"]["id"] == channel.id]
         self.assertEqual(len(members_data), 2, "Channel info should get info for the 2 members")
         partner_info = next(member for member in members_data if member['persona']['email'] == partner.email)
         partner2_info = next(member for member in members_data if member['persona']['email'] == partner2.email)

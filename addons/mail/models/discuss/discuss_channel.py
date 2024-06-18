@@ -1,7 +1,6 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
-import logging
 from collections import defaultdict
 from hashlib import sha512
 from secrets import choice
@@ -10,12 +9,10 @@ from datetime import timedelta
 
 from odoo import _, api, fields, models, tools, Command
 from odoo.addons.base.models.avatar_mixin import get_hsl_from_seed
+from odoo.addons.mail.tools.discuss import Store
 from odoo.exceptions import UserError, ValidationError
 from odoo.osv import expression
 from odoo.tools import format_list, get_lang, html_escape
-from odoo.tools.misc import babel_locale_parse
-
-_logger = logging.getLogger(__name__)
 
 channel_avatar = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 530.06 530.06">
 <circle cx="265.03" cy="265.03" r="265.03" fill="#875a7b"/>
@@ -338,26 +335,35 @@ class Channel(models.Model):
 
     def _action_unfollow(self, partner):
         self.message_unsubscribe(partner.ids)
-        member = self.env['discuss.channel.member'].search([('channel_id', '=', self.id), ('partner_id', '=', partner.id)])
+        custom_channel_info = {
+            "id": self.id,
+            "is_pinned": False,
+            "isLocallyPinned": False,
+            "model": "discuss.channel",
+        }
+        custom_store = Store("Thread", custom_channel_info)
+        member = self.env["discuss.channel.member"].search(
+            [("channel_id", "=", self.id), ("partner_id", "=", partner.id)]
+        )
         if not member:
-            return True
-        channel_info = self._channel_info()[0]  # must be computed before leaving the channel (access rights)
+            self.env["bus.bus"]._sendone(partner, "discuss.channel/leave", custom_store.get_result())
+            return
         member.unlink()
-        # side effect of unsubscribe that wasn't taken into account because
-        # channel_info is called before actually unpinning the channel
-        channel_info['is_pinned'] = False
-        notification = Markup('<div class="o_mail_notification">%s</div>') % _('left the channel')
+        notification = Markup('<div class="o_mail_notification">%s</div>') % _("left the channel")
         # sudo: mail.message - post as sudo since the user just unsubscribed from the channel
-        self.sudo().message_post(body=notification, subtype_xmlid="mail.mt_comment", author_id=partner.id)
-        self.env['bus.bus']._sendone(partner, 'discuss.channel/leave', channel_info)
-        self.env['bus.bus']._sendone(self, 'mail.record/insert', {
-            'Thread': {
-                'channelMembers': [('DELETE', {'id': member.id})],
-                'id': self.id,
-                'memberCount': self.member_count,
-                'model': "discuss.channel",
-            }
-        })
+        self.sudo().message_post(
+            body=notification, subtype_xmlid="mail.mt_comment", author_id=partner.id
+        )
+        # send custom store after message_post to avoid is_pinned reset to True
+        self.env["bus.bus"]._sendone(partner, "discuss.channel/leave", custom_store.get_result())
+        channel_info = {
+            "channelMembers": [("DELETE", {"id": member.id})],
+            "id": self.id,
+            "memberCount": self.member_count,
+            "model": "discuss.channel",
+        }
+        store = Store("Thread", channel_info)
+        self.env["bus.bus"]._sendone(self, "mail.record/insert", store.get_result())
 
     def add_members(self, partner_ids=None, guest_ids=None, invite_to_rtc_call=False, open_chat_window=False, post_joined_message=True):
         """ Adds the given partner_ids and guest_ids as member of self channels. """
@@ -723,8 +729,8 @@ class Channel(models.Model):
                     # sudo: res.company - context is required by ir.rules
                     allowed_company_ids=user_id.sudo().company_ids.ids
                 )
-                for channel_info in user_channels._channel_info():
-                    notifications.append((partner, 'mail.record/insert', {"Thread": channel_info}))
+                store = Store(user_channels)
+                notifications.append((partner, 'mail.record/insert', store.get_result()))
         return notifications
 
     # ------------------------------------------------------------
@@ -856,16 +862,12 @@ class Channel(models.Model):
             'last_interest_dt': fields.Datetime.to_string(self.last_interest_dt),
         }
 
-    def _channel_info(self):
-        """ Get the informations header for the current channels
-            :returns a list of channels values
-            :rtype : list(dict)
-        """
+    def _to_store(self, store: Store):
+        """Adds channel data to the given store."""
         if not self:
             return []
         # sudo: bus.bus: reading non-sensitive last id
         bus_last_id = self.env["bus.bus"].sudo()._bus_last_id()
-        channel_infos = []
         # sudo: discuss.channel.rtc.session - reading sessions of accessible channel is acceptable
         rtc_sessions_by_channel = self.sudo().rtc_session_ids._mail_rtc_session_format_by_channel(extra=True)
         current_partner, current_guest = self.env["res.partner"]._get_current_persona()
@@ -910,9 +912,12 @@ class Channel(models.Model):
                 info['message_needaction_counter'] = channel.message_needaction_counter
                 info["message_needaction_counter_bus_id"] = bus_last_id
                 if member:
-                    info['channelMembers'] = [('ADD', list(member._discuss_channel_member_format(
-                        extra_fields={"last_interest_dt": True, "new_message_separator": True}
-                    ).values()))]
+                    member_data = list(
+                        member._discuss_channel_member_format(
+                            extra_fields={"last_interest_dt": True, "new_message_separator": True}
+                        ).values()
+                    )
+                    store.add("ChannelMember", member_data)
                     info['state'] = member.fold_state or 'closed'
                     info['message_unread_counter'] = member.message_unread_counter
                     info["message_unread_counter_bus_id"] = bus_last_id
@@ -927,18 +932,30 @@ class Channel(models.Model):
                 # avoid sending potentially a lot of members for big channels
                 # exclude chat and other small channels from this optimization because they are
                 # assumed to be smaller and it's important to know the member list for them
+                member_data = list(
+                    member._discuss_channel_member_format(
+                        extra_fields={"new_message_separator": True}
+                    ).values()
+                )
+                store.add("ChannelMember", member_data)
                 other_members = members_by_channel[channel] - member
-                info['channelMembers'] = [('ADD', list({
-                    **member._discuss_channel_member_format(extra_fields={"new_message_separator": True}),
-                    **other_members._discuss_channel_member_format(),
-                }.values()))]
+                other_members_data = list(other_members._discuss_channel_member_format().values())
+                store.add("ChannelMember", other_members_data)
             # add RTC sessions info
-            info.update({
-                'invitedMembers': [('ADD', list(invited_members_by_channel[channel]._discuss_channel_member_format(fields={'id': True, 'channel': {}, 'persona': {'partner': {'id': True, 'name': True, 'im_status': True}, 'guest': {'id': True, 'name': True, 'im_status': True}}}).values()))],
-                'rtcSessions': [('ADD', rtc_sessions_by_channel.get(channel, []))],
-            })
-            channel_infos.append(info)
-        return channel_infos
+            invited_members = invited_members_by_channel[channel]
+            m_fields = {
+                "id": True,
+                "channel": {},
+                "persona": {
+                    "partner": {"id": True, "name": True, "im_status": True},
+                    "guest": {"id": True, "name": True, "im_status": True},
+                },
+            }
+            members_data = list(invited_members._discuss_channel_member_format(m_fields).values())
+            store.add("ChannelMember", members_data)
+            info["invitedMembers"] = [("ADD", [{"id": member.id} for member in invited_members])]
+            info["rtcSessions"] = [("ADD", rtc_sessions_by_channel.get(channel, []))]
+            store.add("Thread", info)
 
     def _channel_fetch_message(self, last_id=False, limit=20):
         """ Return message values of the current channel.
@@ -968,7 +985,7 @@ class Channel(models.Model):
 
     # User methods
     @api.model
-    @api.returns('self', lambda channel: channel._channel_info()[0])
+    @api.returns('self', lambda channels: Store(channels).get_result())
     def channel_get(self, partners_to, pin=True, force_open=False):
         """ Get the canonical private channel between some partners, create it if needed.
             To reuse an old channel (conversation), this one must be private, and contains
@@ -1043,7 +1060,8 @@ class Channel(models.Model):
         if not pinned:
             self.env['bus.bus']._sendone(self.env.user.partner_id, 'discuss.channel/unpin', {'id': self.id})
         else:
-            self.env['bus.bus']._sendone(self.env.user.partner_id, 'mail.record/insert', {"Thread": self._channel_info()[0]})
+            store = Store(self)
+            self.env['bus.bus']._sendone(self.env.user.partner_id, 'mail.record/insert', store.get_result())
 
     def _types_allowing_seen_infos(self):
         """ Return the channel types which allow sending seen infos notification
@@ -1108,7 +1126,7 @@ class Channel(models.Model):
         self.add_members(self.env.user.partner_id.ids)
 
     @api.model
-    @api.returns('self', lambda channel: channel._channel_info()[0])
+    @api.returns('self', lambda channels: Store(channels).get_result())
     def channel_create(self, name, group_id):
         """ Create a channel and add the current partner, broadcast it (to make the user directly
             listen to it when polling)
@@ -1126,12 +1144,12 @@ class Channel(models.Model):
         new_channel.group_public_id = group.id if group else None
         notification = Markup('<div class="o_mail_notification">%s</div>') % _("created this channel.")
         new_channel.message_post(body=notification, message_type="notification", subtype_xmlid="mail.mt_comment")
-        channel_info = new_channel._channel_info()[0]
-        self.env['bus.bus']._sendone(self.env.user.partner_id, 'mail.record/insert', {"Thread": channel_info})
+        store = Store(new_channel)
+        self.env['bus.bus']._sendone(self.env.user.partner_id, 'mail.record/insert', store.get_result())
         return new_channel
 
     @api.model
-    @api.returns('self', lambda channel: channel._channel_info()[0])
+    @api.returns('self', lambda channels: Store(channels).get_result())
     def create_group(self, partners_to, default_display_mode=False, name=''):
         """ Creates a group channel.
 

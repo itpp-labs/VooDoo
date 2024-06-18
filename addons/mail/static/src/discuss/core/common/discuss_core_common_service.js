@@ -30,11 +30,15 @@ export class DiscussCoreCommon {
             }
         });
         this.busService.subscribe("discuss.channel/leave", (payload) => {
-            const thread = this.store.Thread.insert(payload);
-            this.notificationService.add(_t("You unsubscribed from %s.", thread.displayName), {
-                type: "info",
-            });
-            thread.delete();
+            const { Thread } = this.store.insert(payload);
+            const [thread] = Thread;
+            if (thread.displayName) {
+                // Ignore if thread displayName (which might depend on knowledge of members for
+                // groups) is not known in the current tab.
+                this.notificationService.add(_t("You unsubscribed from %s.", thread.displayName), {
+                    type: "info",
+                });
+            }
         });
         this.busService.subscribe("discuss.channel/delete", (payload, { id: notifId }) => {
             const thread = this.store.Thread.insert({
@@ -122,28 +126,13 @@ export class DiscussCoreCommon {
         });
     }
 
-    /**
-     * todo: merge this with store.Thread.insert() (?)
-     *
-     * @returns {Thread}
-     */
-    createChannelThread(serverData) {
-        const thread = this.store.Thread.insert({
-            ...serverData,
-            model: "discuss.channel",
-            isAdmin:
-                serverData.channel_type !== "group" &&
-                serverData.create_uid === this.store.self.userId,
-        });
-        return thread;
-    }
-
     async createGroupChat({ default_display_mode, partners_to }) {
         const data = await this.orm.call("discuss.channel", "create_group", [], {
             default_display_mode,
             partners_to,
         });
-        const channel = this.createChannelThread(data);
+        const { Thread } = this.store.insert(data);
+        const [channel] = Thread;
         channel.open();
         return channel;
     }

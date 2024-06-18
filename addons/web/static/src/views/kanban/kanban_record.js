@@ -4,7 +4,6 @@ import { evaluateBooleanExpr } from "@web/core/py_js/py";
 import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { registry } from "@web/core/registry";
-import { useTooltip } from "@web/core/tooltip/tooltip_hook";
 import { user } from "@web/core/user";
 import { useService } from "@web/core/utils/hooks";
 import { imageUrl } from "@web/core/utils/urls";
@@ -17,14 +16,15 @@ import { Widget } from "@web/views/widgets/widget";
 import { getFormattedValue } from "../utils";
 import {
     KANBAN_BOX_ATTRIBUTE,
+    KANBAN_CARD_ATTRIBUTE,
     KANBAN_MENU_ATTRIBUTE,
-    KANBAN_TOOLTIP_ATTRIBUTE,
 } from "./kanban_arch_parser";
 import { KanbanCompiler } from "./kanban_compiler";
 import { KanbanCoverImageDialog } from "./kanban_cover_image_dialog";
 import { KanbanDropdownMenuWrapper } from "./kanban_dropdown_menu_wrapper";
 
-import { Component, onMounted, onWillUpdateProps, useRef, useState, useEffect } from "@odoo/owl";
+import { Component, onWillUpdateProps, useRef, useState } from "@odoo/owl";
+
 const { COLORS } = ColorList;
 
 const formatters = registry.category("formatters");
@@ -33,19 +33,11 @@ const formatters = registry.category("formatters");
 export const CANCEL_GLOBAL_CLICK = ["a", ".dropdown", ".oe_kanban_action", "[data-bs-toggle]"].join(
     ","
 );
-const ALLOW_GLOBAL_CLICK = [".oe_kanban_global_click", ".oe_kanban_global_click_edit"].join(",");
-
-/**
- * Returns the class name of a record according to its color.
- */
-function getColorClass(value) {
-    return `oe_kanban_color_${getColorIndex(value)}`;
-}
 
 /**
  * Returns the index of a color determined by a given record.
  */
-function getColorIndex(value) {
+export function getColorIndex(value) {
     if (typeof value === "number") {
         return Math.round(value) % COLORS.length;
     } else if (typeof value === "string") {
@@ -54,13 +46,6 @@ function getColorIndex(value) {
     } else {
         return 0;
     }
-}
-
-/**
- * Returns the proper translated name of a record color.
- */
-function getColorName(value) {
-    return COLORS[getColorIndex(value)];
 }
 
 /**
@@ -207,6 +192,7 @@ export class KanbanRecord extends Component {
     ];
     static Compiler = KanbanCompiler;
     static KANBAN_BOX_ATTRIBUTE = KANBAN_BOX_ATTRIBUTE;
+    static KANBAN_CARD_ATTRIBUTE = KANBAN_CARD_ATTRIBUTE;
     static KANBAN_MENU_ATTRIBUTE = KANBAN_MENU_ATTRIBUTE;
     static menuTemplate = "web.KanbanRecordMenu";
     static template = "web.KanbanRecord";
@@ -226,13 +212,6 @@ export class KanbanRecord extends Component {
             this.showMenu = true;
         }
 
-        if (KANBAN_TOOLTIP_ATTRIBUTE in templates) {
-            useTooltip("root", {
-                info: { ...this, record: getFormattedRecord(this.props.record) },
-                template: this.templates[KANBAN_TOOLTIP_ATTRIBUTE],
-            });
-        }
-
         this.dataState = useState({ record: {}, widget: {} });
         this.createWidget(this.props);
         onWillUpdateProps(this.createWidget);
@@ -240,22 +219,6 @@ export class KanbanRecord extends Component {
             Object.assign(this.dataState.record, getFormattedRecord(record))
         );
         this.rootRef = useRef("root");
-        onMounted(() => {
-            // FIXME: this needs to be changed to an attribute on the root node...
-            this.allowGlobalClick = !!this.rootRef.el.querySelector(ALLOW_GLOBAL_CLICK);
-        });
-        useEffect(
-            (color) => {
-                if (!color) {
-                    return;
-                }
-                const classList = this.rootRef.el.firstElementChild.classList;
-                const colorClasses = [...classList].filter((c) => c.startsWith("oe_kanban_color_"));
-                colorClasses.forEach((cls) => classList.remove(cls));
-                classList.add(getColorClass(color));
-            },
-            () => [this.props.record.data[this.props.archInfo.colorField]]
-        );
     }
 
     get record() {
@@ -293,8 +256,8 @@ export class KanbanRecord extends Component {
         if (canResequence) {
             classes.push("o_draggable");
         }
-        if (forceGlobalClick || archInfo.openAction) {
-            classes.push("oe_kanban_global_click");
+        if (forceGlobalClick || archInfo.openAction || archInfo.canOpenRecords) {
+            classes.push("cursor-pointer");
         }
         if (progressBarState) {
             const { fieldName, colors } = progressBarState.progressAttributes;
@@ -304,10 +267,15 @@ export class KanbanRecord extends Component {
         }
         if (archInfo.cardColorField) {
             const value = record.data[archInfo.cardColorField];
-            classes.push(getColorClass(value));
+            classes.push(`o_kanban_color_${getColorIndex(value)}`);
         }
         if (!this.props.list.isGrouped) {
             classes.push("flex-grow-1 flex-md-shrink-1 flex-shrink-0");
+        }
+        classes.push(archInfo.cardClassName);
+        // TODO: remove when all kanban archs have been converted
+        if (archInfo.isLegacyArch) {
+            classes.push("o_legacy_kanban_record");
         }
         return classes.join(" ");
     }
@@ -332,14 +300,9 @@ export class KanbanRecord extends Component {
                     await record.model.root.load();
                 },
             });
-        } else if (forceGlobalClick || this.allowGlobalClick) {
+        } else if (forceGlobalClick || this.props.archInfo.canOpenRecords) {
             openRecord(record);
         }
-    }
-
-    async selectColor(colorIndex) {
-        const { archInfo, record } = this.props;
-        await record.update({ [archInfo.colorField]: colorIndex }, { save: true });
     }
 
     /**
@@ -349,6 +312,7 @@ export class KanbanRecord extends Component {
         const { archInfo, openRecord, deleteRecord, record, archiveRecord } = this.props;
         const { type } = params;
         switch (type) {
+            // deprecated, records are always in edit mode in form views now, use "open" instead
             case "edit": {
                 return openRecord(record, "edit");
             }
@@ -393,6 +357,12 @@ export class KanbanRecord extends Component {
         }
     }
 
+    get mainTemplate() {
+        return this.props.archInfo.isLegacyArch
+            ? this.templates[this.constructor.KANBAN_BOX_ATTRIBUTE]
+            : this.templates[this.constructor.KANBAN_CARD_ATTRIBUTE];
+    }
+
     /**
      * Returns the kanban-box template's rendering context.
      *
@@ -402,13 +372,9 @@ export class KanbanRecord extends Component {
      * @returns {Object}
      */
     get renderingContext() {
-        return {
+        const renderingContext = {
             context: this.props.record.context,
             JSON,
-            kanban_color: getColorClass,
-            kanban_getcolor: getColorIndex,
-            kanban_getcolorname: getColorName,
-            kanban_image: (...args) => getImageSrcFromRecordInfo(this.props.record, ...args),
             luxon,
             read_only_mode: this.props.readonly,
             record: this.dataState.record,
@@ -417,5 +383,11 @@ export class KanbanRecord extends Component {
             widget: this.dataState.widget,
             __comp__: Object.assign(Object.create(this), { this: this }),
         };
+        if (this.props.archInfo.isLegacyArch) {
+            // deprecated, use <field name="" widget="image"/>
+            renderingContext.kanban_image = (...args) =>
+                getImageSrcFromRecordInfo(this.props.record, ...args);
+        }
+        return renderingContext;
     }
 }

@@ -250,6 +250,12 @@ class StockQuant(models.Model):
         """ Override to handle the "inventory mode" and create a quant as
         superuser the conditions are met.
         """
+        def _add_to_cache(quant):
+            if 'quants_cache' in self.env.context:
+                self.env.context['quants_cache'][
+                    quant.product_id.id, quant.location_id.id, quant.lot_id.id, quant.package_id.id, quant.owner_id.id
+                ] |= quant
+
         quants = self.env['stock.quant']
         is_inventory_mode = self._is_inventory_mode()
         allowed_fields = self._get_inventory_fields_create()
@@ -276,6 +282,7 @@ class StockQuant(models.Model):
                     quant = quant[0].sudo()
                 else:
                     quant = self.sudo().create(vals)
+                    _add_to_cache(quant)
                 if auto_apply:
                     quant.write({'inventory_quantity_auto_apply': inventory_quantity})
                 else:
@@ -286,6 +293,7 @@ class StockQuant(models.Model):
                 quants |= quant
             else:
                 quant = super().create(vals)
+                _add_to_cache(quant)
                 quants |= quant
                 if self._is_inventory_mode():
                     quant._check_company()
@@ -721,27 +729,14 @@ class StockQuant(models.Model):
         return generate_domain(best_leaf)
 
     @api.model
-    def _get_removal_strategy_domain_order(self, domain, removal_strategy, qty):
-        if removal_strategy == 'fifo':
-            return domain, 'in_date ASC, id'
+    def _get_removal_strategy_order(self, removal_strategy):
+        if removal_strategy in ['fifo', 'least_packages']:
+            return 'in_date ASC, id'
         elif removal_strategy == 'lifo':
-            return domain, 'in_date DESC, id DESC'
+            return 'in_date DESC, id DESC'
         elif removal_strategy == 'closest':
-            return domain, False
-        elif removal_strategy == 'least_packages':
-            if qty > 0:
-                return self._run_least_packages_removal_strategy_astar(domain, qty), 'in_date ASC, id'
-            return domain, 'in_date ASC, id'
+            return False
         raise UserError(_('Removal strategy %s not implemented.', removal_strategy))
-
-    def _get_removal_strategy_sort_key(self, removal_strategy):
-        key = lambda q: (q.in_date, q.id)
-        reverse = False
-        if removal_strategy == 'lifo':
-            reverse = True
-        elif removal_strategy == 'closest':
-            key = lambda q: (q.location_id.complete_name, -q.id)
-        return key, reverse
 
     def _get_gather_domain(self, product_id, location_id, lot_id=None, package_id=None, owner_id=None, strict=False):
         domain = [('product_id', '=', product_id.id)]
@@ -768,10 +763,16 @@ class StockQuant(models.Model):
         """
         removal_strategy = self._get_removal_strategy(product_id, location_id)
         domain = self._get_gather_domain(product_id, location_id, lot_id, package_id, owner_id, strict)
-        domain, order = self._get_removal_strategy_domain_order(domain, removal_strategy, qty)
-        if self.ids:
-            sort_key = self._get_removal_strategy_sort_key(removal_strategy)
-            res = self.filtered_domain(domain).sorted(key=sort_key[0], reverse=sort_key[1])
+        if removal_strategy == 'least_packages' and qty:
+            domain = self._run_least_packages_removal_strategy_astar(domain, qty)
+        order = self._get_removal_strategy_order(removal_strategy)
+
+        quants_cache = self.env.context.get('quants_cache')
+        if quants_cache is not None and strict and removal_strategy != 'least_packages':
+            res = self.env['stock.quant']
+            if lot_id:
+                res |= quants_cache[product_id.id, location_id.id, lot_id.id, package_id.id, owner_id.id]
+            res |= quants_cache[product_id.id, location_id.id, False, package_id.id, owner_id.id]
         else:
             res = self.search(domain, order=order)
         if removal_strategy == "closest":
@@ -856,7 +857,7 @@ class StockQuant(models.Model):
             quantity_move_uom = product_id.uom_id._compute_quantity(quantity, uom_id, rounding_method='DOWN')
             quantity = uom_id._compute_quantity(quantity_move_uom, product_id.uom_id, rounding_method='HALF-UP')
 
-        if self.product_id.tracking == 'serial':
+        if product_id.tracking == 'serial':
             if float_compare(quantity, int(quantity), precision_rounding=rounding) != 0:
                 quantity = 0
 
@@ -902,6 +903,24 @@ class StockQuant(models.Model):
             if float_is_zero(quantity, precision_rounding=rounding) or float_is_zero(available_quantity, precision_rounding=rounding):
                 break
         return reserved_quants
+
+    def _get_quants_by_products_locations(self, product_ids, location_ids, extra_domain=False):
+        res = defaultdict(lambda: self.env['stock.quant'])
+        if product_ids and location_ids:
+            domain = [
+                ('product_id', 'in', product_ids.ids),
+                ('location_id', 'child_of', location_ids.ids)
+            ]
+            if extra_domain:
+                domain = expression.AND([domain, extra_domain])
+            needed_quants = self.env['stock.quant']._read_group(
+                domain,
+                ['product_id', 'location_id', 'lot_id', 'package_id', 'owner_id'],
+                ['id:recordset'], order="lot_id"
+            )
+            for product, loc, lot, package, owner, quants in needed_quants:
+                res[product.id, loc.id, lot.id, package.id, owner.id] = quants
+        return res
 
     @api.onchange('location_id', 'product_id', 'lot_id', 'package_id', 'owner_id')
     def _onchange_location_or_product_id(self):
@@ -989,18 +1008,6 @@ class StockQuant(models.Model):
             quant.inventory_date = date_by_location[quant.location_id]
         self.write({'inventory_quantity': 0, 'user_id': False})
         self.write({'inventory_diff_quantity': 0})
-
-    @api.model
-    def _get_quants_by_products_locations(self, product_ids, location_ids):
-        quants_by_product = defaultdict(lambda: self.env['stock.quant'])
-        if product_ids and location_ids:
-            needed_quants = self.env['stock.quant']._read_group([('product_id', 'in', product_ids.ids),
-                                                                ('location_id', 'child_of', location_ids.ids)],
-                                                            ['product_id'],
-                                                            ['id:recordset'])
-            for product, quants in needed_quants:
-                quants_by_product[product.id] = quants
-        return quants_by_product
 
     @api.model
     def _update_available_quantity(self, product_id, location_id, quantity=False, reserved_quantity=False, lot_id=None, package_id=None, owner_id=None, in_date=None):
@@ -1101,8 +1108,8 @@ class StockQuant(models.Model):
                                                      AND user_id IS NULL;"""
         params = (precision_digits, precision_digits, precision_digits)
         self.env.cr.execute(query, params)
-        quant_ids = self.env['stock.quant'].browse([quant['id'] for quant in self.env.cr.dictfetchall()])
-        quant_ids.sudo().unlink()
+        quants = self.env['stock.quant'].browse([quant['id'] for quant in self.env.cr.dictfetchall()])
+        quants.sudo().unlink()
 
     @api.model
     def _merge_quants(self):

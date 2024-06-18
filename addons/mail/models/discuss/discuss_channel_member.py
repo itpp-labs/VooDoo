@@ -6,6 +6,7 @@ import uuid
 
 import odoo
 from odoo import api, fields, models, _
+from odoo.addons.mail.tools.discuss import Store
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.osv import expression
 from ...tools import jwt, discuss
@@ -190,9 +191,9 @@ class ChannelMember(models.Model):
         """
         notifications = []
         for member in self:
-            formatted_member = member._discuss_channel_member_format().get(member)
-            formatted_member['isTyping'] = is_typing
-            notifications.append([member.channel_id, 'discuss.channel.member/typing_status', formatted_member])
+            store = Store("ChannelMember", member._discuss_channel_member_format().get(member))
+            store.add("ChannelMember", {"id": member.id, "isTyping": is_typing})
+            notifications.append([member.channel_id, "mail.record/insert", store.get_result()])
         self.env['bus.bus']._sendmany(notifications)
 
     @api.model
@@ -411,18 +412,19 @@ class ChannelMember(models.Model):
                 target = member.partner_id
             else:
                 target = member.guest_id
-            invitation_notifications.append((target, 'mail.record/insert', {
-                'Thread': {
-                    'id': self.channel_id.id,
-                    'model': 'discuss.channel',
-                    'rtcInvitingSession': self.rtc_session_ids._mail_rtc_session_format(),
-                }
-            }))
+            channel_data = {
+                "id": self.channel_id.id,
+                "model": "discuss.channel",
+                "rtcInvitingSession": self.rtc_session_ids._mail_rtc_session_format(),
+            }
+            store = Store("Thread", channel_data)
+            invitation_notifications.append((target, "mail.record/insert", store.get_result()))
         self.env['bus.bus']._sendmany(invitation_notifications)
         if members:
             channel_data = {'id': self.channel_id.id, 'model': 'discuss.channel'}
             channel_data['invitedMembers'] = [('ADD', list(members._discuss_channel_member_format(fields={'id': True, 'channel': {}, 'persona': {'partner': {'id': True, 'name': True, 'im_status': True}, 'guest': {'id': True, 'name': True, 'im_status': True}}}).values()))]
-            self.env['bus.bus']._sendone(self.channel_id, 'mail.record/insert', {'Thread': channel_data})
+            store = Store("Thread", channel_data)
+            self.env["bus.bus"]._sendone(self.channel_id, "mail.record/insert", store.get_result())
         return members
 
     def _mark_as_read(self, last_message_id, sync=False):

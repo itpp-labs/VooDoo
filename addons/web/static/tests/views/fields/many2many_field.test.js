@@ -243,7 +243,7 @@ test.tags("desktop")("many2many kanban: edition", async () => {
                         <field name="name" />
                         <templates>
                             <t t-name="kanban-box">
-                                <div class="oe_kanban_global_click">
+                                <div>
                                     <a
                                         t-if="!read_only_mode"
                                         type="delete"
@@ -417,7 +417,7 @@ test("many2many kanban: create action disabled", async () => {
                         <field name="name"/>
                         <templates>
                             <t t-name="kanban-box">
-                                <div class="oe_kanban_global_click">
+                                <div>
                                     <a t-if="!read_only_mode" type="delete" class="fa fa-times float-end delete_icon"/>
                                     <span><t t-esc="record.name.value"/></span>
                                 </div>
@@ -455,7 +455,7 @@ test("many2many kanban: conditional create/delete actions", async () => {
                         <field name="name"/>
                         <templates>
                             <t t-name="kanban-box">
-                                <div class="oe_kanban_global_click">
+                                <div>
                                     <span><t t-esc="record.name.value"/></span>
                                 </div>
                             </t>
@@ -1385,24 +1385,24 @@ test("onchange with 40+ commands for a many2many", async () => {
     await contains(".o_field_widget[name=foo] input").edit("trigger onchange");
     expect(["onchange"]).toVerifySteps();
     expect(".o_x2m_control_panel .o_pager_counter").toHaveText("1-40 / 45");
-    expect('.o_kanban_record[role="article"]').toHaveCount(40);
+    expect(".o_kanban_record:not(.o_kanban_ghost)").toHaveCount(40);
     await contains(".o_field_widget[name=timmy] .o_pager_next:eq(0)").click();
     expect([]).toVerifySteps();
     expect(".o_x2m_control_panel .o_pager_counter").toHaveText("41-45 / 45");
-    expect('.o_kanban_record[role="article"]').toHaveCount(5);
+    expect(".o_kanban_record:not(.o_kanban_ghost)").toHaveCount(5);
 
     await clickSave();
 
     expect(".o_x2m_control_panel .o_pager_counter").toHaveText("1-40 / 45");
-    expect('.o_kanban_record[role="article"]').toHaveCount(40);
+    expect(".o_kanban_record:not(.o_kanban_ghost)").toHaveCount(40);
 
     await contains(".o_field_widget[name=timmy] .o_pager_next:eq(0)").click();
     expect(".o_x2m_control_panel .o_pager_counter").toHaveText("41-45 / 45");
-    expect('.o_kanban_record[role="article"]').toHaveCount(5);
+    expect(".o_kanban_record:not(.o_kanban_ghost)").toHaveCount(5);
 
     await contains(".o_field_widget[name=timmy] .o_pager_next:eq(0)").click();
     expect(".o_x2m_control_panel .o_pager_counter").toHaveText("1-40 / 45");
-    expect('.o_kanban_record[role="article"]').toHaveCount(40);
+    expect(".o_kanban_record:not(.o_kanban_ghost)").toHaveCount(40);
 
     expect(["web_save", "web_read"]).toVerifySteps();
 });
@@ -1550,7 +1550,7 @@ test("many2many kanban: action/type attribute", async () => {
                     <kanban action="a1" type="object">
                         <templates>
                             <t t-name="kanban-box">
-                                <div class="oe_kanban_global_click">
+                                <div>
                                     <field name="name"/>
                                 </div>
                             </t>
@@ -1560,7 +1560,7 @@ test("many2many kanban: action/type attribute", async () => {
             </form>`,
         resId: 1,
     });
-    await contains(".oe_kanban_global_click").click();
+    await contains(".o_kanban_record").click();
     expect(["action: a1"]).toVerifySteps();
 });
 

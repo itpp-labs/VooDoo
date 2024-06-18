@@ -274,7 +274,13 @@ async function discuss_channel_info(request) {
     const DiscussChannel = this.env["discuss.channel"];
 
     const { channel_id } = await parseRequestParams(request);
-    return DiscussChannel._channel_info([channel_id])[0];
+    const res = {};
+    const channelInfos = DiscussChannel._channel_info([channel_id]);
+    if (!channelInfos.length) {
+        return;
+    }
+    Object.assign(res, { Thread: channelInfos });
+    return res;
 }
 
 registerRoute("/discuss/channel/members", discuss_channel_members);
@@ -398,6 +404,9 @@ async function discuss_channel_mark_as_read(request) {
         ["channel_id", "=", channel_id],
         partner ? ["partner_id", "=", partner.id] : ["guest_id", "=", guest.id],
     ]);
+    if (!memberId) {
+        return; // ignore if the member left in the meantime
+    }
     return DiscussChannelMember._mark_as_read([memberId], last_message_id, sync);
 }
 

@@ -22,6 +22,7 @@ let temporaryIdOffset = 0.01;
 
 export class Store extends BaseStore {
     static FETCH_DATA_DEBOUNCE_DELAY = 1;
+    static OTHER_LONG_TYPING = 60000;
     FETCH_LIMIT = 30;
     DEFAULT_AVATAR = "/mail/static/src/img/smiley/avatar.jpg";
     CHAT_WINDOW_END_GAP_WIDTH = 10; // for a single end, multiply by 2 for left and right together.
@@ -638,8 +639,8 @@ export class Store extends BaseStore {
             partners_to: [id],
             force_open: forceOpen,
         });
-        const thread = this.Thread.insert(data);
-        return thread;
+        const { Thread } = this.store.insert(data);
+        return Thread[0];
     }
 
     async openChat(person) {
