@@ -159,9 +159,8 @@ class TestAccountComposerPerformance(AccountTestInvoicingCommon, MailCommon):
         for test_move in test_moves:
             self.assertFalse(test_move.is_move_sent)
 
-        composer = self.env['account.move.send']\
-            .with_context(active_model='account.move', active_ids=test_moves.ids)\
-            .create({'mail_template_id': move_template.id})
+        options = self.env['account.move.send']._get_wizard_vals_restrict_to({'mail_template_id': move_template.id, 'checkbox_send_mail': True})
+        composer = self.env['account.move.send'].with_context(active_model='account.move', active_ids=test_moves.ids).create(options)
 
         with self.mock_mail_gateway(mail_unlink_sent=False):
             composer.action_send_and_print(force_synchronous=True)
@@ -231,9 +230,8 @@ class TestAccountComposerPerformance(AccountTestInvoicingCommon, MailCommon):
         test_customer = self.test_customers[0].with_env(self.env)
         move_template = self.move_template.with_env(self.env)
 
-        composer = self.env['account.move.send']\
-            .with_context(active_model='account.move', active_ids=test_move.ids)\
-            .create({'mail_template_id': move_template.id})
+        options = self.env['account.move.send']._get_wizard_vals_restrict_to({'mail_template_id': move_template.id, 'checkbox_send_mail': True})
+        composer = self.env['account.move.send'].with_context(active_model='account.move', active_ids=test_move.ids).create(options)
 
         with self.mock_mail_gateway(mail_unlink_sent=False), \
              self.mock_mail_app():
@@ -318,9 +316,8 @@ class TestAccountComposerPerformance(AccountTestInvoicingCommon, MailCommon):
         test_customer = self.test_customers[1].with_env(self.env)
         move_template = self.move_template.with_env(self.env)
 
-        composer = self.env['account.move.send']\
-            .with_context(active_model='account.move', active_ids=test_move.ids)\
-            .create({'mail_template_id': move_template.id})
+        options = self.env['account.move.send']._get_wizard_vals_restrict_to({'mail_template_id': move_template.id, 'checkbox_send_mail': True})
+        composer = self.env['account.move.send'].with_context(active_model='account.move', active_ids=test_move.ids).create(options)
 
         with self.mock_mail_gateway(mail_unlink_sent=False), \
              self.mock_mail_app():
@@ -412,9 +409,12 @@ class TestAccountComposerPerformance(AccountTestInvoicingCommon, MailCommon):
             'email': "additional@example.com",
         })
 
-        composer = self.env['account.move.send']\
-            .with_context(active_model='account.move', active_ids=test_move.ids)\
-            .create({'mail_template_id': move_template.id, 'mail_partner_ids': additional_partner.ids})
+        options = self.env['account.move.send']._get_wizard_vals_restrict_to({
+            'mail_template_id': move_template.id,
+            'mail_partner_ids': additional_partner.ids,
+            'checkbox_send_mail': True,
+        })
+        composer = self.env['account.move.send'].with_context(active_model='account.move', active_ids=test_move.ids).create(options)
 
         with self.mock_mail_gateway(mail_unlink_sent=False):
             composer.action_send_and_print()
@@ -489,7 +489,7 @@ class TestAccountMoveSend(TestAccountMoveSendCommon):
             'mail_lang': 'en_US',
             'mail_partner_ids': wizard.move_ids.partner_id.ids,
         }])
-        self.assertFalse(wizard.send_mail_warning_message)
+        self.assertFalse(wizard.warnings)
         self.assertTrue(wizard.mail_subject)
         self.assertTrue(wizard.mail_body)
         self._assert_mail_attachments_widget(wizard, [{
@@ -705,7 +705,7 @@ class TestAccountMoveSend(TestAccountMoveSendCommon):
         self.partner_a.email = None
         self.partner_b.email = None
         wizard = self.create_send_and_print(invoice1 + invoice2)
-        self.assertTrue(wizard.send_mail_warning_message)
+        self.assertTrue('account_missing_email' in wizard.warnings)
         self.assertRecordValues(wizard, [{
             'send_mail_readonly': True,
             'checkbox_send_mail': False,
@@ -713,7 +713,7 @@ class TestAccountMoveSend(TestAccountMoveSendCommon):
 
         self.partner_a.email = "turlututu@tsointsoin"
         wizard = self.create_send_and_print(invoice1 + invoice2)
-        self.assertTrue(wizard.send_mail_warning_message)
+        self.assertTrue('account_missing_email' in wizard.warnings)
         self.assertRecordValues(wizard, [{
             'send_mail_readonly': False,
             'checkbox_send_mail': True,
@@ -721,7 +721,7 @@ class TestAccountMoveSend(TestAccountMoveSendCommon):
 
         self.partner_b.email = "turlututu@tsointsoin"
         wizard = self.create_send_and_print(invoice1 + invoice2)
-        self.assertFalse(wizard.send_mail_warning_message)
+        self.assertFalse(wizard.warnings)
         self.assertRecordValues(wizard, [{
             'send_mail_readonly': False,
             'checkbox_send_mail': True,
