@@ -189,16 +189,20 @@ async function channel_call_join(request) {
         ["channel_member_id", "in", channelMembers.map((channelMember) => channelMember.id)],
     ]);
     return {
-        iceServers: false,
-        rtcSessions: [
-            [
-                "ADD",
-                rtcSessions.map((rtcSession) =>
-                    DiscussChannelRtcSession._mail_rtc_session_format(rtcSession.id)
-                ),
-            ],
+        Rtc: {
+            iceServers: false,
+            selfSession: { id: sessionId },
+        },
+        RtcSession: rtcSessions.map((rtcSession) =>
+            DiscussChannelRtcSession._mail_rtc_session_format(rtcSession.id)
+        ),
+        Thread: [
+            {
+                id: channel_id,
+                model: "discuss.channel",
+                rtcSessions: [["ADD", rtcSessions.map((rtcSession) => ({ id: rtcSession.id }))]],
+            },
         ],
-        sessionId: sessionId,
     };
 }
 
@@ -234,10 +238,15 @@ async function channel_call_leave(request) {
         });
         notifications.push([
             channel,
-            "discuss.channel/rtc_sessions_update",
+            "mail.record/insert",
             {
-                id: Number(channelId), // JS object keys are strings, but the type from the server is number
-                rtcSessions: [["DELETE", notificationRtcSessions]],
+                Thread: [
+                    {
+                        id: Number(channelId), // JS object keys are strings, but the type from the server is number
+                        model: "discuss.channel",
+                        rtcSessions: [["DELETE", notificationRtcSessions]],
+                    },
+                ],
             },
         ]);
     }

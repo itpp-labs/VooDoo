@@ -8,6 +8,7 @@ from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models
 from odoo.addons.mail.tools import discuss, jwt
+from odoo.addons.mail.tools.discuss import Store
 
 _logger = logging.getLogger(__name__)
 
@@ -37,10 +38,22 @@ class MailRtcSession(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         rtc_sessions = super().create(vals_list)
-        self.env['bus.bus']._sendmany([(channel, 'discuss.channel/rtc_sessions_update', {
-            'id': channel.id,
-            'rtcSessions': [('ADD', sessions_data)],
-        }) for channel, sessions_data in rtc_sessions._mail_rtc_session_format_by_channel().items()])
+        notifications = []
+        rtc_sessions_by_channel = defaultdict(lambda: self.env["discuss.channel.rtc.session"])
+        for rtc_session in rtc_sessions:
+            rtc_sessions_by_channel[rtc_session.channel_id] += rtc_session
+        for channel, rtc_sessions in rtc_sessions_by_channel.items():
+            store = Store(rtc_sessions)
+            channel_info = {
+                "id": channel.id,
+                "model": "discuss.channel",
+                "rtcSessions": [
+                    ("ADD", [{"id": rtc_session["id"]} for rtc_session in rtc_sessions]),
+                ],
+            }
+            store.add("Thread", channel_info)
+            notifications.append((channel, "mail.record/insert", store.get_result()))
+        self.env["bus.bus"]._sendmany(notifications)
         return rtc_sessions
 
     def unlink(self):
@@ -56,10 +69,20 @@ class MailRtcSession(models.Model):
                 # than to attempt recycling a possibly stale channel uuid.
                 channel.sfu_channel_uuid = False
                 channel.sfu_server_url = False
-        notifications = [(channel, 'discuss.channel/rtc_sessions_update', {
-            'id': channel.id,
-            'rtcSessions': [('DELETE', [{'id': session_data['id']} for session_data in sessions_data])],
-        }) for channel, sessions_data in self._mail_rtc_session_format_by_channel().items()]
+        notifications = []
+        rtc_sessions_by_channel = defaultdict(lambda: self.env["discuss.channel.rtc.session"])
+        for rtc_session in self:
+            rtc_sessions_by_channel[rtc_session.channel_id] += rtc_session
+        for channel, rtc_sessions in rtc_sessions_by_channel.items():
+            channel_info = {
+                "id": channel.id,
+                "model": "discuss.channel",
+                "rtcSessions": [
+                    ("DELETE", [{"id": rtc_session["id"]} for rtc_session in rtc_sessions]),
+                ],
+            }
+            store = Store("Thread", channel_info)
+            notifications.append((channel, "mail.record/insert", store.get_result()))
         for rtc_session in self:
             target = rtc_session.guest_id or rtc_session.partner_id
             notifications.append((target, 'discuss.channel.rtc.session/ended', {'sessionId': rtc_session.id}))
@@ -72,11 +95,11 @@ class MailRtcSession(models.Model):
         """
         valid_values = {'is_screen_sharing_on', 'is_camera_on', 'is_muted', 'is_deaf'}
         self.write({key: values[key] for key in valid_values if key in values})
-        session_data = self._mail_rtc_session_format(extra=True)
+        store = Store(self, extra=True)
         self.env["bus.bus"]._sendone(
             self.channel_id,
             "discuss.channel.rtc.session/update_and_broadcast",
-            {"data": session_data, "channelId": self.channel_id.id},
+            {"data": store.get_result(), "channelId": self.channel_id.id},
         )
 
     @api.autovacuum
@@ -128,32 +151,37 @@ class MailRtcSession(models.Model):
                 payload_by_target[target]['notifications'].append(content)
         return self.env['bus.bus']._sendmany([(target, 'discuss.channel.rtc.session/peer_notification', payload) for target, payload in payload_by_target.items()])
 
-    def _mail_rtc_session_format(self, extra=False):
-        self.ensure_one()
-        vals = {
-            "id": self.id,
-            "channelMember": self.channel_member_id._discuss_channel_member_format(
-                fields={
-                    "id": True,
-                    "channel": {},
-                    "persona": {"partner": {"id": True, "name": True, "im_status": True}, "guest": {"id": True, "name": True, "im_status": True}},
-                }
-            ).get(self.channel_member_id),
-        }
-        if extra:
-            vals.update({
-                "isCameraOn": self.is_camera_on,
-                "isDeaf": self.is_deaf,
-                "isSelfMuted": self.is_muted,
-                "isScreenSharingOn": self.is_screen_sharing_on,
-            })
-        return vals
-
-    def _mail_rtc_session_format_by_channel(self, extra=False):
-        data = {}
+    def _to_store(self, store: Store, extra=False):
+        store.add(
+            "ChannelMember",
+            list(
+                self.channel_member_id._discuss_channel_member_format(
+                    fields={
+                        "id": True,
+                        "channel": {},
+                        "persona": {
+                            "partner": {"id": True, "name": True, "im_status": True},
+                            "guest": {"id": True, "name": True, "im_status": True},
+                        },
+                    }
+                ).values()
+            ),
+        )
         for rtc_session in self:
-            data.setdefault(rtc_session.channel_id, []).append(rtc_session._mail_rtc_session_format(extra=extra))
-        return data
+            vals = {
+                "id": rtc_session.id,
+                "channelMember": {"id": rtc_session.channel_member_id.id},
+            }
+            if extra:
+                vals.update(
+                    {
+                        "isCameraOn": rtc_session.is_camera_on,
+                        "isDeaf": rtc_session.is_deaf,
+                        "isSelfMuted": rtc_session.is_muted,
+                        "isScreenSharingOn": rtc_session.is_screen_sharing_on,
+                    }
+                )
+            store.add("RtcSession", vals)
 
     @api.model
     def _inactive_rtc_session_domain(self):

@@ -466,27 +466,46 @@ class Channel(models.Model):
         ]
         if member_ids:
             channel_member_domain = expression.AND([channel_member_domain, [('id', 'in', member_ids)]])
-        invitation_notifications = []
+        notifications = []
         members = self.env['discuss.channel.member'].search(channel_member_domain)
         for member in members:
             member.rtc_inviting_session_id = False
-            if member.partner_id:
-                target = member.partner_id
-            else:
-                target = member.guest_id
-            invitation_notifications.append((target, 'mail.record/insert', {
-                'Thread': {
-                    'id': self.id,
-                    'model': 'discuss.channel',
-                    'rtcInvitingSession': False,
+            target = member.partner_id or member.guest_id
+            store = Store(
+                "Thread",
+                {
+                    "id": self.id,
+                    "model": "discuss.channel",
+                    "rtcInvitingSession": False,
                 }
-            }))
-        self.env['bus.bus']._sendmany(invitation_notifications)
-        channel_data = {'id': self.id, 'model': 'discuss.channel'}
+            )
+            notifications.append((target, "mail.record/insert", store.get_result()))
         if members:
-            channel_data['invitedMembers'] = [('DELETE', list(members._discuss_channel_member_format(fields={'id': True, 'channel': {}, 'persona': {'partner': {'id': True, 'name': True, 'im_status': True}, 'guest': {'id': True, 'name': True, 'im_status': True}}}).values()))]
-            self.env['bus.bus']._sendone(self, 'mail.record/insert', {'Thread': channel_data})
-        return channel_data
+            store = Store(
+                "Thread",
+                {
+                    "id": self.id,
+                    "model": "discuss.channel",
+                    "invitedMembers": [("DELETE", [{"id": member.id} for member in members])],
+                },
+            )
+            store.add(
+                "ChannelMember",
+                list(
+                    members._discuss_channel_member_format(
+                        fields={
+                            "id": True,
+                            "channel": {},
+                            "persona": {
+                                "partner": {"id": True, "name": True, "im_status": True},
+                                "guest": {"id": True, "name": True, "im_status": True},
+                            },
+                        }
+                    ).values()
+                ),
+            )
+            notifications.append((self, "mail.record/insert", store.get_result()))
+        self.env["bus.bus"]._sendmany(notifications)
 
     # ------------------------------------------------------------
     # MAILING
@@ -869,7 +888,7 @@ class Channel(models.Model):
         # sudo: bus.bus: reading non-sensitive last id
         bus_last_id = self.env["bus.bus"].sudo()._bus_last_id()
         # sudo: discuss.channel.rtc.session - reading sessions of accessible channel is acceptable
-        rtc_sessions_by_channel = self.sudo().rtc_session_ids._mail_rtc_session_format_by_channel(extra=True)
+        store.add(self.sudo().rtc_session_ids, extra=True)
         current_partner, current_guest = self.env["res.partner"]._get_current_persona()
         self.env['discuss.channel'].flush_model()
         self.env['discuss.channel.member'].flush_model()
@@ -926,7 +945,7 @@ class Channel(models.Model):
                     info['custom_channel_name'] = member.custom_channel_name
                     info['is_pinned'] = member.is_pinned
                     if member.rtc_inviting_session_id:
-                        info['rtcInvitingSession'] = member.rtc_inviting_session_id._mail_rtc_session_format()
+                        info["rtcInvitingSession"] = {"id": member.rtc_inviting_session_id.id}
             # add members info
             if channel.channel_type != 'channel':
                 # avoid sending potentially a lot of members for big channels
@@ -954,7 +973,10 @@ class Channel(models.Model):
             members_data = list(invited_members._discuss_channel_member_format(m_fields).values())
             store.add("ChannelMember", members_data)
             info["invitedMembers"] = [("ADD", [{"id": member.id} for member in invited_members])]
-            info["rtcSessions"] = [("ADD", rtc_sessions_by_channel.get(channel, []))]
+            info["rtcSessions"] = [
+                # sudo: discuss.channel.rtc.session - reading sessions of accessible channel is acceptable
+                ("ADD", [{"id": session.id} for session in channel.sudo().rtc_session_ids])
+            ]
             store.add("Thread", info)
 
     def _channel_fetch_message(self, last_id=False, limit=20):

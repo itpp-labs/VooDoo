@@ -26,19 +26,20 @@
         extra_trigger: `.note-editable p:not(:contains(/^<br>$/))`,
         content: _t("Insert tags related to your question."),
         position: "top",
-        run: function (actions) {
-            actions.editor("Test", "input[id=s2id_autogen2]");
-        },
-    }, {
+    }, 
+    {
+        trigger: "input[id=s2id_autogen2]",
+        run: "editor Test",
+    },
+    {
         trigger: "button:contains(/^Post/)",
         extra_trigger: `input[id=s2id_autogen2]:not(:contains(Tags))`,
         content: _t("Click to post your question."),
         position: "bottom",
         run: "click",
     }, {
-        extra_trigger: 'div.modal.modal_shown',
-        trigger: ".modal-header button.btn-close",
-        auto: true,
+        isActive: ["auto"],
+        trigger: ".modal .modal-header button.btn-close",
         run: "click",
     },
     {
@@ -59,9 +60,8 @@
         position: "bottom",
         run: "click",
     }, {
-        extra_trigger: 'div.modal.modal_shown',
-        trigger: ".modal-header button.btn-close",
-        auto: true,
+        isActive: ["auto"],
+        trigger: ".modal .modal-header button.btn-close",
         run: "click",
     }, {
         trigger: ".o_wforum_validate_toggler[data-karma]:first",
@@ -69,7 +69,7 @@
         position: "right",
         run: "click",
     }, {
+        isActive: ["auto"],
         content: "Check edit button is there",
         trigger: "a:contains('Edit your answer')",
-        auto: true,
     }]);

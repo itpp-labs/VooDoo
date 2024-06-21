@@ -21,8 +21,8 @@ registry.category("web_tour.tours").add('sale_product_configurator_custom_value_
     trigger: '.o_required_modifier[name=partner_id] input',
     run: "edit Tajine Saucisse",
 }, {
+    isActive: ["auto"],
     trigger: '.ui-menu-item > a:contains("Tajine Saucisse")',
-    auto: true,
     run: "click",
 }, {
     trigger: 'a:contains("Add a product")',
@@ -49,9 +49,12 @@ configuratorTourUtils.assertProductNameContains("Customizable Desk (TEST) (Custo
 {
     trigger: 'div[name="product_template_id"]',
     run: "click",
-}, {
+}, 
+{
+    trigger: ".o_external_button",
+},
+{
     trigger: '.fa-pencil',
-    extra_trigger: '.o_external_button',
     run: "click",
 },
 configuratorTourUtils.setCustomAttribute("Customizable Desk (TEST)", "Legs", "123456"),

@@ -16,8 +16,19 @@ export class DiscussChannelRtcSession extends models.ServerModel {
             const [channel] = DiscussChannel.search_read([["id", "=", Number(channelId)]]);
             notifications.push([
                 channel,
-                "discuss.channel/rtc_sessions_update",
-                { id: channel.id, rtcSessions: [["ADD", sessionData]] },
+                "mail.record/insert",
+                {
+                    RtcSession: [sessionData],
+                    Thread: [
+                        {
+                            id: channel.id,
+                            model: "discuss.channel",
+                            rtcSessions: [
+                                ["ADD", sessionData.map((session) => ({ id: session.id }))],
+                            ],
+                        },
+                    ],
+                },
             ]);
         }
         BusBus._sendmany(notifications);
@@ -102,7 +113,7 @@ export class DiscussChannelRtcSession extends models.ServerModel {
             ["id", "=", sessionData.channelMember.thread.id],
         ]);
         BusBus._sendone(channel, "discuss.channel.rtc.session/update_and_broadcast", {
-            data: sessionData,
+            data: { RtcSession: [sessionData] },
             channelId: channel.id,
         });
     }

@@ -1,7 +1,7 @@
 /** @odoo-module **/
 
 import { registry } from "@web/core/registry";
-import { stepUtils, TourError } from "@web_tour/tour_service/tour_utils";
+import { stepUtils } from "@web_tour/tour_service/tour_utils";
 import configuratorTourUtils from "@test_sale_product_configurators/js/tour_utils";
 import { queryFirst } from "@odoo/hoot-dom";
 
@@ -13,20 +13,26 @@ registry.category("web_tour.tours").add('sale_product_configurator_advanced_tour
     steps: () => [stepUtils.showAppsMenuItem(), {
     trigger: '.o_app[data-menu-xmlid="sale.sale_menu_root"]',
     run: "click",
-},  {
+},  
+{
+    trigger: ".o_sale_order",
+},
+{
     trigger: '.o_list_button_add',
-    extra_trigger: '.o_sale_order',
     run: "click",
 }, {
     trigger: '.o_required_modifier[name=partner_id] input',
     run: "edit Tajine Saucisse",
 }, {
+    isActive: ["auto"],
     trigger: '.ui-menu-item > a:contains("Tajine Saucisse")',
-    auto: true,
     run: "click",
-}, {
+}, 
+{
+    trigger: ".o_field_widget[name=partner_shipping_id] .o_external_button", // Wait for onchange_partner_id
+},
+{
     trigger: 'a:contains("Add a product")',
-    extra_trigger: '.o_field_widget[name=partner_shipping_id] .o_external_button', // Wait for onchange_partner_id
     run: "click",
 }, {
     trigger: 'div[name="product_template_id"] input',
@@ -58,7 +64,7 @@ registry.category("web_tour.tours").add('sale_product_configurator_advanced_tour
         );
         let newVariantImage = el?.getAttribute("src");
         if (newVariantImage !== optionVariantImage) {
-            throw new TourError('image variant option src changed');
+            console.error('image variant option src changed');
         }
     }
 }, {

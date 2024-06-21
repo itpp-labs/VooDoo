@@ -75,6 +75,8 @@ class TestDiscussFullPerformance(HttpCase):
     def _setup_test(self):
         self.channel_general = self.env.ref('mail.channel_all_employees')  # Unfortunately #general cannot be deleted. Assertions below assume data from a fresh db with demo.
         self.channel_general.message_ids.unlink() # Remove messages to avoid depending on demo data.
+        self.channel_general.last_interest_dt = False  # Reset state
+        self.channel_general.channel_member_ids.sudo().last_interest_dt = False  # Reset state
         self.env['discuss.channel'].sudo().search([('id', '!=', self.channel_general.id)]).unlink()
         self.user_root = self.env.ref('base.user_root')
         # create public channels
@@ -135,12 +137,10 @@ class TestDiscussFullPerformance(HttpCase):
         member_0 = members.with_user(self.users[0]).filtered(lambda m: m.is_self)
         member_2 = members.with_user(self.users[2]).filtered(lambda m: m.is_self)
         self.channel_channel_group_1_invited_member = member_0
-        self.channel_channel_group_1_inviting_member = member_2
         # sudo: discuss.channel.rtc.session - creating a session in a test file
         data = {"channel_id": self.channel_channel_group_1.id, "channel_member_id": member_2.id}
         session = self.env["discuss.channel.rtc.session"].sudo().create(data)
         member_0.rtc_inviting_session_id = session
-        self.channel_channel_group_1_inviting_session = session
 
     @users('emp')
     @warmup
@@ -232,6 +232,7 @@ class TestDiscussFullPerformance(HttpCase):
         bus_last_id = self.env["bus.bus"].sudo()._bus_last_id()
         return {
             "ChannelMember": [
+                self._expected_result_for_channel_member(self.channel_channel_group_1, self.users[2].partner_id),
                 self._expected_result_for_channel_member(self.channel_channel_group_1, self.users[0].partner_id),
                 self._expected_result_for_channel_member(self.channel_chat_1, self.users[0].partner_id),
                 self._expected_result_for_channel_member(self.channel_chat_1, self.users[14].partner_id),
@@ -255,6 +256,9 @@ class TestDiscussFullPerformance(HttpCase):
                 "initChannelsUnreadCounter": 1,
                 "odoobotOnboarding": False,
             },
+            "RtcSession": [
+                self._expected_result_for_rtc_session(self.channel_channel_group_1, self.users[2]),
+            ],
             "Thread": [
                 self._expected_result_for_channel(self.channel_channel_group_1),
                 self._expected_result_for_channel(self.channel_chat_1),
@@ -281,6 +285,7 @@ class TestDiscussFullPerformance(HttpCase):
         """
         return {
             "ChannelMember": [
+                self._expected_result_for_channel_member(self.channel_channel_group_1, self.users[2].partner_id),
                 self._expected_result_for_channel_member(self.channel_general, self.users[0].partner_id),
                 self._expected_result_for_channel_member(self.channel_channel_public_1, self.users[0].partner_id),
                 self._expected_result_for_channel_member(self.channel_channel_public_2, self.users[0].partner_id),
@@ -309,6 +314,9 @@ class TestDiscussFullPerformance(HttpCase):
                 self._expected_result_for_message(self.channel_livechat_1),
                 self._expected_result_for_message(self.channel_livechat_2),
             ],
+            "RtcSession": [
+                self._expected_result_for_rtc_session(self.channel_channel_group_1, self.users[2]),
+            ],
             "Thread": [
                 self._expected_result_for_channel(self.channel_general),
                 self._expected_result_for_channel(self.channel_channel_public_1),
@@ -328,6 +336,9 @@ class TestDiscussFullPerformance(HttpCase):
     def _expected_result_for_channel(self, channel):
         # sudo: bus.bus: reading non-sensitive last id
         bus_last_id = self.env["bus.bus"].sudo()._bus_last_id()
+        members = channel.channel_member_ids
+        member_0 = members.filtered(lambda m: m.partner_id == self.users[0].partner_id)
+        member_2 = members.filtered(lambda m: m.partner_id == self.users[2].partner_id)
         write_date_0 = fields.Datetime.to_string(self.users[0].partner_id.write_date)
         last_interest_dt = fields.Datetime.to_string(channel.last_interest_dt)
         if channel == self.channel_general:
@@ -445,58 +456,17 @@ class TestDiscussFullPerformance(HttpCase):
                 "defaultDisplayMode": False,
                 "description": False,
                 "group_based_subscription": False,
-                "invitedMembers": [
-                    ["ADD", [{"id": self.channel_channel_group_1_invited_member.id}]]
-                ],
+                "invitedMembers": [["ADD", [{"id": member_0.id}]]],
                 "is_editable": True,
                 "is_pinned": True,
                 "last_interest_dt": last_interest_dt,
                 "message_needaction_counter": 0,
                 "message_needaction_counter_bus_id": bus_last_id,
                 "name": "group restricted channel 1",
-                "rtcInvitingSession": {
-                    "id": self.channel_channel_group_1_inviting_session.id,
-                    "channelMember": {
-                        "id": self.channel_channel_group_1_inviting_member.id,
-                        "persona": {
-                            "id": self.channel_channel_group_1_inviting_member.partner_id.id,
-                            "im_status": "offline",
-                            "name": "test2",
-                            "type": "partner",
-                        },
-                        "thread": {
-                            "id": channel.id,
-                            "model": "discuss.channel",
-                        },
-                    },
-                },
-                "rtcSessions": [
-                    [
-                        "ADD",
-                        [
-                            {
-                                "channelMember": {
-                                    "id": self.channel_channel_group_1_inviting_member.id,
-                                    "persona": {
-                                        "id": self.channel_channel_group_1_inviting_member.partner_id.id,
-                                        "im_status": "offline",
-                                        "name": "test2",
-                                        "type": "partner",
-                                    },
-                                    "thread": {
-                                        "id": channel.id,
-                                        "model": "discuss.channel",
-                                    },
-                                },
-                                "id": self.channel_channel_group_1_inviting_session.id,
-                                "isCameraOn": False,
-                                "isDeaf": False,
-                                "isScreenSharingOn": False,
-                                "isSelfMuted": False,
-                            }
-                        ],
-                    ]
-                ],
+                # sudo: discuss.channel.rtc.session - reading a session in a test file
+                "rtcInvitingSession": {"id": member_2.sudo().rtc_session_ids.id},
+                # sudo: discuss.channel.rtc.session - reading a session in a test file
+                "rtcSessions": [["ADD", [{"id": member_2.sudo().rtc_session_ids.id}]]],
                 "custom_notifications": False,
                 "mute_until_dt": False,
                 "state": "closed",
@@ -901,6 +871,20 @@ class TestDiscussFullPerformance(HttpCase):
                 "fetched_message_id": {"id": last_message.id},
                 "seen_message_id": {"id": last_message.id},
                 "new_message_separator": last_message.id + 1,
+            }
+        if channel == self.channel_channel_group_1 and partner == self.users[2].partner_id:
+            return {
+                "id": member_2.id,
+                "thread": {
+                    "id": channel.id,
+                    "model": "discuss.channel",
+                },
+                "persona": {
+                    "id": self.users[2].partner_id.id,
+                    "im_status": "offline",
+                    "name": "test2",
+                    "type": "partner",
+                },
             }
         if channel == self.channel_channel_group_2 and partner == self.users[0].partner_id:
             return {
@@ -1551,5 +1535,20 @@ class TestDiscussFullPerformance(HttpCase):
                 "subtype_description": False,
                 "trackingValues": [],
                 "write_date": write_date,
+            }
+        return {}
+
+    def _expected_result_for_rtc_session(self, channel, user):
+        members = channel.channel_member_ids
+        member_2 = members.filtered(lambda m: m.partner_id == self.users[2].partner_id)
+        if channel == self.channel_channel_group_1 and user == self.users[2]:
+            return {
+                # sudo: discuss.channel.rtc.session - reading a session in a test file
+                "id": member_2.sudo().rtc_session_ids.id,
+                "channelMember": {"id": member_2.id},
+                "isCameraOn": False,
+                "isDeaf": False,
+                "isScreenSharingOn": False,
+                "isSelfMuted": False,
             }
         return {}

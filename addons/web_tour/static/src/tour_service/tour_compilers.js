@@ -8,13 +8,9 @@ import { tourState } from "./tour_state";
 import * as hoot from "@odoo/hoot-dom";
 import { session } from "@web/session";
 import { setupEventActions } from "@web/../lib/hoot-dom/helpers/events";
-import {
-    callWithUnloadCheck,
-    getConsumeEventType,
-    getScrollParent,
-    RunningTourActionHelper,
-} from "./tour_utils";
+import { callWithUnloadCheck, getConsumeEventType, getScrollParent } from "./tour_utils";
 import { utils } from "@web/core/ui/ui_service";
+import { TourHelpers } from "./tour_helpers";
 
 /**
  * @typedef {import("@web/core/macro").MacroDescriptor} MacroDescriptor
@@ -186,6 +182,7 @@ function getAnchorEl(el, consumeEvent) {
  * @param {TourMode} mode TourMode manual means onboarding tour
  */
 function isActive(step, mode) {
+    const isSmall = utils.isSmall();
     const standardKeyWords = ["enterprise", "community", "mobile", "desktop", "auto", "manual"];
     const isActiveArray = Array.isArray(step.isActive) ? step.isActive : [];
     if (isActiveArray.length === 0) {
@@ -208,8 +205,8 @@ function isActive(step, mode) {
     const checkEdition =
         isActiveArray.includes(edition) ||
         (!isActiveArray.includes("enterprise") && !isActiveArray.includes("community"));
-    const onlyForMobile = isActiveArray.includes("mobile") && utils.isSmall();
-    const onlyForDesktop = isActiveArray.includes("desktop") && !utils.isSmall();
+    const onlyForMobile = isActiveArray.includes("mobile") && isSmall;
+    const onlyForDesktop = isActiveArray.includes("desktop") && !isSmall;
     const checkDevice =
         onlyForMobile ||
         onlyForDesktop ||
@@ -332,6 +329,7 @@ export function compileStepManual(stepIndex, step, options) {
             trigger: () => {
                 removeListeners();
                 if (!isActive(step, "manual")) {
+                    step.state.canContinue = true;
                     return hoot.queryFirst("body");
                 }
                 if (proceedWith) {
@@ -393,7 +391,7 @@ let tourTimeout;
  * @returns {{trigger, action}[]}
  */
 export function compileStepAuto(stepIndex, step, options) {
-    const { tour, pointer, stepDelay, keepWatchBrowser } = options;
+    const { tour, pointer, stepDelay } = options;
     const { showPointerDuration, onStepConsummed } = options;
     const debugMode = tourState.get(tour.name, "debug");
 
@@ -419,20 +417,14 @@ export function compileStepAuto(stepIndex, step, options) {
         },
         {
             action: async () => {
+                console.log(`Tour ${tour.name} on step: '${describeStep(step)}'`);
+                tourTimeout = browser.setTimeout(
+                    () => throwError(tour, step),
+                    (step.timeout || 10000) + stepDelay
+                );
                 // This delay is important for making the current set of tour tests pass.
                 // IMPROVEMENT: Find a way to remove this delay.
                 await new Promise((resolve) => requestAnimationFrame(resolve));
-            },
-        },
-        {
-            action: async () => {
-                console.log(`Tour ${tour.name} on step: '${describeStep(step)}'`);
-                if (!keepWatchBrowser) {
-                    tourTimeout = browser.setTimeout(
-                        () => throwError(tour, step),
-                        (step.timeout || 10000) + stepDelay
-                    );
-                }
                 await new Promise((resolve) => browser.setTimeout(resolve, stepDelay));
             },
         },
@@ -440,6 +432,7 @@ export function compileStepAuto(stepIndex, step, options) {
             trigger: () => {
                 if (!isActive(step, "auto")) {
                     step.run = () => {};
+                    step.state.canContinue = true;
                     return hoot.queryFirst("body");
                 }
                 const { triggerEl, altEl, extraTriggerOkay } = findStepTriggers(tour, step);
@@ -451,6 +444,8 @@ export function compileStepAuto(stepIndex, step, options) {
                 return canContinue(stepEl, step) && stepEl;
             },
             action: async (stepEl) => {
+                //if stepEl is found, timeout can be cleared.
+                browser.clearTimeout(tourTimeout);
                 tourState.set(tour.name, "currentIndex", stepIndex + 1);
 
                 if (showPointerDuration > 0) {
@@ -461,7 +456,7 @@ export function compileStepAuto(stepIndex, step, options) {
                 }
 
                 // TODO: Delegate the following routine to the `ACTION_HELPERS` in the macro module.
-                const actionHelper = new RunningTourActionHelper(stepEl);
+                const actionHelper = new TourHelpers(stepEl);
 
                 let result;
                 if (typeof step.run === "function") {
@@ -487,9 +482,7 @@ export function compileStepAuto(stepIndex, step, options) {
         },
         {
             action: () => {
-                //Step is passed, timeout can be cleared.
                 tourState.set(tour.name, "stepState", getStepState(step));
-                browser.clearTimeout(tourTimeout);
                 onStepConsummed(tour, step);
             },
         },

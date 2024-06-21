@@ -286,7 +286,7 @@ class ChannelMember(models.Model):
     # RTC (voice/video)
     # --------------------------------------------------------------------------
 
-    def _rtc_join_call(self, check_rtc_session_ids=None):
+    def _rtc_join_call(self, store=None, check_rtc_session_ids=None):
         self.ensure_one()
         check_rtc_session_ids = (check_rtc_session_ids or []) + self.rtc_session_ids.ids
         self.channel_id._rtc_cancel_invitations(member_ids=self.ids)
@@ -295,21 +295,30 @@ class ChannelMember(models.Model):
         current_rtc_sessions, outdated_rtc_sessions = self._rtc_sync_sessions(check_rtc_session_ids=check_rtc_session_ids)
         ice_servers = self.env["mail.ice.server"]._get_ice_servers()
         self._join_sfu(ice_servers)
-        res = {
-            'iceServers': ice_servers or False,
-            'rtcSessions': [
-                ('ADD', [rtc_session_sudo._mail_rtc_session_format() for rtc_session_sudo in current_rtc_sessions]),
-                ('DELETE', [{'id': missing_rtc_session_sudo.id} for missing_rtc_session_sudo in outdated_rtc_sessions]),
-            ],
-            'sessionId': rtc_session.id,
-            'serverInfo': self._get_rtc_server_info(rtc_session, ice_servers),
-        }
+        if store:
+            store.add(
+                "Thread",
+                {
+                    "id": self.channel_id.id,
+                    "model": "discuss.channel",
+                    "rtcSessions": [
+                        ("ADD", [{"id": session.id} for session in current_rtc_sessions]),
+                        ("DELETE", [{"id": session.id} for session in outdated_rtc_sessions]),
+                    ],
+                },
+            )
+            store.add(current_rtc_sessions)
+            store.add(
+                "Rtc",
+                {
+                    "iceServers": ice_servers or False,
+                    "selfSession": {"id": rtc_session.id},
+                    "serverInfo": self._get_rtc_server_info(rtc_session, ice_servers),
+                },
+            )
         if len(self.channel_id.rtc_session_ids) == 1 and self.channel_id.channel_type in {'chat', 'group'}:
             self.channel_id.message_post(body=_("%s started a live conference", self.partner_id.name or self.guest_id.name), message_type='notification')
-            invited_members = self._rtc_invite_members()
-            if invited_members:
-                res['invitedMembers'] = [('ADD', list(invited_members._discuss_channel_member_format(fields={'id': True, 'channel': {}, 'persona': {'partner': {'id': True, 'name': True, 'im_status': True}, 'guest': {'id': True, 'name': True, 'im_status': True}}}).values()))]
-        return res
+            self._rtc_invite_members()
 
     def _join_sfu(self, ice_servers=None):
         if len(self.channel_id.rtc_session_ids) < SFU_MODE_THRESHOLD:
@@ -374,7 +383,7 @@ class ChannelMember(models.Model):
         if self.rtc_session_ids:
             self.rtc_session_ids.unlink()
         else:
-            return self.channel_id._rtc_cancel_invitations(member_ids=self.ids)
+            self.channel_id._rtc_cancel_invitations(member_ids=self.ids)
 
     def _rtc_sync_sessions(self, check_rtc_session_ids=None):
         """Synchronize the RTC sessions for self channel member.
@@ -415,15 +424,34 @@ class ChannelMember(models.Model):
             channel_data = {
                 "id": self.channel_id.id,
                 "model": "discuss.channel",
-                "rtcInvitingSession": self.rtc_session_ids._mail_rtc_session_format(),
+                "rtcInvitingSession": {"id": member.rtc_inviting_session_id.id},
             }
             store = Store("Thread", channel_data)
+            store.add(member.rtc_inviting_session_id)
             invitation_notifications.append((target, "mail.record/insert", store.get_result()))
         self.env['bus.bus']._sendmany(invitation_notifications)
         if members:
-            channel_data = {'id': self.channel_id.id, 'model': 'discuss.channel'}
-            channel_data['invitedMembers'] = [('ADD', list(members._discuss_channel_member_format(fields={'id': True, 'channel': {}, 'persona': {'partner': {'id': True, 'name': True, 'im_status': True}, 'guest': {'id': True, 'name': True, 'im_status': True}}}).values()))]
+            channel_data = {
+                "id": self.channel_id.id,
+                "model": "discuss.channel",
+                "invitedMembers": [("ADD", [{"id": member.id} for member in members])],
+            }
             store = Store("Thread", channel_data)
+            store.add(
+                "ChannelMember",
+                list(
+                    members._discuss_channel_member_format(
+                        fields={
+                            "id": True,
+                            "channel": {},
+                            "persona": {
+                                "partner": {"id": True, "name": True, "im_status": True},
+                                "guest": {"id": True, "name": True, "im_status": True},
+                            },
+                        }
+                    ).values()
+                ),
+            )
             self.env["bus.bus"]._sendone(self.channel_id, "mail.record/insert", store.get_result())
         return members
 
