@@ -69,6 +69,7 @@ You could use this simplified accounting in case you work with an (external) acc
         'report/account_hash_integrity_templates.xml',
         'views/res_currency.xml',
         'views/account_menuitem.xml',
+        'views/mail_message_views.xml',
         'wizard/accrued_orders.xml',
         'views/bill_preview_template.xml',
         'data/account_reports_data.xml',
@@ -91,6 +92,7 @@ You could use this simplified accounting in case you work with an (external) acc
         'web.assets_backend': [
             'account/static/src/css/account_bank_and_cash.css',
             'account/static/src/css/account.css',
+            'account/static/src/css/account_payment.scss',
             'account/static/src/scss/account_journal_dashboard.scss',
             'account/static/src/scss/account_searchpanel.scss',
             'account/static/src/scss/account_payment_term.scss',

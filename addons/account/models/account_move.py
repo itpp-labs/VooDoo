@@ -17,10 +17,10 @@ from odoo.addons.account.tools import format_structured_reference_iso
 from odoo.exceptions import UserError, ValidationError, AccessError, RedirectWarning
 from odoo.osv import expression
 from odoo.tools import (
+    create_index,
     date_utils,
     email_re,
     email_split,
-    flatten,
     float_compare,
     float_is_zero,
     float_repr,
@@ -32,8 +32,8 @@ from odoo.tools import (
     groupby,
     index_exists,
     is_html_empty,
-    create_index,
     OrderedSet,
+    SQL,
 )
 
 _logger = logging.getLogger(__name__)
@@ -821,7 +821,12 @@ class AccountMove(models.Model):
 
     @api.model
     def _get_query_made_hole(self, ids=None):
-        return f"""
+        ids_domain = SQL()
+        if ids:
+            ids_domain = SQL("AND this.id = ANY(%s)", ids)
+        elif irregular_domain := self.env.context.get('irregular_sequence_domain'):
+            ids_domain = SQL("AND this.id IN %s", self._where_calc(irregular_domain).subselect())
+        return SQL("""
                 SELECT this.id
                   FROM account_move this
                   JOIN res_company company ON company.id = this.company_id
@@ -831,8 +836,8 @@ class AccountMove(models.Model):
                  WHERE other.id IS NULL
                    AND this.sequence_number != 1
                    AND this.name != '/'
-                  {"AND this.id = ANY(%(move_ids)s)" if ids is not None else ""}
-        """, {'move_ids': ids} if ids is not None else {}
+                   %s
+        """, ids_domain)
 
     @api.depends('name', 'journal_id')
     def _compute_made_sequence_hole(self):
@@ -2764,10 +2769,20 @@ class AccountMove(models.Model):
                     "Therefore, you cannot edit the following fields: %s.",
                     ', '.join(f['string'] for f in self.fields_get(violated_fields).values())
                 ))
-            if (move.posted_before and 'journal_id' in vals and move.journal_id.id != vals['journal_id']):
-                raise UserError(_('You cannot edit the journal of an account move if it has been posted once.'))
-            if (move.name and move.name != '/' and move.sequence_number not in (0, 1) and 'journal_id' in vals and move.journal_id.id != vals['journal_id'] and not move.quick_edit_mode):
-                raise UserError(_('You cannot edit the journal of an account move if it already has a sequence number assigned.'))
+            if (
+                    move.posted_before
+                    and 'journal_id' in vals and move.journal_id.id != vals['journal_id']
+                    and not (move.name == '/' or not move.name or ('name' in vals and (vals['name'] == '/' or not vals['name'])))
+            ):
+                raise UserError(_('You cannot edit the journal of an account move if it has been posted once, unless the name is removed or set to "/". This might create a gap in the sequence.'))
+            if (
+                    move.name and move.name != '/'
+                    and move.sequence_number not in (0, 1)
+                    and 'journal_id' in vals and move.journal_id.id != vals['journal_id']
+                    and not move.quick_edit_mode
+                    and not ('name' in vals and (vals['name'] == '/' or not vals['name']))
+            ):
+                raise UserError(_('You cannot edit the journal of an account move with a sequence number assigned, unless the name is removed or set to "/". This might create a gap in the sequence.'))
 
             # You can't change the date or name of a move being inside a locked period.
             if move.state == "posted" and (
@@ -2838,6 +2853,30 @@ class AccountMove(models.Model):
     def check_move_sequence_chain(self):
         return self.filtered(lambda move: move.name != '/')._is_end_of_seq_chain()
 
+    def _get_unlink_logger_message(self):
+        """ Before unlink, get a log message for audit trail if it's enabled.
+        Logger is added here because in api ondelete, account.move.line is deleted, and we can't get total amount """
+        if not self._context.get('force_delete'):
+            pass
+
+        moves_details = []
+        for move in self.filtered(lambda m: m.posted_before and m.company_id.check_account_audit_trail):
+            entry_details = f"{move.name} ({move.id}) amount {move.amount_total} {move.currency_id.name} and partner {move.partner_id.display_name}"
+            account_balances_per_account = defaultdict(float)
+            for line in move.line_ids:
+                account_balances_per_account[line.account_id] += line.balance
+            account_details = "\n".join(
+                f"- {account.name} ({account.id}) with balance {balance} {move.currency_id.name}"
+                for account, balance in account_balances_per_account.items()
+            )
+            moves_details.append(f"{entry_details}\n{account_details}")
+
+        return "\nForce deleted Journal Entries by {user_name} ({user_id})\nEntries\n{moves_details}".format(
+            user_name=self.env.user.name,
+            user_id=self.env.user.id,
+            moves_details="\n".join(moves_details),
+        )
+
     @api.ondelete(at_uninstall=False)
     def _unlink_forbid_parts_of_chain(self):
         """ For a user with Billing/Bookkeeper rights, when the fidu mode is deactivated,
@@ -2859,10 +2898,25 @@ class AccountMove(models.Model):
                     "You should probably revert it instead."
                 ))
 
+    @api.ondelete(at_uninstall=False)
+    def _unlink_account_audit_trail_except_once_post(self):
+        if not self._context.get('force_delete') and any(
+                move.posted_before and move.company_id.check_account_audit_trail
+                for move in self
+        ):
+            raise UserError(_(
+                "To keep the audit trail, you can not delete journal entries once they have been posted.\n"
+                "Instead, you can cancel the journal entry."
+            ))
+
     def unlink(self):
         self = self.with_context(skip_invoice_sync=True, dynamic_unlink=True)  # no need to sync to delete everything
+        logger_message = self._get_unlink_logger_message()
         self.line_ids.unlink()
-        return super().unlink()
+        res = super().unlink()
+        if logger_message:
+            _logger.info(logger_message)
+        return res
 
     @api.depends('partner_id', 'date', 'state', 'move_type')
     @api.depends_context('input_full_display_name')
@@ -4165,9 +4219,9 @@ class AccountMove(models.Model):
                 to_reverse += move
             else:
                 to_unlink += move
-        to_reverse._reverse_moves(cancel=True)
         to_unlink.filtered(lambda m: m.state in ('posted', 'cancel')).button_draft()
         to_unlink.filtered(lambda m: m.state == 'draft').unlink()
+        return to_reverse._reverse_moves(cancel=True)
 
     def _post(self, soft=True):
         """Post/Validate the documents.

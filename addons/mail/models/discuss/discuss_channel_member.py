@@ -191,7 +191,7 @@ class ChannelMember(models.Model):
         """
         notifications = []
         for member in self:
-            store = Store("ChannelMember", member._discuss_channel_member_format().get(member))
+            store = Store(member)
             store.add("ChannelMember", {"id": member.id, "isTyping": is_typing})
             notifications.append([member.channel_id, "mail.record/insert", store.get_result()])
         self.env['bus.bus']._sendmany(notifications)
@@ -211,7 +211,7 @@ class ChannelMember(models.Model):
             notifications.append((member.partner_id, "mail.record/insert", {"Thread": channel_data}))
         self.env["bus.bus"]._sendmany(notifications)
 
-    def _discuss_channel_member_format(self, fields=None, extra_fields=None):
+    def _to_store(self, store: Store, fields=None, extra_fields=None):
         if not fields:
             fields = {
                 "channel": {},
@@ -228,7 +228,6 @@ class ChannelMember(models.Model):
         if "message_unread_counter" in fields:
             # sudo: bus.bus: reading non-sensitive last id
             bus_last_id = self.env["bus.bus"].sudo()._bus_last_id()
-        members_formatted_data = {}
         for member in self:
             data = {}
             if 'id' in fields:
@@ -244,7 +243,8 @@ class ChannelMember(models.Model):
                 if member.guest_id:
                     # sudo: mail.guest - reading _guest_format related to a member is considered acceptable
                     persona = member.guest_id.sudo()._guest_format(fields=fields.get('persona', {}).get('guest')).get(member.guest_id)
-                data['persona'] = persona
+                store.add("Persona", persona)
+                data['persona'] = {"id": persona["id"], "type": persona["type"]}
             if 'custom_notifications' in fields:
                 data['custom_notifications'] = member.custom_notifications
             if 'mute_until_dt' in fields:
@@ -259,8 +259,7 @@ class ChannelMember(models.Model):
                 data["thread"].update(message_unread_counter=member.message_unread_counter, message_unread_counter_bus_id=bus_last_id)
             if fields.get("last_interest_dt"):
                 data['last_interest_dt'] = odoo.fields.Datetime.to_string(member.last_interest_dt)
-            members_formatted_data[member] = data
-        return members_formatted_data
+            store.add("ChannelMember", data)
 
     def _get_partner_data(self, fields=None):
         self.ensure_one()
@@ -438,19 +437,15 @@ class ChannelMember(models.Model):
             }
             store = Store("Thread", channel_data)
             store.add(
-                "ChannelMember",
-                list(
-                    members._discuss_channel_member_format(
-                        fields={
-                            "id": True,
-                            "channel": {},
-                            "persona": {
-                                "partner": {"id": True, "name": True, "im_status": True},
-                                "guest": {"id": True, "name": True, "im_status": True},
-                            },
-                        }
-                    ).values()
-                ),
+                members,
+                fields={
+                    "id": True,
+                    "channel": {},
+                    "persona": {
+                        "partner": {"id": True, "name": True, "im_status": True},
+                        "guest": {"id": True, "name": True, "im_status": True},
+                    },
+                },
             )
             self.env["bus.bus"]._sendone(self.channel_id, "mail.record/insert", store.get_result())
         return members
@@ -495,12 +490,19 @@ class ChannelMember(models.Model):
         target = self.partner_id or self.guest_id
         if self.channel_id.channel_type in self.channel_id._types_allowing_seen_infos():
             target = self.channel_id
-        persona_fields = {"partner": {"id": True, "name": True}, "guest": {"id": True, "name": True}}
-        self.env["bus.bus"]._sendone(target, "mail.record/insert", {
-            "ChannelMember": self._discuss_channel_member_format(fields={
-                "id": True, "channel": {}, "persona": persona_fields, "seen_message_id": True
-            })[self]
-        })
+        store = Store(
+            self,
+            fields={
+                "id": True,
+                "channel": {},
+                "persona": {
+                    "partner": {"id": True, "name": True},
+                    "guest": {"id": True, "name": True},
+                },
+                "seen_message_id": True,
+            },
+        )
+        self.env["bus.bus"]._sendone(target, "mail.record/insert", store.get_result())
 
     def _set_new_message_separator(self, message_id, sync=False):
         """
@@ -514,10 +516,19 @@ class ChannelMember(models.Model):
         if message_id == self.new_message_separator:
             return
         self.new_message_separator = message_id
-        persona_fields = {"partner": {"id": True, "name": True}, "guest": {"id": True, "name": True}}
-        member_data = self._discuss_channel_member_format(
-            fields={"id": True, "channel": {}, "message_unread_counter": True, "new_message_separator": True, "persona": persona_fields},
-        )[self]
-        member_data.update(syncUnread=sync)
         target = self.partner_id or self.guest_id
-        self.env["bus.bus"]._sendone(target, "mail.record/insert", {"ChannelMember": member_data})
+        store = Store(
+            self,
+            fields={
+                "id": True,
+                "channel": {},
+                "message_unread_counter": True,
+                "new_message_separator": True,
+                "persona": {
+                    "partner": {"id": True, "name": True},
+                    "guest": {"id": True, "name": True},
+                },
+            },
+        )
+        store.add("ChannelMember", {"id": self.id, "syncUnread": sync})
+        self.env["bus.bus"]._sendone(target, "mail.record/insert", store.get_result())

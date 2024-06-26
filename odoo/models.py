@@ -6168,9 +6168,11 @@ class BaseModel(metaclass=MetaModel):
             records.filtered("partner_id.is_company")
         """
         if isinstance(func, str):
-            name = func
-            func = lambda rec: any(rec.mapped(name))
-        return self.browse([rec.id for rec in self if func(rec)])
+            if '.' in func:
+                return self.browse(rec.id for rec in self if any(rec.mapped(func)))
+            else:  # Avoid costly mapped
+                return self.browse(rec.id for rec in self if rec[func])
+        return self.browse(rec.id for rec in self if func(rec))
 
     def grouped(self, key):
         """Eagerly groups the records of ``self`` by the ``key``, returning a
@@ -6489,8 +6491,6 @@ class BaseModel(metaclass=MetaModel):
         """ Test whether ``self`` is nonempty. """
         return True if self._ids else False  # fast version of bool(self._ids)
 
-    __nonzero__ = __bool__
-
     def __len__(self):
         """ Return the size of ``self``. """
         return len(self._ids)
@@ -6664,7 +6664,7 @@ class BaseModel(metaclass=MetaModel):
         """
         if isinstance(key, str):
             # important: one must call the field's getter
-            return self._fields[key].__get__(self, self.env.registry[self._name])
+            return self._fields[key].__get__(self)
         elif isinstance(key, slice):
             return self.browse(self._ids[key])
         else:
@@ -6779,15 +6779,15 @@ class BaseModel(metaclass=MetaModel):
             # currently depends on self, and it should not be recomputed before
             # the modification.  So we only collect what should be marked for
             # recomputation.
-            marked = self.env.all.tocompute     # {field: ids}
-            tomark = defaultdict(OrderedSet)    # {field: ids}
+            marked = self.env.transaction.tocompute     # {field: ids}
+            tomark = defaultdict(OrderedSet)            # {field: ids}
         else:
             # When called after modification, one should traverse backwards
             # dependencies by taking into account all fields already known to
             # be recomputed.  In that case, we mark fieds to compute as soon as
             # possible.
             marked = {}
-            tomark = self.env.all.tocompute
+            tomark = self.env.transaction.tocompute
 
         # determine what to trigger (with iterators)
         todo = [self._modified([self._fields[fname] for fname in fnames], create)]
@@ -6933,7 +6933,7 @@ class BaseModel(metaclass=MetaModel):
                 self._recompute_field(field, self._ids)
 
     def _recompute_field(self, field, ids=None):
-        ids_to_compute = self.env.all.tocompute.get(field, ())
+        ids_to_compute = self.env.transaction.tocompute.get(field, ())
         if ids is None:
             ids = ids_to_compute
         else:

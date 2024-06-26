@@ -2,6 +2,7 @@
 
 import base64
 from datetime import datetime, timedelta
+from freezegun import freeze_time
 from unittest.mock import patch
 
 from odoo import Command, fields
@@ -44,12 +45,183 @@ class TestChannelInternals(MailCommon, HttpCase):
             public_channel.add_members(user_public.partner_id.id)
 
     @users('employee')
+    @freeze_time("2020-03-22 10:42:06")
     def test_channel_members(self):
         channel = self.env['discuss.channel'].browse(self.test_channel.ids)
         self.assertEqual(channel.message_partner_ids, self.env['res.partner'])
         self.assertEqual(channel.channel_partner_ids, self.env['res.partner'])
 
-        channel.add_members(self.test_partner.ids)
+        emp_partner_write_date = fields.Datetime.to_string(self.env.user.partner_id.write_date)
+        test_partner_write_date = fields.Datetime.to_string(self.env.user.partner_id.write_date)
+
+        def get_add_member_bus():
+            message = self.env["mail.message"].search([], order="id desc", limit=1)
+            member = self.env["discuss.channel.member"].search([], order="id desc", limit=1)
+            return (
+                [
+                    (self.cr.dbname, "discuss.channel", channel.id),
+                    (self.cr.dbname, "discuss.channel", channel.id, "members"),
+                    (self.cr.dbname, "discuss.channel", channel.id),
+                    (self.cr.dbname, "discuss.channel", channel.id),
+                ],
+                [
+                    {
+                        "type": "mail.record/insert",
+                        "payload": {
+                            "Thread": {
+                                "id": channel.id,
+                                "model": "discuss.channel",
+                                "last_interest_dt": "2020-03-22 10:42:06",
+                            },
+                        },
+                    },
+                    {
+                        "type": "mail.record/insert",
+                        "payload": {
+                            "Thread": {
+                                "id": channel.id,
+                                "is_pinned": True,
+                                "model": "discuss.channel",
+                            }
+                        },
+                    },
+                    {
+                        "type": "discuss.channel/new_message",
+                        "payload": {
+                            "id": channel.id,
+                            "message": {
+                                "id": message.id,
+                                "body": f'<div class="o_mail_notification">invited <a href="#" data-oe-model="res.partner" data-oe-id="{self.test_partner.id}">Test Partner</a> to the channel</div>',
+                                "date": "2020-03-22 10:42:06",
+                                "email_from": '"Ernest Employee" <e.e@example.com>',
+                                "message_type": "notification",
+                                "subject": False,
+                                "model": "discuss.channel",
+                                "res_id": channel.id,
+                                "record_name": "Channel",
+                                "author": {
+                                    "id": self.env.user.partner_id.id,
+                                    "name": "Ernest Employee",
+                                    "is_company": False,
+                                    "write_date": emp_partner_write_date,
+                                    "userId": self.env.user.id,
+                                    "isInternalUser": True,
+                                    "type": "partner",
+                                },
+                                "default_subject": "Channel",
+                                "notifications": [],
+                                "attachments": [],
+                                "linkPreviews": [],
+                                "reactions": [],
+                                "pinned_at": False,
+                                "create_date": fields.Datetime.to_string(message.create_date),
+                                "write_date": fields.Datetime.to_string(message.write_date),
+                                "is_note": False,
+                                "is_discussion": True,
+                                "subtype_description": False,
+                                "recipients": [],
+                                "scheduledDatetime": False,
+                                "thread": {
+                                    "model": "discuss.channel",
+                                    "id": channel.id,
+                                    "module_icon": "/mail/static/description/icon.png",
+                                },
+                                "sms_ids": [],
+                            },
+                        },
+                    },
+                    {
+                        "type": "mail.record/insert",
+                        "payload": {
+                            "ChannelMember": [
+                                {
+                                    "create_date": fields.Datetime.to_string(member.create_date),
+                                    "fetched_message_id": False,
+                                    "id": member.id,
+                                    "persona": {"id": self.test_partner.id, "type": "partner"},
+                                    "seen_message_id": False,
+                                    "thread": {"id": channel.id, "model": "discuss.channel"},
+                                },
+                            ],
+                            "Persona": [
+                                {
+                                    "active": True,
+                                    "email": "test_customer@example.com",
+                                    "id": self.test_partner.id,
+                                    "im_status": "im_partner",
+                                    "isInternalUser": False,
+                                    "is_company": False,
+                                    "name": "Test Partner",
+                                    "out_of_office_date_end": False,
+                                    "type": "partner",
+                                    "userId": False,
+                                    "write_date": test_partner_write_date,
+                                },
+                            ],
+                            "Thread": [
+                                {
+                                    "id": channel.id,
+                                    "memberCount": 2,
+                                    "model": "discuss.channel",
+                                },
+                            ],
+                        },
+                    },
+                ],
+            )
+        self._reset_bus()
+        with self.assertBus(get_params=get_add_member_bus):
+            channel.add_members(self.test_partner.ids)
+
+        def get_add_member_again_bus():
+            member = self.env["discuss.channel.member"].search([], order="id desc", limit=1)
+            return (
+                [
+                    (self.cr.dbname, "res.partner", self.env.user.partner_id.id),
+                ],
+                [
+                    {
+                        "type": "mail.record/insert",
+                        "payload": {
+                            "ChannelMember": [
+                                {
+                                    "create_date": fields.Datetime.to_string(member.create_date),
+                                    "fetched_message_id": False,
+                                    "id": member.id,
+                                    "persona": {"id": self.test_partner.id, "type": "partner"},
+                                    "seen_message_id": False,
+                                    "thread": {"id": channel.id, "model": "discuss.channel"},
+                                }
+                            ],
+                            "Persona": [
+                                {
+                                    "active": True,
+                                    "email": "test_customer@example.com",
+                                    "id": self.test_partner.id,
+                                    "im_status": "im_partner",
+                                    "isInternalUser": False,
+                                    "is_company": False,
+                                    "name": "Test Partner",
+                                    "out_of_office_date_end": False,
+                                    "type": "partner",
+                                    "userId": False,
+                                    "write_date": test_partner_write_date,
+                                },
+                            ],
+                            "Thread": [
+                                {
+                                    "id": channel.id,
+                                    "memberCount": 2,
+                                    "model": "discuss.channel",
+                                }
+                            ],
+                        },
+                    },
+                ],
+            )
+        self._reset_bus()
+        with self.assertBus(get_params=get_add_member_again_bus):
+            channel.add_members(self.test_partner.ids)
         self.assertEqual(channel.message_partner_ids, self.env['res.partner'])
         self.assertEqual(channel.channel_partner_ids, self.test_partner)
 
@@ -137,7 +309,10 @@ class TestChannelInternals(MailCommon, HttpCase):
         channel = self.env["discuss.channel"].channel_get(partners_to=self.test_partner.ids)
         init_data = Store(channel).get_result()
         initial_channel_info = init_data["Thread"][0]
-        self.assertEqual({m["persona"]["id"] for m in init_data["ChannelMember"]}, {self.partner_employee_nomail.id, self.test_partner.id})
+        self.assertEqual(
+            {persona["id"] for persona in init_data["Persona"]},
+            {self.partner_employee_nomail.id, self.test_partner.id}
+        )
 
         # `channel_get` should return the existing channel every time the same partner is given
         same_channel = self.env['discuss.channel'].channel_get(partners_to=self.test_partner.ids)
@@ -157,7 +332,10 @@ class TestChannelInternals(MailCommon, HttpCase):
         solo_channel_data = Store(solo_channel).get_result()
         solo_channel_info = solo_channel_data["Thread"][0]
         self.assertNotEqual(solo_channel_info['id'], initial_channel_info['id'])
-        self.assertEqual({m["persona"]["id"] for m in solo_channel_data["ChannelMember"]}, {self.partner_employee_nomail.id})
+        self.assertEqual(
+            {persona["id"] for persona in solo_channel_data["Persona"]},
+            {self.partner_employee_nomail.id},
+        )
 
         # `channel_get` should return the existing channel every time the current partner is given
         same_solo_pids = self.partner_employee_nomail.ids
@@ -222,46 +400,53 @@ class TestChannelInternals(MailCommon, HttpCase):
         with self.assertBus(
             [
                 (self.env.cr.dbname, "discuss.channel", chat.id),
-                (self.env.cr.dbname, "res.partner", self.user_admin.partner_id.id)
+                (self.env.cr.dbname, "res.partner", self.user_admin.partner_id.id),
             ],
             [
-                   {
+                {
                     "type": "mail.record/insert",
                     "payload": {
-                        "ChannelMember": {
-                            "id": member.id,
-                            "thread": {
-                                "id": chat.id,
-                                "model": "discuss.channel",
-                                "message_unread_counter": 0,
-                                "message_unread_counter_bus_id": last_bus_id + 1,
+                        "ChannelMember": [
+                            {
+                                "id": member.id,
+                                "new_message_separator": msg_1.id + 1,
+                                "persona": {"id": self.user_admin.partner_id.id, "type": "partner"},
+                                "syncUnread": False,
+                                "thread": {
+                                    "id": chat.id,
+                                    "model": "discuss.channel",
+                                    "message_unread_counter": 0,
+                                    "message_unread_counter_bus_id": last_bus_id + 1,
+                                },
                             },
-                            "persona": {
+                        ],
+                        "Persona": [
+                            {
                                 "id": self.user_admin.partner_id.id,
                                 "name": self.user_admin.partner_id.name,
                                 "type": "partner",
                             },
-                            "new_message_separator": msg_1.id + 1,
-                            "syncUnread": False,
-                        },
+                        ],
                     },
                 },
                 {
                     "type": "mail.record/insert",
                     "payload": {
-                        "ChannelMember": {
-                            "id": member.id,
-                            "thread": {
-                                "id": chat.id,
-                                "model": "discuss.channel",
+                        "ChannelMember": [
+                            {
+                                "id": member.id,
+                                "persona": {"id": self.user_admin.partner_id.id, "type": "partner"},
+                                "seen_message_id": {"id": msg_1.id},
+                                "thread": {"id": chat.id, "model": "discuss.channel"},
                             },
-                            "persona": {
+                        ],
+                        "Persona": [
+                            {
                                 "id": self.user_admin.partner_id.id,
                                 "name": self.user_admin.partner_id.name,
                                 "type": "partner",
                             },
-                            "seen_message_id": {"id": msg_1.id},
-                        },
+                        ],
                     },
                 },
             ],

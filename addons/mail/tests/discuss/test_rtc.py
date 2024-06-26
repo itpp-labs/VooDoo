@@ -24,8 +24,8 @@ class TestChannelRTC(MailCommon):
         self.env['bus.bus'].sudo().search([]).unlink()
         with self.assertBus(
             [
-                (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # end of previous session
                 (self.cr.dbname, 'discuss.channel', channel.id),  # update sessions
+                (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # end of previous session
                 (self.cr.dbname, 'discuss.channel', channel.id),  # update sessions
             ],
             [
@@ -55,22 +55,25 @@ class TestChannelRTC(MailCommon):
                         "ChannelMember": [
                             {
                                 "id": channel_member.id,
+                                "persona": {"id": channel_member.partner_id.id, "type": "partner"},
                                 "thread": {
                                     "id": channel_member.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member.partner_id.id,
-                                    "name": channel_member.partner_id.name,
-                                    "im_status": channel_member.partner_id.im_status,
-                                    "type": "partner",
-                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member.partner_id.id,
+                                "im_status": channel_member.partner_id.im_status,
+                                "name": channel_member.partner_id.name,
+                                "type": "partner",
                             },
                         ],
                         "RtcSession": [
                             {
-                                "id": channel_member.rtc_session_ids.id + 1,
                                 "channelMember": {"id": channel_member.id},
+                                "id": channel_member.rtc_session_ids.id + 1,
                             },
                         ],
                         "Thread": [
@@ -95,16 +98,19 @@ class TestChannelRTC(MailCommon):
                 "ChannelMember": [
                     {
                         "id": channel_member.id,
+                        "persona": {"id": channel_member.partner_id.id, "type": "partner"},
                         "thread": {
                             "id": channel_member.channel_id.id,
                             "model": "discuss.channel",
                         },
-                        "persona": {
-                            "id": channel_member.partner_id.id,
-                            "name": channel_member.partner_id.name,
-                            "im_status": channel_member.partner_id.im_status,
-                            "type": "partner",
-                        },
+                    },
+                ],
+                "Persona": [
+                    {
+                        "id": channel_member.partner_id.id,
+                        "im_status": channel_member.partner_id.im_status,
+                        "name": channel_member.partner_id.name,
+                        "type": "partner",
                     },
                 ],
                 "Rtc": {
@@ -114,8 +120,8 @@ class TestChannelRTC(MailCommon):
                 },
                 "RtcSession": [
                     {
-                        "id": channel_member.rtc_session_ids.id,
                         "channelMember": {"id": channel_member.id},
+                        "id": channel_member.rtc_session_ids.id,
                     },
                 ],
                 "Thread": [
@@ -160,22 +166,25 @@ class TestChannelRTC(MailCommon):
                         "ChannelMember": [
                             {
                                 "id": channel_member.id,
+                                "persona": {"id": channel_member.partner_id.id, "type": "partner"},
                                 "thread": {
                                     "id": channel_member.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member.partner_id.id,
-                                    "name": channel_member.partner_id.name,
-                                    "im_status": channel_member.partner_id.im_status,
-                                    "type": "partner",
-                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member.partner_id.id,
+                                "im_status": channel_member.partner_id.im_status,
+                                "name": channel_member.partner_id.name,
+                                "type": "partner",
                             },
                         ],
                         "RtcSession": [
                             {
-                                "id": last_rtc_session_id + 1,
                                 "channelMember": {"id": channel_member.id},
+                                "id": last_rtc_session_id + 1,
                             },
                         ],
                         "Thread": [
@@ -190,27 +199,33 @@ class TestChannelRTC(MailCommon):
                 {
                     "type": "mail.record/insert",
                     "payload": {
-                        "Thread": [
-                            {
-                                "id": channel.id,
-                                "model": "discuss.channel",
-                                "invitedMembers": [("ADD", [{"id": channel_member_test_user.id}])],
-                            }
-                        ],
                         "ChannelMember": [
                             {
                                 "id": channel_member_test_user.id,
+                                "persona": {
+                                    "id": channel_member_test_user.partner_id.id,
+                                    "type": "partner",
+                                },
                                 "thread": {
                                     "id": channel_member_test_user.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member_test_user.partner_id.id,
-                                    "name": channel_member_test_user.partner_id.name,
-                                    "im_status": channel_member_test_user.partner_id.im_status,
-                                    "type": "partner",
-                                },
                             },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member_test_user.partner_id.id,
+                                "im_status": channel_member_test_user.partner_id.im_status,
+                                "name": channel_member_test_user.partner_id.name,
+                                "type": "partner",
+                            },
+                        ],
+                        "Thread": [
+                            {
+                                "id": channel.id,
+                                "invitedMembers": [("ADD", [{"id": channel_member_test_user.id}])],
+                                "model": "discuss.channel",
+                            }
                         ],
                     },
                 },
@@ -253,22 +268,25 @@ class TestChannelRTC(MailCommon):
                         "ChannelMember": [
                             {
                                 "id": channel_member.id,
+                                "persona": {"id": channel_member.partner_id.id, "type": "partner"},
                                 "thread": {
                                     "id": channel_member.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member.partner_id.id,
-                                    "name": channel_member.partner_id.name,
-                                    "im_status": channel_member.partner_id.im_status,
-                                    "type": "partner",
-                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member.partner_id.id,
+                                "im_status": channel_member.partner_id.im_status,
+                                "name": channel_member.partner_id.name,
+                                "type": "partner",
                             },
                         ],
                         "RtcSession": [
                             {
-                                "id": last_rtc_session_id + 1,
                                 "channelMember": {"id": channel_member.id},
+                                "id": last_rtc_session_id + 1,
                             },
                         ],
                         "Thread": [
@@ -286,22 +304,25 @@ class TestChannelRTC(MailCommon):
                         "ChannelMember": [
                             {
                                 "id": channel_member.id,
+                                "persona": {"id": channel_member.partner_id.id, "type": "partner"},
                                 "thread": {
                                     "id": channel_member.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member.partner_id.id,
-                                    "name": channel_member.partner_id.name,
-                                    "im_status": channel_member.partner_id.im_status,
-                                    "type": "partner",
-                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member.partner_id.id,
+                                "im_status": channel_member.partner_id.im_status,
+                                "name": channel_member.partner_id.name,
+                                "type": "partner",
                             },
                         ],
                         "RtcSession": [
                             {
-                                "id": last_rtc_session_id + 1,
                                 "channelMember": {"id": channel_member.id},
+                                "id": last_rtc_session_id + 1,
                             },
                         ],
                         "Thread": [
@@ -316,10 +337,47 @@ class TestChannelRTC(MailCommon):
                 {
                     "type": "mail.record/insert",
                     "payload": {
+                        "ChannelMember": [
+                            {
+                                "id": channel_member_test_user.id,
+                                "persona": {
+                                    "id": channel_member_test_user.partner_id.id,
+                                    "type": "partner",
+                                },
+                                "thread": {
+                                    "id": channel_member_test_user.channel_id.id,
+                                    "model": "discuss.channel",
+                                },
+                            },
+                            {
+                                "id": channel_member_test_guest.id,
+                                "persona": {
+                                    "id": channel_member_test_guest.guest_id.id,
+                                    "type": "guest",
+                                },
+                                "thread": {
+                                    "id": channel_member_test_guest.channel_id.id,
+                                    "model": "discuss.channel",
+                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member_test_user.partner_id.id,
+                                "im_status": channel_member_test_user.partner_id.im_status,
+                                "name": channel_member_test_user.partner_id.name,
+                                "type": "partner",
+                            },
+                            {
+                                "id": channel_member_test_guest.guest_id.id,
+                                "im_status": channel_member_test_guest.guest_id.im_status,
+                                "name": channel_member_test_guest.guest_id.name,
+                                "type": "guest",
+                            },
+                        ],
                         "Thread": [
                             {
                                 "id": channel.id,
-                                "model": "discuss.channel",
                                 "invitedMembers": [
                                     (
                                         "ADD",
@@ -329,34 +387,7 @@ class TestChannelRTC(MailCommon):
                                         ],
                                     )
                                 ],
-                            }
-                        ],
-                        "ChannelMember": [
-                            {
-                                "id": channel_member_test_user.id,
-                                "thread": {
-                                    "id": channel_member_test_user.channel_id.id,
-                                    "model": "discuss.channel",
-                                },
-                                "persona": {
-                                    "id": channel_member_test_user.partner_id.id,
-                                    "name": channel_member_test_user.partner_id.name,
-                                    "im_status": channel_member_test_user.partner_id.im_status,
-                                    "type": "partner",
-                                },
-                            },
-                            {
-                                "id": channel_member_test_guest.id,
-                                "thread": {
-                                    "id": channel_member_test_guest.channel_id.id,
-                                    "model": "discuss.channel",
-                                },
-                                "persona": {
-                                    "id": channel_member_test_guest.guest_id.id,
-                                    "name": channel_member_test_guest.guest_id.name,
-                                    "im_status": channel_member_test_guest.guest_id.im_status,
-                                    "type": "guest",
-                                },
+                                "model": "discuss.channel",
                             },
                         ],
                     },
@@ -401,28 +432,34 @@ class TestChannelRTC(MailCommon):
                 {
                     "type": "mail.record/insert",
                     "payload": {
-                        "Thread": [
-                            {
-                                "id": channel.id,
-                                "model": "discuss.channel",
-                                "invitedMembers": [
-                                    ("DELETE", [{"id": channel_member_test_user.id}]),
-                                ],
-                            },
-                        ],
                         "ChannelMember": [
                             {
                                 "id": channel_member_test_user.id,
+                                "persona": {
+                                    "id": channel_member_test_user.partner_id.id,
+                                    "type": "partner",
+                                },
                                 "thread": {
                                     "id": channel_member_test_user.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member_test_user.partner_id.id,
-                                    "name": channel_member_test_user.partner_id.name,
-                                    "im_status": channel_member_test_user.partner_id.im_status,
-                                    "type": "partner",
-                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member_test_user.partner_id.id,
+                                "im_status": channel_member_test_user.partner_id.im_status,
+                                "name": channel_member_test_user.partner_id.name,
+                                "type": "partner",
+                            },
+                        ],
+                        "Thread": [
+                            {
+                                "id": channel.id,
+                                "invitedMembers": [
+                                    ("DELETE", [{"id": channel_member_test_user.id}]),
+                                ],
+                                "model": "discuss.channel",
                             },
                         ],
                     },
@@ -433,22 +470,28 @@ class TestChannelRTC(MailCommon):
                         "ChannelMember": [
                             {
                                 "id": channel_member_test_user.id,
+                                "persona": {
+                                    "id": channel_member_test_user.partner_id.id,
+                                    "type": "partner",
+                                },
                                 "thread": {
                                     "id": channel_member_test_user.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member_test_user.partner_id.id,
-                                    "name": channel_member_test_user.partner_id.name,
-                                    "im_status": channel_member_test_user.partner_id.im_status,
-                                    "type": "partner",
-                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member_test_user.partner_id.id,
+                                "im_status": channel_member_test_user.partner_id.im_status,
+                                "name": channel_member_test_user.partner_id.name,
+                                "type": "partner",
                             },
                         ],
                         "RtcSession": [
                             {
-                                "id": channel_member.rtc_session_ids.id + 1,
                                 "channelMember": {"id": channel_member_test_user.id},
+                                "id": channel_member.rtc_session_ids.id + 1,
                             },
                         ],
                         "Thread": [
@@ -490,28 +533,34 @@ class TestChannelRTC(MailCommon):
                 {
                     "type": "mail.record/insert",
                     "payload": {
-                        "Thread": [
-                            {
-                                "id": channel.id,
-                                "model": "discuss.channel",
-                                "invitedMembers": [
-                                    ("DELETE", [{"id": channel_member_test_guest.id}]),
-                                ],
-                            },
-                        ],
                         "ChannelMember": [
                             {
                                 "id": channel_member_test_guest.id,
+                                "persona": {
+                                    "id": channel_member_test_guest.guest_id.id,
+                                    "type": "guest",
+                                },
                                 "thread": {
                                     "id": channel_member_test_guest.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member_test_guest.guest_id.id,
-                                    "name": channel_member_test_guest.guest_id.name,
-                                    "im_status": channel_member_test_guest.guest_id.im_status,
-                                    "type": "guest",
-                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member_test_guest.guest_id.id,
+                                "im_status": channel_member_test_guest.guest_id.im_status,
+                                "name": channel_member_test_guest.guest_id.name,
+                                "type": "guest",
+                            },
+                        ],
+                        "Thread": [
+                            {
+                                "id": channel.id,
+                                "invitedMembers": [
+                                    ("DELETE", [{"id": channel_member_test_guest.id}]),
+                                ],
+                                "model": "discuss.channel",
                             },
                         ],
                     },
@@ -522,22 +571,28 @@ class TestChannelRTC(MailCommon):
                         "ChannelMember": [
                             {
                                 "id": channel_member_test_guest.id,
+                                "persona": {
+                                    "id": channel_member_test_guest.guest_id.id,
+                                    "type": "guest",
+                                },
                                 "thread": {
                                     "id": channel_member_test_guest.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member_test_guest.guest_id.id,
-                                    "name": channel_member_test_guest.guest_id.name,
-                                    "im_status": channel_member_test_guest.guest_id.im_status,
-                                    "type": "guest",
-                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member_test_guest.guest_id.id,
+                                "im_status": channel_member_test_guest.guest_id.im_status,
+                                "name": channel_member_test_guest.guest_id.name,
+                                "type": "guest",
                             },
                         ],
                         "RtcSession": [
                             {
-                                "id": channel_member.rtc_session_ids.id + 2,
                                 "channelMember": {"id": channel_member_test_guest.id},
+                                "id": channel_member.rtc_session_ids.id + 2,
                             },
                         ],
                         "Thread": [
@@ -588,28 +643,34 @@ class TestChannelRTC(MailCommon):
                 {
                     "type": "mail.record/insert",
                     "payload": {
-                        "Thread": [
-                            {
-                                "id": channel.id,
-                                "model": "discuss.channel",
-                                "invitedMembers": [
-                                    ("DELETE", [{"id": channel_member_test_user.id}]),
-                                ],
-                            },
-                        ],
                         "ChannelMember": [
                             {
                                 "id": channel_member_test_user.id,
+                                "persona": {
+                                    "id": channel_member_test_user.partner_id.id,
+                                    "type": "partner",
+                                },
                                 "thread": {
                                     "id": channel_member_test_user.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member_test_user.partner_id.id,
-                                    "name": channel_member_test_user.partner_id.name,
-                                    "im_status": channel_member_test_user.partner_id.im_status,
-                                    "type": "partner",
-                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member_test_user.partner_id.id,
+                                "im_status": channel_member_test_user.partner_id.im_status,
+                                "name": channel_member_test_user.partner_id.name,
+                                "type": "partner",
+                            },
+                        ],
+                        "Thread": [
+                            {
+                                "id": channel.id,
+                                "invitedMembers": [
+                                    ("DELETE", [{"id": channel_member_test_user.id}]),
+                                ],
+                                "model": "discuss.channel",
                             },
                         ],
                     },
@@ -641,28 +702,34 @@ class TestChannelRTC(MailCommon):
                 {
                     "type": "mail.record/insert",
                     "payload": {
-                        "Thread": [
-                            {
-                                "id": channel.id,
-                                "model": "discuss.channel",
-                                "invitedMembers": [
-                                    ("DELETE", [{"id": channel_member_test_guest.id}]),
-                                ],
-                            },
-                        ],
                         "ChannelMember": [
                             {
                                 "id": channel_member_test_guest.id,
+                                "persona": {
+                                    "id": channel_member_test_guest.guest_id.id,
+                                    "type": "guest",
+                                },
                                 "thread": {
                                     "id": channel_member_test_guest.channel_id.id,
                                     "model": "discuss.channel",
                                 },
-                                "persona": {
-                                    "id": channel_member_test_guest.guest_id.id,
-                                    "name": channel_member_test_guest.guest_id.name,
-                                    "im_status": channel_member_test_guest.guest_id.im_status,
-                                    "type": "guest",
-                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member_test_guest.guest_id.id,
+                                "im_status": channel_member_test_guest.guest_id.im_status,
+                                "name": channel_member_test_guest.guest_id.name,
+                                "type": "guest",
+                            },
+                        ],
+                        "Thread": [
+                            {
+                                "id": channel.id,
+                                "invitedMembers": [
+                                    ("DELETE", [{"id": channel_member_test_guest.id}]),
+                                ],
+                                "model": "discuss.channel",
                             },
                         ],
                     },
@@ -686,11 +753,11 @@ class TestChannelRTC(MailCommon):
         self.env['bus.bus'].sudo().search([]).unlink()
         with self.assertBus(
             [
-                (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # end session
                 (self.cr.dbname, 'res.partner', test_user.partner_id.id),  # update invitation
                 (self.cr.dbname, 'mail.guest', test_guest.id),  # update invitation
                 (self.cr.dbname, 'discuss.channel', channel.id),  # update list of invitations
                 (self.cr.dbname, 'discuss.channel', channel.id),  # update sessions
+                (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # end session
             ],
             [
                 {
@@ -726,10 +793,47 @@ class TestChannelRTC(MailCommon):
                 {
                     "type": "mail.record/insert",
                     "payload": {
+                        "ChannelMember": [
+                            {
+                                "id": channel_member_test_user.id,
+                                "persona": {
+                                    "id": channel_member_test_user.partner_id.id,
+                                    "type": "partner",
+                                },
+                                "thread": {
+                                    "id": channel_member_test_user.channel_id.id,
+                                    "model": "discuss.channel",
+                                },
+                            },
+                            {
+                                "id": channel_member_test_guest.id,
+                                "persona": {
+                                    "id": channel_member_test_guest.guest_id.id,
+                                    "type": "guest",
+                                },
+                                "thread": {
+                                    "id": channel_member_test_guest.channel_id.id,
+                                    "model": "discuss.channel",
+                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member_test_user.partner_id.id,
+                                "im_status": channel_member_test_user.partner_id.im_status,
+                                "name": channel_member_test_user.partner_id.name,
+                                "type": "partner",
+                            },
+                            {
+                                "id": channel_member_test_guest.guest_id.id,
+                                "im_status": channel_member_test_guest.guest_id.im_status,
+                                "name": channel_member_test_guest.guest_id.name,
+                                "type": "guest",
+                            },
+                        ],
                         "Thread": [
                             {
                                 "id": channel.id,
-                                "model": "discuss.channel",
                                 "invitedMembers": [
                                     (
                                         "DELETE",
@@ -739,34 +843,7 @@ class TestChannelRTC(MailCommon):
                                         ],
                                     )
                                 ],
-                            },
-                        ],
-                        "ChannelMember": [
-                            {
-                                "id": channel_member_test_user.id,
-                                "thread": {
-                                    "id": channel_member_test_user.channel_id.id,
-                                    "model": "discuss.channel",
-                                },
-                                "persona": {
-                                    "id": channel_member_test_user.partner_id.id,
-                                    "name": channel_member_test_user.partner_id.name,
-                                    "im_status": channel_member_test_user.partner_id.im_status,
-                                    "type": "partner",
-                                },
-                            },
-                            {
-                                "id": channel_member_test_guest.id,
-                                "thread": {
-                                    "id": channel_member_test_guest.channel_id.id,
-                                    "model": "discuss.channel",
-                                },
-                                "persona": {
-                                    "id": channel_member_test_guest.guest_id.id,
-                                    "name": channel_member_test_guest.guest_id.name,
-                                    "im_status": channel_member_test_guest.guest_id.im_status,
-                                    "type": "guest",
-                                },
+                                "model": "discuss.channel",
                             },
                         ],
                     },
@@ -809,24 +886,48 @@ class TestChannelRTC(MailCommon):
         channel_member_test_guest = channel.sudo().channel_member_ids.filtered(lambda member: member.guest_id == test_guest)
         found_bus_notifs = self.assertBusNotifications(
             [
-                (self.cr.dbname, 'res.partner', test_user.partner_id.id),  # channel joined  -- last_interest (not asserted below)
                 (self.cr.dbname, 'discuss.channel', channel.id),  # message_post -- new_message (not asserted below)
                 (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # update new message separator
                 (self.cr.dbname, 'discuss.channel', channel.id, "members"),  # update of pin state (not asserted below)
                 (self.cr.dbname, 'discuss.channel', channel.id),  # message_post -- last_interest (not asserted below)
                 (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # update new message separator
+                (self.cr.dbname, 'discuss.channel', channel.id, "members"),  # update of pin state (not asserted below)
                 (self.cr.dbname, 'discuss.channel', channel.id),  # new members (not asserted below)
-                (self.cr.dbname, 'res.partner', test_user.partner_id.id),  # incoming invitation
+                (self.cr.dbname, 'res.partner', test_user.partner_id.id),  # channel joined  -- last_interest (not asserted below)
                 (self.cr.dbname, 'mail.guest', test_guest.id),  # incoming invitation
                 (self.cr.dbname, 'discuss.channel', channel.id),  # update list of invitations
-                (self.cr.dbname, 'discuss.channel', channel.id, "members"),  # update of pin state (not asserted below)
-                (self.cr.dbname, 'discuss.channel', channel.id),  # new member (guest) (not asserted below)
+                (self.cr.dbname, 'res.partner', test_user.partner_id.id),  # incoming invitation
                 (self.cr.dbname, 'mail.guest', test_guest.id),  # channel joined for guest (not asserted below)
+                (self.cr.dbname, 'discuss.channel', channel.id),  # new member (guest) (not asserted below)
             ],
             message_items=[
                 {
                     "type": "mail.record/insert",
                     "payload": {
+                        "ChannelMember": [
+                            {
+                                "id": channel_member.id,
+                                "persona": {"id": channel_member.partner_id.id, "type": "partner"},
+                                "thread": {
+                                    "id": channel_member.channel_id.id,
+                                    "model": "discuss.channel",
+                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member.partner_id.id,
+                                "im_status": channel_member.partner_id.im_status,
+                                "name": channel_member.partner_id.name,
+                                "type": "partner",
+                            },
+                        ],
+                        "RtcSession": [
+                            {
+                                "channelMember": {"id": channel_member.id},
+                                "id": channel_member.rtc_session_ids.id,
+                            },
+                        ],
                         "Thread": [
                             {
                                 "id": channel.id,
@@ -834,32 +935,35 @@ class TestChannelRTC(MailCommon):
                                 "rtcInvitingSession": {"id": channel_member.rtc_session_ids.id},
                             },
                         ],
-                        "ChannelMember": [
-                            {
-                                "id": channel_member.id,
-                                "thread": {
-                                    "id": channel_member.channel_id.id,
-                                    "model": "discuss.channel",
-                                },
-                                "persona": {
-                                    "id": channel_member.partner_id.id,
-                                    "name": channel_member.partner_id.name,
-                                    "im_status": channel_member.partner_id.im_status,
-                                    "type": "partner",
-                                },
-                            },
-                        ],
-                        "RtcSession": [
-                            {
-                                "id": channel_member.rtc_session_ids.id,
-                                "channelMember": {"id": channel_member.id},
-                            },
-                        ],
                     },
                 },
                 {
                     "type": "mail.record/insert",
                     "payload": {
+                        "ChannelMember": [
+                            {
+                                "id": channel_member.id,
+                                "persona": {"id": channel_member.partner_id.id, "type": "partner"},
+                                "thread": {
+                                    "id": channel_member.channel_id.id,
+                                    "model": "discuss.channel",
+                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member.partner_id.id,
+                                "im_status": channel_member.partner_id.im_status,
+                                "name": channel_member.partner_id.name,
+                                "type": "partner",
+                            },
+                        ],
+                        "RtcSession": [
+                            {
+                                "channelMember": {"id": channel_member.id},
+                                "id": channel_member.rtc_session_ids.id,
+                            },
+                        ],
                         "Thread": [
                             {
                                 "id": channel.id,
@@ -867,36 +971,52 @@ class TestChannelRTC(MailCommon):
                                 "rtcInvitingSession": {"id": channel_member.rtc_session_ids.id},
                             },
                         ],
-                        "ChannelMember": [
-                            {
-                                "id": channel_member.id,
-                                "thread": {
-                                    "id": channel_member.channel_id.id,
-                                    "model": "discuss.channel",
-                                },
-                                "persona": {
-                                    "id": channel_member.partner_id.id,
-                                    "name": channel_member.partner_id.name,
-                                    "im_status": channel_member.partner_id.im_status,
-                                    "type": "partner",
-                                },
-                            },
-                        ],
-                        "RtcSession": [
-                            {
-                                "id": channel_member.rtc_session_ids.id,
-                                "channelMember": {"id": channel_member.id},
-                            },
-                        ],
                     },
                 },
                 {
                     "type": "mail.record/insert",
                     "payload": {
+                        "ChannelMember": [
+                            {
+                                "id": channel_member_test_user.id,
+                                "persona": {
+                                    "id": channel_member_test_user.partner_id.id,
+                                    "type": "partner",
+                                },
+                                "thread": {
+                                    "id": channel_member_test_user.channel_id.id,
+                                    "model": "discuss.channel",
+                                },
+                            },
+                            {
+                                "id": channel_member_test_guest.id,
+                                "persona": {
+                                    "id": channel_member_test_guest.guest_id.id,
+                                    "type": "guest",
+                                },
+                                "thread": {
+                                    "id": channel_member_test_guest.channel_id.id,
+                                    "model": "discuss.channel",
+                                },
+                            },
+                        ],
+                        "Persona": [
+                            {
+                                "id": channel_member_test_user.partner_id.id,
+                                "im_status": channel_member_test_user.partner_id.im_status,
+                                "name": channel_member_test_user.partner_id.name,
+                                "type": "partner",
+                            },
+                            {
+                                "id": channel_member_test_guest.guest_id.id,
+                                "im_status": channel_member_test_guest.guest_id.im_status,
+                                "name": channel_member_test_guest.guest_id.name,
+                                "type": "guest",
+                            },
+                        ],
                         "Thread": [
                             {
                                 "id": channel.id,
-                                "model": "discuss.channel",
                                 "invitedMembers": [
                                     (
                                         "ADD",
@@ -906,35 +1026,8 @@ class TestChannelRTC(MailCommon):
                                         ],
                                     )
                                 ],
+                                "model": "discuss.channel",
                             }
-                        ],
-                        "ChannelMember": [
-                            {
-                                "id": channel_member_test_user.id,
-                                "thread": {
-                                    "id": channel_member_test_user.channel_id.id,
-                                    "model": "discuss.channel",
-                                },
-                                "persona": {
-                                    "id": channel_member_test_user.partner_id.id,
-                                    "name": channel_member_test_user.partner_id.name,
-                                    "im_status": channel_member_test_user.partner_id.im_status,
-                                    "type": "partner",
-                                },
-                            },
-                            {
-                                "id": channel_member_test_guest.id,
-                                "thread": {
-                                    "id": channel_member_test_guest.channel_id.id,
-                                    "model": "discuss.channel",
-                                },
-                                "persona": {
-                                    "id": channel_member_test_guest.guest_id.id,
-                                    "name": channel_member_test_guest.guest_id.name,
-                                    "im_status": channel_member_test_guest.guest_id.im_status,
-                                    "type": "guest",
-                                },
-                            },
                         ],
                     },
                 },
@@ -951,8 +1044,8 @@ class TestChannelRTC(MailCommon):
         self.env['bus.bus'].sudo().search([]).unlink()
         with self.assertBus(
             [
-                (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # end session
                 (self.cr.dbname, 'discuss.channel', channel.id),  # update list of sessions
+                (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # end session
             ],
             [
                 {
@@ -993,8 +1086,8 @@ class TestChannelRTC(MailCommon):
         self.env['bus.bus'].sudo().search([]).unlink()
         with self.assertBus(
             [
-                (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # session ended
                 (self.cr.dbname, 'discuss.channel', channel.id),  # update list of sessions
+                (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # session ended
             ],
             [
                 {
@@ -1031,8 +1124,8 @@ class TestChannelRTC(MailCommon):
         self.env['bus.bus'].sudo().search([]).unlink()
         with self.assertBus(
             [
-                (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # session ended
                 (self.cr.dbname, 'discuss.channel', channel.id),  # update list of sessions
+                (self.cr.dbname, 'res.partner', self.user_employee.partner_id.id),  # session ended
             ],
             [
                 {
@@ -1080,8 +1173,8 @@ class TestChannelRTC(MailCommon):
         self.env['bus.bus'].sudo().search([]).unlink()
         with self.assertBus(
             [
-                (self.cr.dbname, 'mail.guest', test_guest.id),  # session ended
                 (self.cr.dbname, 'discuss.channel', channel.id),  # update list of sessions
+                (self.cr.dbname, 'mail.guest', test_guest.id),  # session ended
             ],
             [
                 {

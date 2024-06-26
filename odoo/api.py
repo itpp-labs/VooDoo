@@ -499,8 +499,6 @@ class Environment(Mapping):
         if uid_origin == SUPERUSER_ID:
             uid_origin = None
 
-        assert context is not None
-
         # determine transaction object
         transaction = cr.transaction
         if transaction is None:
@@ -508,20 +506,21 @@ class Environment(Mapping):
 
         # if env already exists, return it
         for env in transaction.envs:
-            if (env.cr, env.uid, env.context, env.su, env.uid_origin) == (cr, uid, context, su, uid_origin):
+            if (env.cr, env.uid, env.su, env.uid_origin, env.context) == (cr, uid, su, uid_origin, context):
                 return env
 
         # otherwise create environment, and add it in the set
         assert isinstance(cr, BaseCursor)
         self = object.__new__(cls)
-        self.cr, self.uid, self.context, self.su = self.args = (cr, uid, frozendict(context), su)
-        self.uid_origin = uid_origin
-
-        self.transaction = self.all = transaction
+        self.cr, self.uid, self.su, self.uid_origin = cr, uid, su, uid_origin
+        self.context = frozendict(context)
+        self.transaction = transaction
         self.registry = transaction.registry
         self.cache = transaction.cache
+
         self._cache_key = {}                    # memo {field: cache_key}
         self._protected = transaction.protected
+
         transaction.envs.add(self)
         return self
 
@@ -776,20 +775,20 @@ class Environment(Mapping):
 
     def fields_to_compute(self):
         """ Return a view on the field to compute. """
-        return self.all.tocompute.keys()
+        return self.transaction.tocompute.keys()
 
     def records_to_compute(self, field):
         """ Return the records to compute for ``field``. """
-        ids = self.all.tocompute.get(field, ())
+        ids = self.transaction.tocompute.get(field, ())
         return self[field.model_name].browse(ids)
 
     def is_to_compute(self, field, record):
         """ Return whether ``field`` must be computed on ``record``. """
-        return record.id in self.all.tocompute.get(field, ())
+        return record.id in self.transaction.tocompute.get(field, ())
 
     def not_to_compute(self, field, records):
         """ Return the subset of ``records`` for which ``field`` must not be computed. """
-        ids = self.all.tocompute.get(field, ())
+        ids = self.transaction.tocompute.get(field, ())
         return records.browse(id_ for id_ in records._ids if id_ not in ids)
 
     def add_to_compute(self, field, records):
@@ -797,18 +796,18 @@ class Environment(Mapping):
         if not records:
             return records
         assert field.store and field.compute, "Cannot add to recompute no-store or no-computed field"
-        self.all.tocompute[field].update(records._ids)
+        self.transaction.tocompute[field].update(records._ids)
 
     def remove_to_compute(self, field, records):
         """ Mark ``field`` as computed on ``records``. """
         if not records:
             return
-        ids = self.all.tocompute.get(field, None)
+        ids = self.transaction.tocompute.get(field, None)
         if ids is None:
             return
         ids.difference_update(records._ids)
         if not ids:
-            del self.all.tocompute[field]
+            del self.transaction.tocompute[field]
 
     def cache_key(self, field):
         """ Return the cache key of the given ``field``. """
@@ -917,7 +916,7 @@ NOTHING = object()
 EMPTY_DICT = frozendict()
 
 
-class Cache(object):
+class Cache:
     """ Implementation of the cache of records.
 
     For most fields, the cache is simply a mapping from a record and a field to
@@ -937,6 +936,7 @@ class Cache(object):
     the values that should be in the database must be in a context where all
     the field's context keys are ``None``.
     """
+    __slots__ = ('_data', '_dirty', '_patches')
 
     def __init__(self):
         # {field: {record_id: value}, field: {context_key: {record_id: value}}}
@@ -974,14 +974,14 @@ class Cache(object):
     def _get_field_cache(self, model, field):
         """ Return the field cache of the given field, but not for modifying it. """
         field_cache = self._data.get(field, EMPTY_DICT)
-        if field_cache and model.pool.field_depends_context[field]:
+        if field_cache and field in model.pool.field_depends_context:
             field_cache = field_cache.get(model.env.cache_key(field), EMPTY_DICT)
         return field_cache
 
     def _set_field_cache(self, model, field):
         """ Return the field cache of the given field for modifying it. """
         field_cache = self._data[field]
-        if model.pool.field_depends_context[field]:
+        if field in model.pool.field_depends_context:
             field_cache = field_cache.setdefault(model.env.cache_key(field), {})
         return field_cache
 
@@ -1050,7 +1050,7 @@ class Cache(object):
         if dirty:
             assert field.column_type and field.store and record_id
             self._dirty[field].add(record_id)
-            if record.pool.field_depends_context[field]:
+            if field in record.pool.field_depends_context:
                 # put the values under conventional context key values {'context_key': None},
                 # in order to ease the retrieval of those values to flush them
                 record = record.with_env(record.env(context={}))
@@ -1097,7 +1097,7 @@ class Cache(object):
         if dirty:
             assert field.column_type and field.store and all(records._ids)
             self._dirty[field].update(records._ids)
-            if records.pool.field_depends_context[field]:
+            if field in records.pool.field_depends_context:
                 # put the values under conventional context key values {'context_key': None},
                 # in order to ease the retrieval of those values to flush them
                 records = records.with_env(records.env(context={}))
@@ -1244,7 +1244,7 @@ class Cache(object):
         By default the method checks for values in the current context of ``model``.
         But when ``all_contexts`` is true, it checks for values *in all contexts*.
         """
-        if all_contexts and model.pool.field_depends_context[field]:
+        if all_contexts and field in model.pool.field_depends_context:
             field_cache = self._data.get(field, EMPTY_DICT)
             ids = OrderedSet(id_ for sub_cache in field_cache.values() for id_ in sub_cache)
         else:
@@ -1368,7 +1368,7 @@ class Cache(object):
                 continue
 
             model = env[field.model_name]
-            if depends_context[field]:
+            if field in depends_context:
                 for context_keys, inner_cache in field_cache.items():
                     context = dict(zip(depends_context[field], context_keys))
                     if 'company' in context:

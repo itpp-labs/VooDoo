@@ -543,10 +543,10 @@ class account_journal(models.Model):
             )
             query += " GROUP BY company_id, journal_id, late"
             self.env.cr.execute(query, params)
-            query_results_to_pay = group_by_journal(self.env.cr.dictfetchall())
+            query_result = group_by_journal(self.env.cr.dictfetchall())
             for journal in journals:
-                query_results_to_pay[journal.id] = query_results_to_pay[journal.id]
-                late_query_results[journal.id] = [r for r in query_results_to_pay[journal.id] if r['late']]
+                query_results_to_pay[journal.id] = query_result[journal.id]
+                late_query_results[journal.id] = [r for r in query_result[journal.id] if r['late']]
 
         to_check_vals = {
             journal.id: (amount_total_signed_sum, count)
@@ -1009,25 +1009,27 @@ class account_journal(models.Model):
 
     def show_sequence_holes(self):
         has_sequence_holes = self._query_has_sequence_holes()
+        domain = expression.OR(
+            [
+                *self.env['account.move']._check_company_domain(self.env.companies),
+                ('journal_id', '=', journal_id),
+                ('sequence_prefix', '=', prefix),
+            ]
+            for journal_id, prefix in has_sequence_holes
+        )
         return {
             'type': 'ir.actions.act_window',
             'name': _("Journal Entries"),
             'res_model': 'account.move',
             'search_view_id': (self.env.ref('account.view_account_move_with_gaps_in_sequence_filter').id, 'search'),
             'view_mode': 'list,form',
-            'domain': expression.OR(
-                [
-                    *self.env['account.move']._check_company_domain(self.env.companies),
-                    ('journal_id', '=', journal_id),
-                    ('sequence_prefix', '=', prefix),
-                ]
-                for journal_id, prefix in has_sequence_holes
-            ),
+            'domain': domain,
             'context': {
                 **self._get_move_action_context(),
                 'search_default_group_by_sequence_prefix': 1,
                 'search_default_irregular_sequences': 1,
                 'expand': 1,
+                'irregular_sequence_domain': domain,
             }
         }
 

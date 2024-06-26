@@ -85,6 +85,7 @@ export class Thread extends Record {
         return this.channel_type === "chat" && this.importantCounter === 0;
     }
     channelMembers = Record.many("ChannelMember", {
+        inverse: "thread",
         onDelete: (r) => r.delete(),
         sort: (m1, m2) => m1.id - m2.id,
     });
@@ -626,9 +627,9 @@ export class Thread extends Record {
         const previousState = this.fetchMembersState;
         this.fetchMembersState = "pending";
         const known_member_ids = this.channelMembers.map((channelMember) => channelMember.id);
-        let results;
+        let data;
         try {
-            results = await rpc("/discuss/channel/members", {
+            data = await rpc("/discuss/channel/members", {
                 channel_id: this.id,
                 known_member_ids: known_member_ids,
             });
@@ -637,7 +638,7 @@ export class Thread extends Record {
             throw e;
         }
         this.fetchMembersState = "fetched";
-        this.update(results);
+        this.store.insert(data);
     }
 
     /** @param {{after: Number, before: Number}} */

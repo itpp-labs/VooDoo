@@ -1,21 +1,28 @@
 import { animationFrame } from "@odoo/hoot-mock";
 import { PivotArchParser } from "@web/views/pivot/pivot_arch_parser";
-
 import { OdooPivot } from "@spreadsheet/pivot/odoo_pivot";
-import {
-    getBasicServerData,
-    getBasicPivotArch,
-    getPyEnv,
-} from "@spreadsheet/../tests/helpers/data";
+import { getBasicPivotArch, getPyEnv } from "@spreadsheet/../tests/helpers/data";
 import { createModelWithDataSource } from "@spreadsheet/../tests/helpers/model";
 import { waitForDataLoaded } from "@spreadsheet/helpers/model";
 import { helpers } from "@odoo/o-spreadsheet";
-const { parseDimension } = helpers;
+const { parseDimension, isDateField } = helpers;
 
 /**
  * @typedef {import("@spreadsheet").OdooSpreadsheetModel} OdooSpreadsheetModel
  * @typedef {import("@spreadsheet").Zone} Zone
  */
+
+function addEmptyGranularity(dimensions, fields) {
+    return dimensions.map((dimension) => {
+        if (dimension.name !== "id" && isDateField(fields[dimension.name])) {
+            return {
+                granularity: "month",
+                ...dimension,
+            };
+        }
+        return dimension;
+    });
+}
 
 /**
  * @param {OdooSpreadsheetModel} model
@@ -42,8 +49,14 @@ export async function insertPivotInSpreadsheet(model, pivotId, params) {
             aggregator: pyEnv[resModel]._fields[measure]?.aggregator,
         })),
         model: resModel,
-        columns: archInfo.colGroupBys.map(parseDimension),
-        rows: archInfo.rowGroupBys.map(parseDimension),
+        columns: addEmptyGranularity(
+            archInfo.colGroupBys.map(parseDimension),
+            pyEnv[resModel]._fields
+        ),
+        rows: addEmptyGranularity(
+            archInfo.rowGroupBys.map(parseDimension),
+            pyEnv[resModel]._fields
+        ),
         name: "Partner Pivot",
     };
     model.dispatch("ADD_PIVOT", {
@@ -55,12 +68,12 @@ export async function insertPivotInSpreadsheet(model, pivotId, params) {
         throw new Error("The pivot data source is not an OdooPivot");
     }
     await ds.load();
-    const { cols, rows, measures, rowTitle } = ds.getTableStructure().export();
+    const { cols, rows, measures, fieldsType } = ds.getTableStructure().export();
     const table = {
         cols,
         rows,
         measures,
-        rowTitle,
+        fieldsType,
     };
     const [col, row] = params.anchor || [0, 0];
     model.dispatch("INSERT_PIVOT", {
@@ -81,12 +94,11 @@ export async function insertPivotInSpreadsheet(model, pivotId, params) {
  * @returns {Promise<{ model: OdooSpreadsheetModel, env: object, pivotId: string}>}
  */
 export async function createSpreadsheetWithPivot(params = {}) {
-    const serverData = params.serverData || getBasicServerData();
     const model = await createModelWithDataSource({
         mockRPC: params.mockRPC,
         serverData: params.serverData,
     });
-    const arch = params.arch || serverData.views["partner,false,pivot"];
+    const arch = params.arch || getBasicPivotArch();
     const pivotId = "PIVOT#1";
     await insertPivotInSpreadsheet(model, pivotId, { arch });
     const env = model.config.custom.env;
