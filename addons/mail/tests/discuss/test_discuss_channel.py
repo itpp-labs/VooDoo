@@ -144,7 +144,7 @@ class TestChannelInternals(MailCommon, HttpCase):
                                 },
                             ],
                             "Persona": [
-                                {
+                                self._filter_persona_fields({
                                     "active": True,
                                     "email": "test_customer@example.com",
                                     "id": self.test_partner.id,
@@ -156,7 +156,7 @@ class TestChannelInternals(MailCommon, HttpCase):
                                     "type": "partner",
                                     "userId": False,
                                     "write_date": test_partner_write_date,
-                                },
+                                }),
                             ],
                             "Thread": [
                                 {
@@ -194,7 +194,7 @@ class TestChannelInternals(MailCommon, HttpCase):
                                 }
                             ],
                             "Persona": [
-                                {
+                                self._filter_persona_fields({
                                     "active": True,
                                     "email": "test_customer@example.com",
                                     "id": self.test_partner.id,
@@ -206,7 +206,7 @@ class TestChannelInternals(MailCommon, HttpCase):
                                     "type": "partner",
                                     "userId": False,
                                     "write_date": test_partner_write_date,
-                                },
+                                }),
                             ],
                             "Thread": [
                                 {
@@ -409,14 +409,14 @@ class TestChannelInternals(MailCommon, HttpCase):
                         "ChannelMember": [
                             {
                                 "id": member.id,
+                                "message_unread_counter": 0,
+                                "message_unread_counter_bus_id": last_bus_id + 1,
                                 "new_message_separator": msg_1.id + 1,
                                 "persona": {"id": self.user_admin.partner_id.id, "type": "partner"},
                                 "syncUnread": False,
                                 "thread": {
                                     "id": chat.id,
                                     "model": "discuss.channel",
-                                    "message_unread_counter": 0,
-                                    "message_unread_counter_bus_id": last_bus_id + 1,
                                 },
                             },
                         ],

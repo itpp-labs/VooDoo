@@ -519,8 +519,10 @@ class PosSession(models.Model):
         self.ensure_one()
         # Even if this is called in `post_closing_cash_details`, we need to call this here too for case
         # where cash_control = False
+        open_order_ids = self.order_ids.filtered(lambda o: o.state == 'draft').ids
         check_closing_session = self._cannot_close_session(bank_payment_method_diffs)
         if check_closing_session:
+            check_closing_session['open_order_ids'] = open_order_ids
             return check_closing_session
 
         validate_result = self.action_pos_session_closing_control(bank_payment_method_diffs=bank_payment_method_diffs)
@@ -530,6 +532,7 @@ class PosSession(models.Model):
         if isinstance(validate_result, dict):
             # imbalance accounting entry
             return {
+                'open_order_ids': open_order_ids,
                 'successful': False,
                 'message': validate_result.get('name'),
                 'redirect': True
@@ -560,6 +563,8 @@ class PosSession(models.Model):
         self.ensure_one()
         check_closing_session = self._cannot_close_session()
         if check_closing_session:
+            open_order_ids = self.order_ids.filtered(lambda o: o.state == 'draft').ids
+            check_closing_session['open_order_ids'] = open_order_ids
             return check_closing_session
 
         if not self.cash_journal_id:
@@ -1725,7 +1730,7 @@ class PosSession(models.Model):
             ('available_in_pos', '=', True),
         ])
         if product:
-            return {'product.product': product.read(product_fields, load=False)}
+            return {'product.product': product.with_context({'display_default_code': False}).read(product_fields, load=False)}
 
         domain = [('barcode', 'not in', ['', False])]
         loaded_data = self._context.get('loaded_data')
@@ -1743,7 +1748,7 @@ class PosSession(models.Model):
         packaging = self.env['product.packaging'].search(packaging_params['search_params']['domain'])
 
         if packaging and packaging.product_id:
-            return {'product.product': packaging.product_id.read(product_fields, load=False), 'product.packaging': packaging.read(product_packaging_fields, load=False)}
+            return {'product.product': packaging.product_id.with_context({'display_default_code': False}).read(product_fields, load=False), 'product.packaging': packaging.read(product_packaging_fields, load=False)}
         else:
             return {
                 'product.product': [],
