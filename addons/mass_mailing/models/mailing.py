@@ -390,7 +390,7 @@ class MassMailing(models.Model):
     def _compute_medium_id(self):
         for mailing in self:
             if mailing.mailing_type == 'mail' and not mailing.medium_id:
-                mailing.medium_id = self.env.ref('utm.utm_medium_email').id
+                mailing.medium_id = self.env['utm.medium']._fetch_or_create_utm_medium('email').id
 
     @api.depends('mailing_model_id')
     def _compute_reply_to_mode(self):
@@ -1024,6 +1024,19 @@ class MassMailing(models.Model):
         already_mailed = self.env['mailing.trace'].search_read(trace_domain, ['res_id'])
         done_res_ids = {record['res_id'] for record in already_mailed}
         return [rid for rid in res_ids if rid not in done_res_ids]
+
+    def _get_unsubscribe_oneclick_url(self, email_to, res_id):
+        url = werkzeug.urls.url_join(
+            self.get_base_url(), 'mailing/%(mailing_id)s/unsubscribe_oneclick?%(params)s' % {
+                'mailing_id': self.id,
+                'params': werkzeug.urls.url_encode({
+                    'document_id': res_id,
+                    'email': email_to,
+                    'hash_token': self._generate_mailing_recipient_token(res_id, email_to),
+                }),
+            }
+        )
+        return url
 
     def _get_unsubscribe_url(self, email_to, res_id):
         url = werkzeug.urls.url_join(
