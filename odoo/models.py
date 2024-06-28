@@ -25,7 +25,6 @@ from __future__ import annotations
 import collections
 import contextlib
 import datetime
-import dateutil
 import fnmatch
 import functools
 import inspect
@@ -1991,8 +1990,11 @@ class BaseModel(metaclass=MetaModel):
         else:
             sql_expr = self._field_to_sql(self._table, fname, query)
 
-        if field.type == 'datetime' and self.env.context.get('tz') in pytz.all_timezones_set:
-            sql_expr = SQL("timezone(%s, timezone('UTC', %s))", self.env.context['tz'], sql_expr)
+        if field.type == 'datetime' and (tz := self.env.context.get('tz')):
+            if tz in pytz.all_timezones_set:
+                sql_expr = SQL("timezone(%s, timezone('UTC', %s))", self.env.context['tz'], sql_expr)
+            else:
+                _logger.warning("Grouping in unknown / legacy timezone %r", tz)
 
         if field.type in ('datetime', 'date') or (field.type == 'properties' and granularity):
             if not granularity:
@@ -2511,6 +2513,14 @@ class BaseModel(metaclass=MetaModel):
                                 value, format=READ_GROUP_DISPLAY_FORMAT[granularity],
                                 locale=locale
                             )
+                        # special case weeks because babel is broken *and*
+                        # ubuntu reverted a change so it's also inconsistent
+                        if granularity == 'week':
+                            year, week = date_utils.weeknumber(
+                                babel.Locale.parse(locale),
+                                range_start,
+                            )
+                            label = f"W{week} {year:04}"
 
                         range_start = range_start.strftime(fmt)
                         range_end = range_end.strftime(fmt)
