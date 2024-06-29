@@ -18,7 +18,7 @@ class Partner extends models.Model {
     name = fields.Char();
     foo = fields.Char();
     p = fields.One2many({ relation: "partner" });
-    timmy = fields.Many2many({ relation: "partnertype" });
+    timmy = fields.Many2many({ relation: "partner.type" });
 
     _records = [{ id: 1, foo: FR_FLAG_URL, timmy: [] }];
 }
@@ -167,7 +167,7 @@ test("image url fields in kanban don't stop opening record", async () => {
 
     click(".o_kanban_record");
     await animationFrame();
-    expect(["open record"]).toVerifySteps();
+    expect.verifySteps(["open record"]);
 });
 
 test("image fields with empty value", async () => {

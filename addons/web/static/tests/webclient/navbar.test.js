@@ -5,9 +5,9 @@ import {
     clearRegistry,
     contains,
     defineMenus,
+    defineParams,
     getService,
     makeMockEnv,
-    makeMockServer,
     mountWithCleanup,
     patchWithCleanup,
 } from "@web/../tests/web_test_helpers";
@@ -188,35 +188,42 @@ test.tags("desktop")("many sublevels in app menu items", async () => {
 });
 
 test.tags("desktop")("data-menu-xmlid attribute on AppsMenu items", async () => {
-    const server = await makeMockServer();
     // Replace all default menus and setting new one
-    server.menus = [
-        {
-            id: 1,
-            children: [
-                {
-                    id: 3,
-                    children: [],
-                    name: "Menu without children",
-                    appID: 1,
-                    xmlid: "menu_3",
-                },
-                {
-                    id: 4,
-                    children: [
-                        { id: 5, children: [], name: "Sub menu", appID: 1, xmlid: "menu_5" },
-                    ],
-                    name: "Menu with children",
-                    appID: 1,
-                    xmlid: "menu_4",
-                },
-            ],
-            name: "App0 with xmlid",
-            appID: 1,
-            xmlid: "wowl",
-        },
-        { id: 2, children: [], name: "App1 without xmlid", appID: 2 },
-    ];
+    defineParams({
+        menus: [
+            {
+                id: 1,
+                children: [
+                    {
+                        id: 3,
+                        children: [],
+                        name: "Menu without children",
+                        appID: 1,
+                        xmlid: "menu_3",
+                    },
+                    {
+                        id: 4,
+                        children: [
+                            {
+                                id: 5,
+                                children: [],
+                                name: "Sub menu",
+                                appID: 1,
+                                xmlid: "menu_5",
+                            },
+                        ],
+                        name: "Menu with children",
+                        appID: 1,
+                        xmlid: "menu_4",
+                    },
+                ],
+                name: "App0 with xmlid",
+                appID: 1,
+                xmlid: "wowl",
+            },
+            { id: 2, children: [], name: "App1 without xmlid", appID: 2 },
+        ],
+    });
     await mountWithCleanup(NavBar);
 
     // check apps
@@ -405,11 +412,11 @@ test.tags("desktop")("can adapt with 'more' menu sections behavior", async () =>
         message: "should have 3 menu sections displayed (that are not the 'more' menu)",
     });
     expect(".o_menu_sections_more").toHaveCount(0, { message: "the 'more' menu should not exist" });
-    expect([
+    expect.verifySteps([
         "adapt -> hide 0/3 sections",
         "adapt -> hide 3/3 sections",
         "adapt -> hide 0/3 sections",
-    ]).toVerifySteps();
+    ]);
 });
 
 test.tags("desktop")(
@@ -618,12 +625,12 @@ test("Do not execute adapt when navbar is destroyed", async () => {
     // Set menu and mount
     getService("menu").setCurrentMenu(1);
     const navbar = await mountWithCleanup(MyNavbar);
-    expect(["adapt NavBar"]).toVerifySteps();
+    expect.verifySteps(["adapt NavBar"]);
     resize();
     await runAllTimers();
-    expect(["adapt NavBar"]).toVerifySteps();
+    expect.verifySteps(["adapt NavBar"]);
     resize();
     destroy(navbar);
     await runAllTimers();
-    expect([]).toVerifySteps();
+    expect.verifySteps([]);
 });

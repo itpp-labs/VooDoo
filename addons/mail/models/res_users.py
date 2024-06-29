@@ -260,44 +260,49 @@ class Users(models.Model):
         # sudo: res.partner - exposing OdooBot data
         odoobot = self.env.ref("base.partner_root").sudo()
         xmlid_to_res_id = self.env["ir.model.data"]._xmlid_to_res_id
+        store.add("Persona", odoobot.mail_partner_format().get(odoobot))
         store.add(
             {
                 "action_discuss_id": xmlid_to_res_id("mail.action_discuss"),
                 "hasLinkPreviewFeature": self.env["mail.link.preview"]._is_link_preview_enabled(),
                 "internalUserGroupId": self.env.ref("base.group_user").id,
                 "mt_comment_id": xmlid_to_res_id("mail.mt_comment"),
-                "odoobot": odoobot.mail_partner_format().get(odoobot),
+                "odoobot": {"id": odoobot.id, "type": "partner"},
             }
         )
         guest = self.env["mail.guest"]._get_guest_from_context()
         if not self.env.user._is_public():
             settings = self.env["res.users.settings"]._find_or_create_for_user(self.env.user)
             store.add(
+                "Persona",
                 {
-                    "self": {
-                        "id": self.env.user.partner_id.id,
-                        "isAdmin": self.env.user._is_admin(),
-                        "isInternalUser": not self.env.user.share,
-                        "name": self.env.user.partner_id.name,
-                        "notification_preference": self.env.user.notification_type,
-                        "type": "partner",
-                        "userId": self.env.user.id,
-                        "write_date": fields.Datetime.to_string(self.env.user.write_date),
-                    },
+                    "id": self.env.user.partner_id.id,
+                    "isAdmin": self.env.user._is_admin(),
+                    "isInternalUser": not self.env.user.share,
+                    "name": self.env.user.partner_id.name,
+                    "notification_preference": self.env.user.notification_type,
+                    "type": "partner",
+                    "userId": self.env.user.id,
+                    "write_date": fields.Datetime.to_string(self.env.user.write_date),
+                },
+            )
+            store.add(
+                {
+                    "self": {"id": self.env.user.partner_id.id, "type": "partner"},
                     "settings": settings._res_users_settings_format(),
                 }
             )
         elif guest:
             store.add(
+                "Persona",
                 {
-                    "self": {
-                        "id": guest.id,
-                        "name": guest.name,
-                        "type": "guest",
-                        "write_date": fields.Datetime.to_string(guest.write_date),
-                    }
-                }
+                    "id": guest.id,
+                    "name": guest.name,
+                    "type": "guest",
+                    "write_date": fields.Datetime.to_string(guest.write_date),
+                },
             )
+            store.add({"self": {"id": guest.id, "type": "guest"}})
 
     def _init_messaging(self, store):
         self.ensure_one()

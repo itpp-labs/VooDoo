@@ -26,7 +26,7 @@ class Partner extends models.Model {
     name = fields.Char();
     foo = fields.Char({ default: "My little Foo Value" });
     turtles = fields.One2many({ relation: "turtle" });
-    timmy = fields.Many2many({ relation: "partnertype", string: "pokemon" });
+    timmy = fields.Many2many({ relation: "partner.type", string: "pokemon" });
 
     _records = [
         {
@@ -103,7 +103,7 @@ test("Many2ManyTagsField with and without color", async () => {
     });
     Partner._fields.color = fields.Integer({ string: "Color index" });
     onRpc("web_read", ({ args, model, kwargs }) => {
-        if (model === "partnertype") {
+        if (model === "partner.type") {
             expect(args).toEqual([[12]]);
             expect(kwargs.specification).toEqual({ display_name: {} });
         } else if (model === "partner") {
@@ -165,7 +165,7 @@ test("Many2ManyTagsField with color: rendering and edition", async () => {
                 message: "Should add 13, remove 14",
             });
         }
-        if ((method === "web_read" || method === "web_save") && model === "partnertype") {
+        if ((method === "web_read" || method === "web_save") && model === "partner.type") {
             expect(kwargs.specification).toEqual(
                 { display_name: {}, color: {} },
                 { message: "should read color field" }
@@ -249,14 +249,14 @@ test("Many2ManyTagsField in tree view", async () => {
 
     // click on the tag: should do nothing and open the form view
     await contains(".o_field_many2many_tags .badge :nth-child(1)").click();
-    expect(["selectRecord"]).toVerifySteps();
+    expect.verifySteps(["selectRecord"]);
     await animationFrame();
 
     expect(".o_colorlist").toHaveCount(0);
 
     await contains(".o_list_record_selector:eq(1)").click();
     await contains(".o_field_many2many_tags .badge :nth-child(1)").click();
-    expect(["selectRecord"]).toVerifySteps();
+    expect.verifySteps(["selectRecord"]);
     await animationFrame();
 
     expect(".o_colorlist").toHaveCount(0);
@@ -283,14 +283,14 @@ test("Many2ManyTagsField in tree view -- multi edit", async () => {
 
     // click on the tag: should do nothing and open the form view
     await contains(".o_field_many2many_tags .badge :nth-child(1)").click();
-    expect(["selectRecord"]).toVerifySteps();
+    expect.verifySteps(["selectRecord"]);
     await animationFrame();
 
     expect(".o_colorlist").toHaveCount(0);
 
     await contains(".o_list_record_selector:eq(1)").click();
     await contains(".o_field_many2many_tags .badge :nth-child(1)").click();
-    expect([]).toVerifySteps();
+    expect.verifySteps([]);
     await animationFrame();
 
     expect(".o_selected_row").toHaveCount(1);
@@ -301,7 +301,7 @@ test("Many2ManyTagsField view a domain", async () => {
     expect.assertions(7);
 
     Partner._fields.timmy = fields.Many2many({
-        relation: "partnertype",
+        relation: "partner.type",
         string: "pokemon",
         domain: [["id", "<", 50]],
     });
@@ -377,7 +377,7 @@ test("use binary field as the domain", async () => {
 test("Domain: allow python code domain in fieldInfo", async () => {
     expect.assertions(4);
     Partner._fields.timmy = fields.Many2many({
-        relation: "partnertype",
+        relation: "partner.type",
         string: "pokemon",
         domain: "foo and [('color', '>', 3)] or [('color', '<', 3)]",
     });
@@ -467,11 +467,11 @@ test("Many2ManyTagsField: update color", async () => {
     // consistent. No color change if edit => discard.
     // await clickSave();
 
-    expect([
+    expect.verifySteps([
         `{"color":1}`,
         `{"color":6}`,
         //  `{"timmy":[[1,12,{"color":6}]]}`
-    ]).toVerifySteps();
+    ]);
 
     /*
     badgeNode = queryOne(".o_tag.badge"); // need to refresh the reference
@@ -519,7 +519,7 @@ test("Many2ManyTagsField in editable list", async () => {
     Partner._records[0].timmy = [12];
 
     onRpc("web_read", ({ kwargs, model }) => {
-        if (model === "partnertype") {
+        if (model === "partner.type") {
             expect(kwargs.context.take).toBe("five");
         }
     });
@@ -812,7 +812,7 @@ test("Many2ManyTagsField in one2many with name", async () => {
 
 test("many2many read, field context is properly sent", async () => {
     Partner._fields.timmy = fields.Many2many({
-        relation: "partnertype",
+        relation: "partner.type",
         string: "pokemon",
         context: { hello: "world" },
     });
@@ -822,7 +822,7 @@ test("many2many read, field context is properly sent", async () => {
             expect.step(`${args.method} ${args.model}`);
             expect(args.kwargs.specification.timmy.context.hello).toBe("world");
         }
-        if (args.model === "partnertype") {
+        if (args.model === "partner.type") {
             expect.step(`${args.method} ${args.model}`);
             expect(args.kwargs.context.hello).toBe("world");
         }
@@ -835,9 +835,9 @@ test("many2many read, field context is properly sent", async () => {
         resId: 1,
     });
 
-    expect(["web_read partner"]).toVerifySteps();
+    expect.verifySteps(["web_read partner"]);
     await selectFieldDropdownItem("timmy", "silver");
-    expect(["web_read partnertype"]).toVerifySteps();
+    expect.verifySteps(["web_read partner.type"]);
 });
 
 test("Many2ManyTagsField: select multiple records", async () => {
@@ -1296,7 +1296,7 @@ test("set a required many2many_tags and save directly", async () => {
         add: () => expect.step("notification"),
     });
 
-    expect(["get_views", "onchange"]).toVerifySteps();
+    expect.verifySteps(["get_views", "onchange"]);
 
     expect(".o_tag").toHaveCount(0);
 
@@ -1308,18 +1308,18 @@ test("set a required many2many_tags and save directly", async () => {
         message: "The tag is displayed, but the web read is not finished yet",
     });
 
-    expect(["name_search", "web_read"]).toVerifySteps();
+    expect.verifySteps(["name_search", "web_read"]);
 
     await clickSave();
     expect("[name='timmy']").not.toHaveClass("o_field_invalid");
 
-    expect([]).toVerifySteps();
+    expect.verifySteps([]);
 
     def.resolve();
     await animationFrame();
     expect(".o_tag").toHaveText("gold");
 
-    expect(["web_save"]).toVerifySteps();
+    expect.verifySteps(["web_save"]);
 });
 
 test("Many2ManyTagsField with option 'no_quick_create' set to true", async () => {
@@ -1438,7 +1438,7 @@ test("Many2ManyTagsField with arch context in form view", async () => {
 
     await selectFieldDropdownItem("timmy", "gold coucou");
 
-    expect(["name search with context given", "read with context given"]).toVerifySteps();
+    expect.verifySteps(["name search with context given", "read with context given"]);
     expect(".o_field_tags").toHaveText("gold coucou");
 });
 
@@ -1470,7 +1470,7 @@ test("Many2ManyTagsField with arch context in list view", async () => {
     await contains("[name=timmy]").click();
     await selectFieldDropdownItem("timmy", "gold coucou");
 
-    expect(["name search with context given", "read with context given"]).toVerifySteps();
+    expect.verifySteps(["name search with context given", "read with context given"]);
     expect(".o_field_tags:eq(0)").toHaveText("gold coucou");
 });
 
@@ -1506,7 +1506,7 @@ test("Many2ManyTagsField doesn't use virtualId for 'name_search'", async () => {
     expect("[name='turtles'] .o_data_row").toHaveCount(2);
 
     await contains("[name='turtles'] input").click();
-    expect(["name_search"]).toVerifySteps();
+    expect.verifySteps(["name_search"]);
 });
 
 test("Many2ManyTagsField selected records still pickable and not duplicable", async () => {
@@ -1557,7 +1557,7 @@ test("Many2ManyTagsField with edit_tags option", async () => {
         });
         return Promise.resolve(false);
     });
-    onRpc("partnertype", "web_save", ({ args }) => {
+    onRpc("partner.type", "web_save", ({ args }) => {
         expect(args[1]).toEqual({ name: "new" });
     });
 

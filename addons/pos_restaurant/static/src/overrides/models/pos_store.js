@@ -26,11 +26,12 @@ patch(PosStore.prototype, {
      */
     async setup() {
         this.orderToTransferUuid = null; // table transfer feature
-        this.floorPlanStyle = "default";
         this.isEditMode = false;
         this.isTableToMerge = false;
         this.tableSyncing = false;
         await super.setup(...arguments);
+        this.floorPlanStyle =
+            localStorage.getItem("floorPlanStyle") || (this.ui.isSmall ? "kanban" : "default");
         if (this.config.module_pos_restaurant) {
             this.setActivityListeners();
             this.showScreen("FloorScreen", { floor: this.selectedTable?.floor || null });
@@ -228,6 +229,12 @@ patch(PosStore.prototype, {
             ),
         };
     },
+    async addLineToCurrentOrder(vals, opts = {}, configure = true) {
+        if (this.config.module_pos_restaurant && !this.get_order().uiState.booked) {
+            this.get_order().setBooked(true);
+        }
+        return super.addLineToCurrentOrder(vals, opts, configure);
+    },
     async getServerOrders() {
         if (this.config.module_pos_restaurant) {
             const tableIds = [].concat(
@@ -357,12 +364,6 @@ patch(PosStore.prototype, {
     },
     toggleEditMode() {
         this.isEditMode = !this.isEditMode;
-    },
-    async addProductToCurrentOrder(product, options = {}) {
-        if (this.config.module_pos_restaurant && !this.get_order().booked) {
-            this.get_order().setBooked(true);
-        }
-        return super.addProductToCurrentOrder(...arguments);
     },
     _shouldLoadOrders() {
         return super._shouldLoadOrders() || this.config.module_pos_restaurant;

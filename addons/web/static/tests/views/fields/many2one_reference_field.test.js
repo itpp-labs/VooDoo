@@ -22,11 +22,11 @@ class Partner extends models.Model {
     res_id = fields.Many2oneReference({
         string: "Resource Id",
         model_field: "model",
-        relation: "partnertype",
+        relation: "partner.type",
     });
 
     _records = [
-        { id: 1, model: "partnertype", res_id: 10 },
+        { id: 1, model: "partner.type", res_id: 10 },
         { id: 2, res_id: false },
     ];
 }
@@ -71,7 +71,7 @@ test("Many2OneReferenceField in form view", async () => {
     expect(".o_field_widget[name=res_id] .o_external_button").toHaveCount(1);
 
     await contains(".o_field_widget[name=res_id] .o_external_button", { visible: false }).click();
-    expect(["opening partnertype 10", "doAction"]).toVerifySteps();
+    expect.verifySteps(["opening partner.type 10", "doAction"]);
 });
 
 test("Many2OneReferenceField in list view", async () => {
@@ -109,7 +109,7 @@ test.tags("desktop")("Many2OneReferenceField edition: unset", async () => {
     expect.assertions(4);
 
     onRpc("web_save", ({ args }) => {
-        expect(args).toEqual([[2], { model: "partnertype", res_id: 14 }]);
+        expect(args).toEqual([[2], { model: "partner.type", res_id: 14 }]);
     });
 
     await mountView({
@@ -125,7 +125,7 @@ test.tags("desktop")("Many2OneReferenceField edition: unset", async () => {
 
     expect(".o_field_widget[name=res_id] input").toHaveCount(0);
 
-    await contains(".o_field_widget[name=model] input").edit("partnertype");
+    await contains(".o_field_widget[name=model] input").edit("partner.type");
 
     expect(".o_field_widget[name=res_id] input").toHaveCount(1);
 
@@ -172,7 +172,7 @@ test.tags("desktop")("Many2OneReferenceField set value with search more", async 
     await contains(".o_data_row .o_data_cell:eq(6)").click();
     expect(".o_dialog .o_list_view").toHaveCount(0);
     expect(".o_field_widget input").toHaveValue("type 7");
-    expect([
+    expect.verifySteps([
         "get_views", // form view
         "web_read", // partner id 1
         "name_search", // many2one
@@ -180,7 +180,7 @@ test.tags("desktop")("Many2OneReferenceField set value with search more", async 
         "web_search_read", // SelectCreateDialog
         "has_group",
         "web_read", // read selected value
-    ]).toVerifySteps();
+    ]);
 });
 
 test.tags("desktop")("Many2OneReferenceField: quick create a value", async () => {
@@ -207,7 +207,7 @@ test.tags("desktop")("Many2OneReferenceField: quick create a value", async () =>
     ).toHaveCount(1);
     await clickFieldDropdownItem("res_id", `Create "new value"`);
     expect(".o_field_widget input").toHaveValue("new value");
-    expect(["get_views", "web_read", "name_search", "name_create"]).toVerifySteps();
+    expect.verifySteps(["get_views", "web_read", "name_search", "name_create"]);
 });
 
 test("Many2OneReferenceField with no_create option", async () => {

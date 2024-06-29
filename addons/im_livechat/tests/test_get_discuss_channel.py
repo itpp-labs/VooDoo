@@ -64,7 +64,20 @@ class TestGetDiscussChannel(TestImLivechatCommon, MailCommon):
                     "is_public": False,
                     "type": "partner",
                     "user_livechat_username": "Michel Operator",
+                    "write_date": fields.Datetime.to_string(operator.write_date),
                 },
+                self._filter_persona_fields({
+                    "active": False,
+                    "id": self.user_root.partner_id.id,
+                    "im_status": "bot",
+                    "isInternalUser": True,
+                    "is_company": False,
+                    "name": "OdooBot",
+                    "out_of_office_date_end": False,
+                    "type": "partner",
+                    "userId": self.user_root.id,
+                    "write_date": fields.Datetime.to_string(self.user_root.partner_id.write_date),
+                }),
             ],
         )
 
@@ -100,10 +113,15 @@ class TestGetDiscussChannel(TestImLivechatCommon, MailCommon):
                         "name": "Belgium",
                     },
                     "id": test_user.partner_id.id,
+                    "isAdmin": False,
                     "is_bot": False,
+                    "isInternalUser": True,
                     "is_public": False,
                     "name": "Roger",
+                    "notification_preference": "email",
                     "type": "partner",
+                    "userId": test_user.id,
+                    "write_date": fields.Datetime.to_string(test_user.write_date),
                 },
                 {
                     "active": True,
@@ -113,7 +131,21 @@ class TestGetDiscussChannel(TestImLivechatCommon, MailCommon):
                     "is_public": False,
                     "type": "partner",
                     "user_livechat_username": "Michel Operator",
+                    "write_date": fields.Datetime.to_string(operator.write_date),
                 },
+                self._filter_persona_fields({
+                    "active": False,
+                    "email": "odoobot@example.com",
+                    "id": self.user_root.partner_id.id,
+                    "im_status": "bot",
+                    "isInternalUser": True,
+                    "is_company": False,
+                    "name": "OdooBot",
+                    "out_of_office_date_end": False,
+                    "type": "partner",
+                    "userId": self.user_root.id,
+                    "write_date": fields.Datetime.to_string(self.user_root.partner_id.write_date),
+                }),
             ],
         )
         self.assertEqual(
@@ -159,9 +191,7 @@ class TestGetDiscussChannel(TestImLivechatCommon, MailCommon):
         operator_member = self.env['discuss.channel.member'].search(operator_member_domain)
         self.assertEqual(channel_info['operator'], {
             "id": operator.partner_id.id,
-            "user_livechat_username": "Michel Operator",
             "type": "partner",
-            "write_date": fields.Datetime.to_string(operator.partner_id.write_date)
         })
         self.assertFalse(channel_info['anonymous_name'])
         self.assertEqual(channel_info['anonymous_country'], False)
@@ -172,11 +202,30 @@ class TestGetDiscussChannel(TestImLivechatCommon, MailCommon):
                     "active": True,
                     "country": False,
                     "id": operator.partner_id.id,
+                    "isAdmin": False,
+                    "isInternalUser": True,
                     "is_bot": False,
                     "is_public": False,
+                    "name": "Michel",
+                    "notification_preference": "email",
                     "type": "partner",
+                    "userId": operator.id,
                     "user_livechat_username": "Michel Operator",
+                    "write_date": fields.Datetime.to_string(operator.partner_id.write_date)
                 },
+                self._filter_persona_fields({
+                    "active": False,
+                    "email": "odoobot@example.com",
+                    "id": self.user_root.partner_id.id,
+                    "im_status": "bot",
+                    "isInternalUser": True,
+                    "is_company": False,
+                    "name": "OdooBot",
+                    "out_of_office_date_end": False,
+                    "type": "partner",
+                    "userId": self.user_root.id,
+                    "write_date": fields.Datetime.to_string(self.user_root.partner_id.write_date),
+                }),
             ],
         )
         self.assertEqual(

@@ -1,5 +1,5 @@
 import { expect, test } from "@odoo/hoot";
-import { click, keyDown, queryAll } from "@odoo/hoot-dom";
+import { click, press, queryAll } from "@odoo/hoot-dom";
 import { animationFrame } from "@odoo/hoot-mock";
 import { reactive } from "@odoo/owl";
 import {
@@ -55,7 +55,7 @@ test.tags`desktop`("breadcrumbs", async () => {
 
     getService("action").restore = (jsId) => expect.step(jsId);
     click(breadcrumbItems[0]);
-    expect(["controller_7"]).toVerifySteps();
+    expect.verifySteps(["controller_7"]);
 });
 
 test.tags`desktop`("view switcher", async () => {
@@ -82,7 +82,7 @@ test.tags`desktop`("view switcher", async () => {
 
     getService("action").switchView = (viewType) => expect.step(viewType);
     click(views[1]);
-    expect(["kanban"]).toVerifySteps();
+    expect.verifySteps(["kanban"]);
 });
 
 test.tags`mobile`("view switcher on mobile", async () => {
@@ -113,7 +113,7 @@ test.tags`mobile`("view switcher on mobile", async () => {
 
     getService("action").switchView = (viewType) => expect.step(viewType);
     click(views[1]);
-    expect(["kanban"]).toVerifySteps();
+    expect.verifySteps(["kanban"]);
 });
 
 test("pager", async () => {
@@ -146,11 +146,11 @@ test("view switcher hotkey cycles through views", async () => {
     });
     expect(`.o_list_view`).toHaveCount(1);
 
-    keyDown("alt+shift+v");
+    press(["alt", "shift", "v"]);
     await animationFrame();
     expect(`.o_kanban_view`).toHaveCount(1);
 
-    keyDown("alt+shift+v");
+    press(["alt", "shift", "v"]);
     await animationFrame();
     expect(`.o_list_view`).toHaveCount(1);
 });

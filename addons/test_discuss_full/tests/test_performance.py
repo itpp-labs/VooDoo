@@ -161,29 +161,21 @@ class TestDiscussFullPerformance(HttpCase):
         """
         xmlid_to_res_id = self.env["ir.model.data"]._xmlid_to_res_id
         return {
-            "Store": {
-                "channel_types_with_seen_infos": sorted(["chat", "group", "livechat"]),
-                "action_discuss_id": xmlid_to_res_id("mail.action_discuss"),
-                "hasGifPickerFeature": False,
-                "hasLinkPreviewFeature": True,
-                "has_access_livechat": False,
-                "hasMessageTranslationFeature": False,
-                "internalUserGroupId": self.env.ref("base.group_user").id,
-                "mt_comment_id": xmlid_to_res_id("mail.mt_comment"),
-                "odoobot": {
+            "Persona": [
+                {
                     "active": False,
                     "email": "odoobot@example.com",
                     "id": self.user_root.partner_id.id,
                     "im_status": "bot",
+                    "isInternalUser": True,
                     "is_company": False,
                     "name": "OdooBot",
                     "out_of_office_date_end": False,
                     "type": "partner",
                     "userId": self.user_root.id,
-                    "isInternalUser": True,
                     "write_date": fields.Datetime.to_string(self.user_root.partner_id.write_date),
                 },
-                "self": {
+                {
                     "id": self.users[0].partner_id.id,
                     "isAdmin": False,
                     "isInternalUser": True,
@@ -193,6 +185,18 @@ class TestDiscussFullPerformance(HttpCase):
                     "userId": self.users[0].id,
                     "write_date": fields.Datetime.to_string(self.users[0].partner_id.write_date),
                 },
+            ],
+            "Store": {
+                "channel_types_with_seen_infos": sorted(["chat", "group", "livechat"]),
+                "action_discuss_id": xmlid_to_res_id("mail.action_discuss"),
+                "hasGifPickerFeature": False,
+                "hasLinkPreviewFeature": True,
+                "has_access_livechat": False,
+                "hasMessageTranslationFeature": False,
+                "internalUserGroupId": self.env.ref("base.group_user").id,
+                "mt_comment_id": xmlid_to_res_id("mail.mt_comment"),
+                "odoobot": {"id": self.user_root.partner_id.id, "type": "partner"},
+                "self": {"id": self.users[0].partner_id.id, "type": "partner"},
                 "settings": {
                     "channel_notifications": False,
                     "mute_until_dt": False,
@@ -354,7 +358,6 @@ class TestDiscussFullPerformance(HttpCase):
         members = channel.channel_member_ids
         member_0 = members.filtered(lambda m: m.partner_id == self.users[0].partner_id)
         member_2 = members.filtered(lambda m: m.partner_id == self.users[2].partner_id)
-        write_date_0 = fields.Datetime.to_string(self.users[0].partner_id.write_date)
         last_interest_dt = fields.Datetime.to_string(channel.last_interest_dt)
         if channel == self.channel_general:
             return {
@@ -690,12 +693,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "name": "test1 Ernest Employee",
                 "custom_notifications": False,
                 "mute_until_dt": False,
-                "operator": {
-                    "id": self.users[0].partner_id.id,
-                    "name": "Ernest Employee",
-                    "type": "partner",
-                    "write_date": write_date_0,
-                },
+                "operator": {"id": self.users[0].partner_id.id, "type": "partner"},
                 "rtcSessions": [["ADD", []]],
                 "state": "closed",
                 "uuid": channel.uuid,
@@ -731,12 +729,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "name": "anon 2 Ernest Employee",
                 "custom_notifications": False,
                 "mute_until_dt": False,
-                "operator": {
-                    "id": self.users[0].partner_id.id,
-                    "name": "Ernest Employee",
-                    "type": "partner",
-                    "write_date": write_date_0,
-                },
+                "operator": {"id": self.users[0].partner_id.id, "type": "partner"},
                 "rtcSessions": [["ADD", []]],
                 "state": "closed",
                 "uuid": channel.uuid,

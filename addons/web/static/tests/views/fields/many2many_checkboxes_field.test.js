@@ -13,7 +13,7 @@ import {
 
 class Partner extends models.Model {
     int_field = fields.Integer({ sortable: true });
-    timmy = fields.Many2many({ string: "pokemon", relation: "partnertype" });
+    timmy = fields.Many2many({ string: "pokemon", relation: "partner.type" });
     p = fields.One2many({
         string: "one2many field",
         relation: "partner",
@@ -72,7 +72,7 @@ test("Many2ManyCheckBoxesField", async () => {
     expect("div.o_field_widget div.form-check input:eq(0)").not.toBeChecked();
     expect("div.o_field_widget div.form-check input:eq(1)").toBeChecked();
 
-    expect(["web_save", "web_save"]).toVerifySteps();
+    expect.verifySteps(["web_save", "web_save"]);
 });
 
 test("Many2ManyCheckBoxesField (readonly)", async () => {
@@ -138,7 +138,7 @@ test("Many2ManyCheckBoxesField does not read added record", async () => {
     expect(queryAllTexts(".o_field_widget .form-check-label")).toEqual(["gold", "silver"]);
     expect("div.o_field_widget div.form-check input:checked").toHaveCount(1);
 
-    expect(["get_views", "web_read", "name_search", "web_save"]).toVerifySteps();
+    expect.verifySteps(["get_views", "web_read", "name_search", "web_save"]);
 });
 
 test("Many2ManyCheckBoxesField: start non empty, then remove twice", async () => {
@@ -270,7 +270,7 @@ test("Many2ManyCheckBoxesField with 100+ values", async () => {
 
     await clickSave();
     expect(".o_field_widget[name='timmy'] input[type='checkbox']").not.toBeChecked();
-    expect(["name_search", "web_save"]).toVerifySteps();
+    expect.verifySteps(["name_search", "web_save"]);
 });
 
 test("Many2ManyCheckBoxesField in a one2many", async () => {
@@ -328,7 +328,7 @@ test("Many2ManyCheckBoxesField with default values", async () => {
 
     Partner._fields.timmy = fields.Many2many({
         string: "pokemon",
-        relation: "partnertype",
+        relation: "partner.type",
         default: [[4, 3]],
     });
     PartnerType._records.push({ id: 3, name: "bronze" });
@@ -367,7 +367,7 @@ test("Many2ManyCheckBoxesField with default values", async () => {
 test("Many2ManyCheckBoxesField batches successive changes", async () => {
     Partner._fields.timmy = fields.Many2many({
         string: "pokemon",
-        relation: "partnertype",
+        relation: "partner.type",
         onChange: () => {},
     });
     Partner._records[0].timmy = [];
@@ -395,15 +395,15 @@ test("Many2ManyCheckBoxesField batches successive changes", async () => {
     // checkboxes are updated directly
     expect("div.o_field_widget div.form-check input:checked").toHaveCount(2);
     // but no onchanges has been fired yet
-    expect(["get_views", "web_read", "name_search"]).toVerifySteps();
+    expect.verifySteps(["get_views", "web_read", "name_search"]);
     await runAllTimers();
-    expect(["onchange"]).toVerifySteps();
+    expect.verifySteps(["onchange"]);
 });
 
 test("Many2ManyCheckBoxesField sends batched changes on save", async () => {
     Partner._fields.timmy = fields.Many2many({
         string: "pokemon",
-        relation: "partnertype",
+        relation: "partner.type",
         onChange: () => {},
     });
     Partner._records[0].timmy = [];
@@ -431,11 +431,11 @@ test("Many2ManyCheckBoxesField sends batched changes on save", async () => {
     // checkboxes are updated directly
     expect("div.o_field_widget div.form-check input:checked").toHaveCount(2);
     // but no onchanges has been fired yet
-    expect(["get_views", "web_read", "name_search"]).toVerifySteps();
+    expect.verifySteps(["get_views", "web_read", "name_search"]);
     await runAllTimers();
     // save
     await clickSave();
-    expect(["onchange", "web_save"]).toVerifySteps();
+    expect.verifySteps(["onchange", "web_save"]);
 });
 
 test("Many2ManyCheckBoxesField in a notebook tab", async () => {
@@ -475,5 +475,5 @@ test("Many2ManyCheckBoxesField in a notebook tab", async () => {
     expect("div.o_field_widget[name=int_field]").toHaveCount(1);
     // save
     await clickSave();
-    expect(["get_views", "web_read", "name_search", "web_save"]).toVerifySteps();
+    expect.verifySteps(["get_views", "web_read", "name_search", "web_save"]);
 });
