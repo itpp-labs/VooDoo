@@ -112,8 +112,21 @@ class AccountEdiFormat(models.Model):
             error_msg = ''
             if chain_head and chain_head != invoice and not chain_head._l10n_es_tbai_is_in_chain():
                 error_msg = _("TicketBAI: Cannot post invoice while chain head (%s) has not been posted", chain_head.name)
-            if invoice.move_type == 'out_refund' and not invoice.reversed_entry_id._l10n_es_tbai_is_in_chain():
+            if (
+                invoice.move_type == 'out_refund'
+                and not invoice.reversed_entry_id._l10n_es_tbai_is_in_chain()
+                and invoice.reversed_entry_id.edi_document_ids.filtered(lambda d: d.edi_format_id.code == 'es_tbai')  # avoid imported ones
+            ):
                 error_msg = _("TicketBAI: Cannot post a reversal move while the source document (%s) has not been posted", invoice.reversed_entry_id.name)
+
+            # Tax configuration check: In case of foreign customer we need the tax scope to be set
+            com_partner = invoice.commercial_partner_id
+            if (com_partner.country_id.code not in ('ES', False) or (com_partner.vat or '').startswith("ESN")) and\
+                    invoice.line_ids.tax_ids.filtered(lambda t: not t.tax_scope):
+                error_msg = _(
+                    "In case of a foreign customer, you need to configure the tax scope on taxes:\n%s",
+                    "\n".join(invoice.line_ids.tax_ids.mapped('name'))
+                )
 
             if error_msg:
                 return {
