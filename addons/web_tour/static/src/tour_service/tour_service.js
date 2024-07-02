@@ -34,7 +34,6 @@ import { callWithUnloadCheck } from "./tour_utils";
  * @property {"enterprise"|"community"|"mobile"|"desktop"|HootSelector[][]} isActive Active the step following {@link isActiveStep} filter
  * @property {string} [id]
  * @property {HootSelector} trigger The node on which the action will be executed.
- * @property {HootSelector} [extra_trigger] Required (extra) node for the step to be executed.
  * @property {HootSelector} [alt_trigger] An alternative node to the trigger (trigger or alt_trigger).
  * @property {string} [content] Description of the step.
  * @property {"top" | "botton" | "left" | "right"} [position] The position where the UI helper is shown.
@@ -46,7 +45,6 @@ import { callWithUnloadCheck } from "./tour_utils";
  allows that trigger node can be disabled. run() {} does not allow this behavior.
  * @property {boolean} [auto]
  * @property {boolean} [in_modal] When true, check that trigger node is present in the last visible .modal.
- * @property {number} [width]
  * @property {number} [timeout] By default, when the trigger node isn't found after 10000 milliseconds, it throws an error.
  * You can change this value to lengthen or shorten the time before the error occurs [ms].
  * @property {string} [consumeEvent] Only in manual mode (onboarding tour). It's the event we want the customer to do.
@@ -66,7 +64,6 @@ function checkTourStepKeyValues(tourStep) {
     const stepschema = {
         id: { type: String, optional: true },
         trigger: { type: String },
-        extra_trigger: { type: String, optional: true },
         alt_trigger: { type: String, optional: true },
         isActive: { type: Array, element: String, optional: true },
         content: { type: [String, Object], optional: true }, //allow object for _t && markup
@@ -75,7 +72,6 @@ function checkTourStepKeyValues(tourStep) {
         allowInvisible: { type: Boolean, optional: true },
         allowDisabled: { type: Boolean, optional: true },
         in_modal: { type: Boolean, optional: true },
-        width: { type: Number, optional: true },
         timeout: { type: Number, optional: true },
         consumeEvent: { type: String, optional: true },
         title: { type: String, optional: true },
