@@ -1036,7 +1036,10 @@ class HrExpenseSheet(models.Model):
             sheet_move = sheet.account_move_id
             if not sheet_move:
                 sheet.payment_state = 'not_paid'
-            elif sheet_move.currency_id.compare_amounts(sheet_move.reversal_move_id.amount_total, sheet_move.amount_total) == 0:
+            elif sheet_move.currency_id.compare_amounts(
+                sum(sheet_move.reversal_move_id.mapped('amount_total')),
+                sheet_move.amount_total
+            ) == 0:
                 sheet.payment_state = 'reversed'
             else:
                 sheet.payment_state = sheet_move.payment_state
@@ -1416,6 +1419,7 @@ class HrExpenseSheet(models.Model):
         for line in self.expense_line_ids:
             line._validate_distribution(**{
                 'account': line.account_id.id,
+                'product': line.product_id.id,
                 'business_domain': 'expense',
                 'company_id': line.company_id.id,
             })
