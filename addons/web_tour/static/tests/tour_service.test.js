@@ -166,6 +166,7 @@ test("points to next step", async () => {
         steps: () => [
             {
                 trigger: "button.inc",
+                run: "click",
             },
         ],
     });
@@ -193,7 +194,10 @@ test("points to next step", async () => {
 test("next step with new anchor at same position", async () => {
     tourRegistry.add("tour1", {
         sequence: 10,
-        steps: () => [{ trigger: "button.foo" }, { trigger: "button.bar" }],
+        steps: () => [
+            { trigger: "button.foo", run: "click" },
+            { trigger: "button.bar", run: "click" },
+        ],
     });
     await makeMockEnv();
 
@@ -498,7 +502,10 @@ test("check tour with inactive steps", async () => {
 test("pointer is added on top of overlay's stack", async () => {
     registry.category("web_tour.tours").add("tour1", {
         sequence: 10,
-        steps: () => [{ trigger: ".modal .a" }, { trigger: ".open" }],
+        steps: () => [
+            { trigger: ".modal .a", run: "click" },
+            { trigger: ".open", run: "click" },
+        ],
     });
     await makeMockEnv({});
     class DummyDialog extends Component {
@@ -633,6 +640,7 @@ test("should show only 1 pointer at a time", async () => {
         steps: () => [
             {
                 trigger: ".interval input",
+                run: "edit 5",
             },
         ],
     });
@@ -641,6 +649,7 @@ test("should show only 1 pointer at a time", async () => {
         steps: () => [
             {
                 trigger: "button.inc",
+                run: "click",
             },
         ],
     });
@@ -673,7 +682,7 @@ test("perform edit on next step", async () => {
         steps: () => [
             {
                 trigger: ".interval input",
-                run: "click",
+                run: "edit 5",
             },
             {
                 trigger: "button.inc",
@@ -720,6 +729,7 @@ test("scrolling to next step should update the pointer's height", async (assert)
             {
                 trigger: "button.inc",
                 content: stepContent,
+                run: "click",
             },
         ],
     });
@@ -792,7 +802,7 @@ test("scroller pointer to reach next step", async () => {
 
     registry.category("web_tour.tours").add("tour_des_flandres", {
         sequence: 10,
-        steps: () => [{ trigger: "button.inc", content: "Click to increment" }],
+        steps: () => [{ trigger: "button.inc", content: "Click to increment", run: "click" }],
     });
     await makeMockEnv();
     class Root extends Component {
@@ -856,44 +866,68 @@ test("scroller pointer to reach next step", async () => {
 });
 
 test("manual tour with inactive steps", async () => {
-    patchWithCleanup(browser.console, {
-        log: (s) => expect.step(`log: ${s}`),
-    });
-    await makeMockEnv();
-    class Root extends Component {
-        static components = {};
-        static template = xml/*html*/ `
-            <t>
-                <button class="button0">Button 0</button>
-                <button class="button1">Button 1</button>
-                <button class="button2">Button 2</button>
-            </t>
-        `;
-        static props = ["*"];
-    }
-
-    await mountWithCleanup(Root);
-    registry.category("web_tour.tours").add("pipu_tour2", {
-        test: true,
+    registry.category("web_tour.tours").add("tour_de_wallonie", {
+        rainbowMessage: "bravo",
+        sequence: 10,
         steps: () => [
             {
                 isActive: ["auto"],
-                trigger: ".button0",
+                trigger: ".interval input",
+                run: "edit 5",
             },
             {
                 isActive: ["auto"],
-                trigger: ".button1",
+                trigger: ".interval input",
+                run: "edit 5",
             },
             {
                 isActive: ["manual"],
-                trigger: ".button2",
+                trigger: ".interval input",
+                run: "edit 5",
+            },
+            {
+                isActive: ["auto"],
+                trigger: "button.inc",
+                run: "click",
+            },
+            {
+                isActive: ["auto"],
+                trigger: "button.inc",
+                run: "click",
+            },
+            {
+                isActive: ["manual"],
+                trigger: "button.inc",
+                run: "click",
+            },
+            {
+                isActive: ["auto"],
+                trigger: "button.inc",
+                run: "click",
             },
         ],
     });
-    getService("tour_service").startTour("pipu_tour2", { mode: "manual" });
+    class Root extends Component {
+        static props = ["*"];
+        static components = { Counter };
+        static template = xml/*html*/ `
+            <t>
+                <Counter />
+            </t>
+        `;
+    }
+    await mountWithCleanup(Root);
+    getService("tour_service").startTour("tour_de_wallonie", { mode: "manual" });
+    await animationFrame();
+    await advanceTime(100);
+    expect(".o_tour_pointer").toHaveCount(1);
+    await contains(".interval input").edit(5);
+    expect(".o_tour_pointer").toHaveCount(0);
     await advanceTime(750);
-    await advanceTime(750);
-    await advanceTime(750);
-    await advanceTime(750);
-    expect.verifySteps(["log: .button0", "log: .button1", "log: .button2"]);
+    await animationFrame();
+    expect(".o_tour_pointer").toHaveCount(1);
+    await contains("button.inc").click();
+    expect(".o_tour_pointer").toHaveCount(0);
+    expect(".counter .value").toHaveText("5");
+    await advanceTime(10000);
 });

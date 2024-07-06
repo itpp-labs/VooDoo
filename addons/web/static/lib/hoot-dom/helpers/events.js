@@ -227,11 +227,12 @@ const getEventConstructor = (eventType) => {
             return [PointerEvent, mapNonBubblingPointerEvent];
 
         // Focus events
-        case "focusin":
-            return [FocusEvent, mapBubblingEvent];
-        case "focus":
         case "blur":
+        case "focus":
             return [FocusEvent, mapNonBubblingEvent];
+        case "focusin":
+        case "focusout":
+            return [FocusEvent, mapBubblingEvent];
 
         // Clipboard events
         case "cut":
@@ -285,10 +286,23 @@ const getEventConstructor = (eventType) => {
         case "wheel":
             return [WheelEvent, mapWheelEvent];
 
-        case "beforeunload":
-            // BeforeUnloadEvent cannot be constructed.
-            return [Event, mapNonBubblingCancelableEvent];
+        // Animation events
+        case "animationcancel":
+        case "animationend":
+        case "animationiteration":
+        case "animationstart": {
+            return [AnimationEvent, mapBubblingCancelableEvent];
+        }
 
+        // Error events
+        case "error":
+            return [ErrorEvent, mapNonBubblingEvent];
+        case "unhandledrejection":
+            return [PromiseRejectionEvent, mapNonBubblingCancelableEvent];
+
+        // Unload events (BeforeUnloadEvent cannot be constructed)
+        case "beforeunload":
+            return [Event, mapNonBubblingCancelableEvent];
         case "unload":
             return [Event, mapNonBubblingEvent];
 
@@ -705,12 +719,15 @@ const triggerFocus = (target) => {
     if (previous !== target.ownerDocument.body) {
         if ($hasFocus()) {
             catchNextEvent(previous, "blur");
+            catchNextEvent(previous, "focusout");
         }
         // If document is focused, this will trigger a trusted "blur" event
         previous.blur();
         if (!$hasFocus()) {
             // When document is not focused: manually trigger a "blur" event
-            dispatch(previous, "blur", { relatedTarget: target });
+            const eventInit = { relatedTarget: target };
+            dispatch(previous, "blur", eventInit);
+            dispatch(previous, "focusout", eventInit);
         }
     }
     if (isNodeFocusable(target)) {
@@ -719,11 +736,14 @@ const triggerFocus = (target) => {
         // If document is focused, this will trigger a trusted "focus" event
         if ($hasFocus()) {
             catchNextEvent(target, "focus");
+            catchNextEvent(target, "focusin");
         }
         target.focus();
         if (!$hasFocus()) {
             // When document is not focused: manually trigger a "focus" event
-            dispatch(target, "focus", { relatedTarget: previous });
+            const eventInit = { relatedTarget: previous };
+            dispatch(target, "focus", eventInit);
+            dispatch(target, "focusin", eventInit);
         }
 
         if (previousSelection && previousSelection === getStringSelection(target)) {

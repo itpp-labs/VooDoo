@@ -40,7 +40,8 @@ registry.category("web_tour.tours").add('sale_product_configurator_edition_tour'
 }, {
     trigger: 'tr:has(div[name="o_sale_product_configurator_name"]:contains("Customizable Desk (TEST) (Aluminium, White)"))',
 }, {
-    trigger: 'button:contains(Confirm)',
+    trigger: ".modal button:contains(Confirm)",
+    in_modal: false,
     run: "click",
 }, 
 {
@@ -57,15 +58,15 @@ registry.category("web_tour.tours").add('sale_product_configurator_edition_tour'
     run: "click",
 }, {
     // check updated legs
-    trigger: 'table.o_sale_product_configurator_table tr:has(td>div[name="o_sale_product_configurator_name"] h5:contains("Customizable Desk")) td>div[name="ptal"]:has(div>label:contains("Legs")) label:has(span:contains("Aluminium")) ~ input:checked',
+    trigger: 'table.o_sale_product_configurator_table tr:has(td>div[name="o_sale_product_configurator_name"] span:contains("Customizable Desk")) td>div[name="ptal"]:has(div>label:contains("Legs")) label:has(span:contains("Aluminium")) ~ input:checked',
 }, {
     // check updated price
-    trigger: 'table.o_sale_product_configurator_table tr:has(td>div[name="o_sale_product_configurator_name"] h5:contains("Customizable Desk")) td[name="price"] h5:contains("800.40")',
+    trigger: 'table.o_sale_product_configurator_table tr:has(td>div[name="o_sale_product_configurator_name"] span:contains("Customizable Desk")) td[name="price"] span:contains("800.40")',
 }, {
-    trigger: 'table.o_sale_product_configurator_table tr:has(td>div[name="o_sale_product_configurator_name"] h5:contains("Customizable Desk")) td>div[name="ptal"]:has(div>label:contains("Legs")) label:has(span:contains("Custom")) ~ input',
+    trigger: 'table.o_sale_product_configurator_table tr:has(td>div[name="o_sale_product_configurator_name"] span:contains("Customizable Desk")) td>div[name="ptal"]:has(div>label:contains("Legs")) label:has(span:contains("Custom")) ~ input',
     run: "click",
 }, {
-    trigger: 'table.o_sale_product_configurator_table tr:has(td>div[name="o_sale_product_configurator_name"] h5:contains("Customizable Desk")) td>div[name="ptal"]:has(div>label:contains("Legs")) input[type="text"]',
+    trigger: 'table.o_sale_product_configurator_table tr:has(td>div[name="o_sale_product_configurator_name"] span:contains("Customizable Desk")) td>div[name="ptal"]:has(div>label:contains("Legs")) input[type="text"]',
     run: "edit nice custom value && click .modal-body",
 }, {
     trigger: 'tr:has(div[name="o_sale_product_configurator_name"]:contains("Customizable Desk")) label[style="background-color:#000000"] input',
@@ -74,7 +75,8 @@ registry.category("web_tour.tours").add('sale_product_configurator_edition_tour'
     // used to sync with server
     trigger: 'div[name="o_sale_product_configurator_name"]:contains("Customizable Desk (TEST) (Custom, Black)")',
 }, {
-    trigger: 'button:contains(Confirm)',
+    trigger: ".modal button:contains(Confirm)",
+    in_modal: false,
     run: "click",
 }, 
 {
@@ -99,7 +101,8 @@ registry.category("web_tour.tours").add('sale_product_configurator_edition_tour'
 },
     configuratorTourUtils.setCustomAttribute("Customizable Desk", "Legs", "another nice custom value"),
 {
-    trigger: 'button:contains(Confirm)',
+    trigger: ".modal button:contains(Confirm)",
+    in_modal: false,
     run: "click",
 }, 
 {
@@ -115,7 +118,7 @@ registry.category("web_tour.tours").add('sale_product_configurator_edition_tour'
     trigger: '.fa-pencil',
     run: "click",
 }, {
-    trigger: 'table.o_sale_product_configurator_table tr:has(td>div[name="o_sale_product_configurator_name"] h5:contains("Customizable Desk")) td>div[name="ptal"]:has(div>label:contains("Legs")) label:has(span:contains("Steel")) ~ input',
+    trigger: 'table.o_sale_product_configurator_table tr:has(td>div[name="o_sale_product_configurator_name"] span:contains("Customizable Desk")) td>div[name="ptal"]:has(div>label:contains("Legs")) label:has(span:contains("Steel")) ~ input',
     run: "click",
 },
     configuratorTourUtils.assertProductNameContains("Customizable Desk (TEST) (Steel, Black)"),
@@ -123,7 +126,8 @@ registry.category("web_tour.tours").add('sale_product_configurator_edition_tour'
     // Mr Tajine Saucisse uses the pricelist that has a rule when 2 or more products. Price is 600
     configuratorTourUtils.assertPriceTotal("1,200.00"),
 {
-    trigger: 'button:contains(Confirm)',
+    trigger: ".modal button:contains(Confirm)",
+    in_modal: false,
     run: "click",
 }, {
     // check quantity

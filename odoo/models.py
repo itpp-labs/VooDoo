@@ -2891,15 +2891,16 @@ class BaseModel(metaclass=MetaModel):
             else:
                 comodel = self.env.get(definition.get('comodel'))
                 if comodel is None or comodel._transient or comodel._abstract:
-                    # all value are false, because the model does not exist anymore
-                    # (or is a transient model e.g.)
-                    condition = SQL("FALSE")
-                else:
-                    # check the existences of the many2many
-                    condition = SQL(
-                        "%s::int IN (SELECT id FROM %s)",
-                        SQL.identifier(property_alias), SQL.identifier(comodel._table),
-                    )
+                    raise UserError(_(
+                        "You cannot use “%(property_name)s” because the linked “%(model_name)s” model doesn't exist or is invalid",
+                        property_name=definition.get('string', property_name), model_name=definition.get('comodel'),
+                    ))
+
+                # check the existences of the many2many
+                condition = SQL(
+                    "%s::int IN (SELECT id FROM %s)",
+                    SQL.identifier(property_alias), SQL.identifier(comodel._table),
+                )
 
             query.add_join(
                 "LEFT JOIN",
@@ -2927,9 +2928,10 @@ class BaseModel(metaclass=MetaModel):
         elif property_type == 'many2one':
             comodel = self.env.get(definition.get('comodel'))
             if comodel is None or comodel._transient or comodel._abstract:
-                # all value are false, because the model does not exist anymore
-                # (or is a transient model e.g.)
-                return SQL('FALSE')
+                raise UserError(_(
+                    "You cannot use “%(property_name)s” because the linked “%(model_name)s” model doesn't exist or is invalid",
+                    property_name=definition.get('string', property_name), model_name=definition.get('comodel'),
+                ))
 
             return SQL(
                 """ CASE
@@ -2976,7 +2978,7 @@ class BaseModel(metaclass=MetaModel):
         SQL query.
         """
         # sanity checks - should never fail
-        assert operator in (expression.TERM_OPERATORS + ('inselect', 'not inselect')), \
+        assert operator in expression.TERM_OPERATORS, \
             f"Invalid operator {operator!r} in domain term {(fname, operator, value)!r}"
         assert fname in self._fields, \
             f"Invalid field {fname!r} in domain term {(fname, operator, value)!r}"
@@ -2993,19 +2995,8 @@ class BaseModel(metaclass=MetaModel):
 
         sql_field = self._field_to_sql(alias, fname, query)
 
-        if operator == 'inselect':
-            if not isinstance(value, SQL):
-                subquery, subparams = value
-                value = SQL(subquery, *subparams)
-            return SQL("(%s IN (%s))", sql_field, value)
-
-        if operator == 'not inselect':
-            if not isinstance(value, SQL):
-                subquery, subparams = value
-                value = SQL(subquery, *subparams)
-            return SQL("(%s NOT IN (%s))", sql_field, value)
-
         field = self._fields[fname]
+        is_number_field = field.type in ('integer', 'float', 'monetary') and field.name != 'id'
         sql_operator = expression.SQL_OPERATORS[operator]
 
         if operator in ('in', 'not in'):
@@ -3025,12 +3016,17 @@ class BaseModel(metaclass=MetaModel):
                 return SQL("(%s %s %s)", sql_field, sql_operator, value.subselect())
 
             elif isinstance(value, (list, tuple)):
-                if field.type == "boolean":
-                    params = [it for it in (True, False) if it in value]
-                    check_null = False in value
-                else:
-                    params = [it for it in value if it is not False and it is not None]
-                    check_null = len(params) < len(value)
+                params = [it for it in value if it is not False and it is not None]
+                check_null = len(params) < len(value)
+                if field.type == 'boolean':
+                    # just replace instead of casting, only truthy values remain
+                    params = [True] if any(params) else []
+                    if check_null:
+                        params.append(False)
+                elif is_number_field:
+                    if check_null and 0 not in params:
+                        params.append(0)
+                    check_null = check_null or (0 in params)
 
                 if params:
                     if fname != 'id':
@@ -3056,11 +3052,19 @@ class BaseModel(metaclass=MetaModel):
             else:
                 return SQL("(%s IS NULL OR %s = FALSE)", sql_field, sql_field)
 
-        if operator == '=' and (value is False or value is None):
-            return SQL("%s IS NULL", sql_field)
+        # comparison with null
+        # except for some basic types, where we need to check the empty value
+        if (field.relational or field.name == 'id') and operator in ('=', '!=') and not value:
+            # if we compare a relation to 0, then compare only to False
+            value = False
 
-        if operator == '!=' and (value is False or value is None):
-            return SQL("%s IS NOT NULL", sql_field)
+        if operator in ('=', '!=') and (value is False or value is None):
+            if is_number_field:
+                value = 0  # generates something like (fname = 0 OR fname IS NULL)
+            elif operator == '=':
+                return SQL("%s IS NULL", sql_field)
+            elif operator == '!=':
+                return SQL("%s IS NOT NULL", sql_field)
 
         # general case
         need_wildcard = operator in expression.WILDCARD_OPERATORS
@@ -3080,10 +3084,16 @@ class BaseModel(metaclass=MetaModel):
             sql_value = self.env.registry.unaccent(sql_value)
 
         if need_wildcard and not value:
-            return SQL("%s IS NULL", sql_field) if operator in expression.NEGATIVE_TERM_OPERATORS else SQL("TRUE")
+            return SQL("FALSE") if operator in expression.NEGATIVE_TERM_OPERATORS else SQL("TRUE")
 
         sql = SQL("(%s %s %s)", sql_left, sql_operator, sql_value)
-        if value and operator in expression.NEGATIVE_TERM_OPERATORS:
+        if (
+            bool(value) == (operator in expression.NEGATIVE_TERM_OPERATORS)
+            # exception: char is handled differently for now
+            and value != ''  # noqa: PLC1901
+            # exception: don't add for inequalities
+            and operator[:1] not in ('>', '<')
+        ):
             sql = SQL("(%s OR %s IS NULL)", sql, sql_field)
 
         return sql
@@ -6279,11 +6289,12 @@ class BaseModel(metaclass=MetaModel):
                 if comparator in ('like', 'ilike', '=like', '=ilike', 'not ilike', 'not like'):
                     if comparator.endswith('ilike'):
                         # ilike uses unaccent and lower-case comparison
+                        # we may get something which is not a string
                         def unaccent(x):
-                            return self.pool.unaccent_python(x.lower()) if x else ''
+                            return self.pool.unaccent_python(str(x).lower()) if x else ''
                     else:
                         def unaccent(x):
-                            return x or ''
+                            return str(x) if x else ''
                     value_esc = unaccent(value).replace('_', '?').replace('%', '*').replace('[', '?')
                     if not comparator.startswith('='):
                         value_esc = f'*{value_esc}*'

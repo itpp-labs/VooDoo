@@ -5861,18 +5861,16 @@ test(`Navigate between the list and kanban view using the command palette`, asyn
 
     press("control+k");
     await animationFrame();
-    expect(`.o_command_category:eq(1) .o_command`).toHaveCount(1);
-    expect(`.o_command_category:eq(1) .o_command`).toHaveText("Show Kanban view");
+    expect(`.o_command_category .o_command:contains(Show Kanban view)`).toHaveCount(1);
 
-    await contains(`.o_command_category:eq(1) .o_command`).click();
+    await contains(`.o_command:contains(Show Kanban view)`).click();
     expect(`.o_kanban_view`).toHaveCount(1);
 
     press("control+k");
     await animationFrame();
-    expect(`.o_command_category:eq(1) .o_command`).toHaveCount(1);
-    expect(`.o_command_category:eq(1) .o_command`).toHaveText("Show List view");
+    expect(`.o_command_category .o_command:contains(Show List view)`).toHaveCount(1);
 
-    await contains(`.o_command_category:eq(1) .o_command`).click();
+    await contains(`.o_command:contains(Show List view)`).click();
     expect(`.o_list_view`).toHaveCount(1);
 });
 
@@ -9605,7 +9603,7 @@ test(`multi edit field with daterange widget (edition without using the picker)`
 
     onRpc("write", ({ args }) => {
         expect.step("write");
-        expect(args).toEqual([[1, 2], { date_start: "2021-04-01", date_end: "2017-01-26" }]);
+        expect(args).toEqual([[1, 2], { date_start: "2021-04-01"}]);
     });
 
     await mountView({
@@ -9634,10 +9632,6 @@ test(`multi edit field with daterange widget (edition without using the picker)`
         "Date start",
         "Update to:",
         "04/01/2021\n01/26/2017",
-        "Field:",
-        "Date end",
-        "Update to:",
-        "01/26/2017",
     ]);
 
     // Valid the confirm dialog

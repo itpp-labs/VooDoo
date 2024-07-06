@@ -6,7 +6,7 @@ function productSelector(productName) {
     return `
         table.o_sale_product_configurator_table
         tr:has(td>div[name="o_sale_product_configurator_name"]
-        h5:contains("${productName}"))
+        span:contains("${productName}"))
     `;
 }
 
@@ -14,7 +14,7 @@ function optionalProductSelector(productName) {
     return `
         table.o_sale_product_configurator_table_optional
         tr:has(td>div[name="o_sale_product_configurator_name"]
-        h5:contains("${productName}"))
+        span:contains("${productName}"))
     `;
 }
 
@@ -44,6 +44,7 @@ function increaseProductQuantity(productName) {
             td.o_sale_product_configurator_qty
             button:has(i.fa-plus)
         `,
+        allowDisabled: true,
         run: 'click',
     };
 }
@@ -56,6 +57,7 @@ function decreaseProductQuantity(productName) {
             td.o_sale_product_configurator_qty
             button:has(i.fa-minus)
         `,
+        allowDisabled: true,
         run: 'click',
     };
 }
@@ -153,7 +155,7 @@ function assertProductPrice(productName, price) {
         trigger: `
             ${productSelector(productName)}
             td.o_sale_product_configurator_price
-            h5:contains("${price}")
+            span:contains("${price}")
         `,
     };
 }
@@ -164,7 +166,7 @@ function assertOptionalProductPrice(productName, price) {
         trigger: `
             ${optionalProductSelector(productName)}
             td.o_sale_product_configurator_qty
-            h5:contains("${price}")
+            span:contains("${price}")
         `,
     };
 }
