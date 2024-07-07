@@ -154,10 +154,7 @@ export class MailThread extends models.ServerModel {
             });
         }
         MailThread._notify_thread.call(this, ids, messageId, kwargs.context?.temporary_id);
-        return {
-            ...MailMessage._message_format([messageId], true)[0],
-            temporary_id: kwargs.context?.temporary_id,
-        };
+        return { ...MailMessage._message_format([messageId], true)[0] };
     }
 
     /**
@@ -592,7 +589,7 @@ export class MailThread extends models.ServerModel {
         return false;
     }
 
-    _to_store(ids, store, request_list) {
+    _thread_to_store(ids, store, request_list) {
         const kwargs = getKwArgs(arguments, "ids", "store", "request_list");
         const id = kwargs.ids[0];
         store = kwargs.store;

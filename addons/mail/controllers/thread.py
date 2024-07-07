@@ -14,7 +14,9 @@ class ThreadController(http.Controller):
     @http.route("/mail/thread/data", methods=["POST"], type="json", auth="user")
     def mail_thread_data(self, thread_model, thread_id, request_list):
         thread = request.env[thread_model].with_context(active_test=False).search([("id", "=", thread_id)])
-        return Store(thread, request_list=request_list).get_result()
+        store = Store()
+        thread._thread_to_store(store, request_list=request_list)
+        return store.get_result()
 
     @http.route("/mail/thread/messages", methods=["POST"], type="json", auth="user")
     def mail_thread_messages(self, thread_model, thread_id, search_term=None, before=None, after=None, around=None, limit=30):
@@ -111,8 +113,6 @@ class ThreadController(http.Controller):
         message_data = thread.message_post(
             **{key: value for key, value in post_data.items() if key in self._get_allowed_message_post_params()}
         )._message_format(for_current_user=True)[0]
-        if "temporary_id" in request.context:
-            message_data["temporary_id"] = request.context["temporary_id"]
         return message_data
 
     @http.route("/mail/message/update_content", methods=["POST"], type="json", auth="public")
