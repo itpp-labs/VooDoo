@@ -313,15 +313,18 @@ async function discuss_channel_messages(request) {
         ["message_type", "!=", "user_notification"],
     ];
     const res = MailMessage._message_fetch(domain, search_term, before, after, around, limit);
+    const { messages } = res;
+    delete res.messages;
     if (!around) {
-        MailMessage.set_message_done(res.messages.map((message) => message.id));
+        MailMessage.set_message_done(messages.map((message) => message.id));
     }
     return {
         ...res,
-        messages: MailMessage._message_format(
-            res.messages.map((message) => message.id),
-            true
-        ),
+        data: new mailDataHelpers.Store(
+            MailMessage.browse(messages.map((message) => message.id)),
+            makeKwArgs({ for_current_user: true })
+        ).get_result(),
+        messages: messages.map((message) => ({ id: message.id })),
     };
 }
 
@@ -390,7 +393,10 @@ async function discuss_channel_pins(request) {
         ["res_id", "=", channel_id],
         ["pinned_at", "!=", false],
     ]);
-    return MailMessage._message_format(messageIds, true);
+    return new mailDataHelpers.Store(
+        messageIds,
+        makeKwArgs({ for_current_user: true })
+    ).get_result();
 }
 
 registerRoute("/discuss/channel/mark_as_read", discuss_channel_mark_as_read);
@@ -443,7 +449,9 @@ async function discuss_history_messages(request) {
     const { after, around, before, limit = 30, search_term } = await parseRequestParams(request);
     const domain = [["needaction", "=", false]];
     const res = MailMessage._message_fetch(domain, search_term, before, after, around, limit);
-    const messagesWithNotification = res.messages.filter((message) => {
+    const { messages } = res;
+    delete res.messages;
+    const messagesWithNotification = messages.filter((message) => {
         const notifs = MailNotification.search_read([
             ["mail_message_id", "=", message.id],
             ["is_read", "=", true],
@@ -451,13 +459,13 @@ async function discuss_history_messages(request) {
         ]);
         return notifs.length > 0;
     });
-
     return {
         ...res,
-        messages: MailMessage._message_format(
-            messagesWithNotification.map((message) => message.id),
-            true
-        ),
+        data: new mailDataHelpers.Store(
+            MailMessage.browse(messagesWithNotification.map((message) => message.id)),
+            makeKwArgs({ for_current_user: true })
+        ).get_result(),
+        messages: messages.map((message) => ({ id: message.id })),
     };
 }
 
@@ -470,12 +478,15 @@ async function discuss_inbox_messages(request) {
     const { after, around, before, limit = 30, search_term } = await parseRequestParams(request);
     const domain = [["needaction", "=", true]];
     const res = MailMessage._message_fetch(domain, search_term, before, after, around, limit);
+    const { messages } = res;
+    delete res.messages;
     return {
         ...res,
-        messages: MailMessage._message_format(
-            res.messages.map((message) => message.id),
+        data: new mailDataHelpers.Store(
+            MailMessage.browse(messages.map((message) => message.id)),
             makeKwArgs({ for_current_user: true, add_followers: true })
-        ),
+        ).get_result(),
+        messages: messages.map((message) => ({ id: message.id })),
     };
 }
 
@@ -540,6 +551,8 @@ registerRoute("/mail/message/post", mail_message_post);
 export async function mail_message_post(request) {
     /** @type {import("mock_models").DiscussChannel} */
     const DiscussChannel = this.env["discuss.channel"];
+    /** @type {import("mock_models").MailMessage} */
+    const MailMessage = this.env["mail.message"];
     /** @type {import("mock_models").MailThread} */
     const MailThread = this.env["mail.thread"];
     /** @type {import("mock_models").ResPartner} */
@@ -589,11 +602,20 @@ export async function mail_message_post(request) {
         }
     }
     const kwargs = makeKwArgs({ ...finalData, context });
+    let messageId;
     if (thread_model === "discuss.channel") {
-        return DiscussChannel.message_post(thread_id, kwargs);
+        messageId = DiscussChannel.message_post(thread_id, kwargs);
+    } else {
+        const model = this.env[thread_model];
+        messageId = MailThread.message_post.call(model, [thread_id], {
+            ...kwargs,
+            model: thread_model,
+        });
     }
-    const model = this.env[thread_model];
-    return MailThread.message_post.call(model, [thread_id], { ...kwargs, model: thread_model });
+    return new mailDataHelpers.Store(
+        MailMessage.browse(messageId),
+        makeKwArgs({ for_current_user: true })
+    ).get_result();
 }
 
 registerRoute("/mail/message/reaction", mail_message_add_reaction);
@@ -622,8 +644,9 @@ async function mail_message_update_content(request) {
 
     const { attachment_ids, body, message_id } = await parseRequestParams(request);
     MailMessage.write([message_id], { body, attachment_ids });
-    if (body === "") {
+    if (body === "" && attachment_ids.length === 0) {
         MailMessage.write([message_id], { pinned_at: false });
+        MailMessage._cleanup_side_records([message_id]);
     }
     const [message] = MailMessage.search_read([["id", "=", message_id]]);
     BusBus._sendone(MailMessage._bus_notification_target(message_id), "mail.record/insert", {
@@ -634,7 +657,10 @@ async function mail_message_update_content(request) {
             pinned_at: message.pinned_at,
         },
     });
-    return MailMessage._message_format([message_id], true)[0];
+    return new mailDataHelpers.Store(
+        MailMessage.browse(message_id),
+        makeKwArgs({ for_current_user: true })
+    ).get_result();
 }
 
 registerRoute("/discuss/channel/:cid/partner/:pid/avatar_128", partnerAvatar128);
@@ -728,12 +754,15 @@ async function discuss_starred_messages(request) {
     const { after, before, limit = 30, search_term } = await parseRequestParams(request);
     const domain = [["starred_partner_ids", "in", [this.env.user.partner_id]]];
     const res = MailMessage._message_fetch(domain, search_term, before, after, false, limit);
+    const { messages } = res;
+    delete res.messages;
     return {
         ...res,
-        messages: MailMessage._message_format(
-            res.messages.map((message) => message.id),
-            true
-        ),
+        data: new mailDataHelpers.Store(
+            MailMessage.browse(messages.map((message) => message.id)),
+            makeKwArgs({ for_current_user: true })
+        ).get_result(),
+        messages: messages.map((message) => ({ id: message.id })),
     };
 }
 
@@ -764,13 +793,16 @@ async function mail_thread_messages(request) {
         ["message_type", "!=", "user_notification"],
     ];
     const res = MailMessage._message_fetch(domain, search_term, before, after, around, limit);
-    MailMessage.set_message_done(res.messages.map((message) => message.id));
+    const { messages } = res;
+    delete res.messages;
+    MailMessage.set_message_done(messages.map((message) => message.id));
     return {
         ...res,
-        messages: MailMessage._message_format(
-            res.messages.map((message) => message.id),
-            true
-        ),
+        data: new mailDataHelpers.Store(
+            MailMessage.browse(messages.map((message) => message.id)),
+            makeKwArgs({ for_current_user: true })
+        ).get_result(),
+        messages: messages.map((message) => ({ id: message.id })),
     };
 }
 
@@ -863,24 +895,19 @@ async function processRequest(request) {
     if (args.channels_as_member) {
         const channels = DiscussChannel._get_channels_as_member();
         store.add(
-            "Message",
-            channels
-                .map((channel) => {
-                    const channelMessages = MailMessage._filter([
-                        ["model", "=", "discuss.channel"],
-                        ["res_id", "=", channel.id],
-                    ]);
-                    const lastMessage = channelMessages.reduce((lastMessage, message) => {
-                        if (message.id > lastMessage.id) {
-                            return message;
-                        }
-                        return lastMessage;
-                    }, channelMessages[0]);
-                    return lastMessage
-                        ? MailMessage._message_format([lastMessage.id], true)[0]
-                        : false;
-                })
-                .filter((lastMessage) => lastMessage)
+            MailMessage.browse(
+                channels
+                    .map(
+                        (channel) =>
+                            MailMessage._filter([
+                                ["model", "=", "discuss.channel"],
+                                ["res_id", "=", channel.id],
+                            ]).sort((a, b) => b.id - a.id)[0]
+                    )
+                    .filter((lastMessage) => lastMessage)
+                    .map((message) => message.id)
+            ),
+            makeKwArgs({ for_current_user: true })
         );
         store.add(channels.map((channel) => channel.id));
     }
@@ -926,14 +953,13 @@ class Store {
             if (values) {
                 throw new Error(`expected empty values with recordset ${data}: ${values}`);
             }
-            for (const id of data) {
-                if (typeof id !== "number") {
-                    // ServerModel might be a list of ids (from search), or a list of objects
-                    // (from _filter). Only ids are supported here.
-                    throw new Error(`expected number id for recordset ${data}`);
-                }
-            }
-            MockServer.env[data._name]._to_store(data, this, makeKwArgs(kwargs));
+            MockServer.env[data._name]._to_store(
+                data.map((idOrRecord) =>
+                    typeof idOrRecord === "number" ? idOrRecord : idOrRecord.id
+                ),
+                this,
+                makeKwArgs(kwargs)
+            );
             return this;
         } else if (typeof data === "object") {
             if (values) {

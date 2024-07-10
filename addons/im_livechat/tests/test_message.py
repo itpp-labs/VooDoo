@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from markupsafe import Markup
@@ -6,6 +5,7 @@ from markupsafe import Markup
 from odoo import Command, fields
 from odoo.exceptions import AccessError
 from odoo.tests.common import users, tagged, HttpCase
+from odoo.addons.mail.tools.discuss import Store
 
 
 @tagged('post_install', '-at_install')
@@ -23,8 +23,16 @@ class TestImLivechatMessage(HttpCase):
                 'odoobot_state': 'disabled',
                 'signature': '--\nErnest',
             },
-            {'name': 'test1', 'login': 'test1', 'password': self.password, 'email': 'test1@example.com', 'livechat_username': 'chuck'},
+            {
+                "email": "test1@example.com",
+                "login": "test1",
+                "name": "test1",
+                "password": self.password,
+            },
         ])
+        settings = self.env["res.users.settings"]._find_or_create_for_user(self.users[1])
+        settings.livechat_username = "chuck"
+        self.maxDiff = None
 
     def test_update_username(self):
         user = self.env['res.users'].create({
@@ -40,7 +48,7 @@ class TestImLivechatMessage(HttpCase):
         self.assertEqual(user.livechat_username, 'New username')
 
     @users('emp')
-    def test_message_format(self):
+    def test_message_to_store(self):
         im_livechat_channel = self.env['im_livechat.channel'].sudo().create({'name': 'support', 'user_ids': [Command.link(self.users[0].id)]})
         self.env['bus.presence'].create({'user_id': self.users[0].id, 'status': 'online'})  # make available for livechat (ignore leave)
         self.authenticate(self.users[1].login, self.password)
@@ -66,48 +74,62 @@ class TestImLivechatMessage(HttpCase):
             % (record_rating.rating_image_url, record_rating.rating, record_rating.feedback),
             rating_id=record_rating.id,
         )
-        self.assertEqual(message._message_format(for_current_user=True), [{
-            'attachments': [],
-            'author': {
-                'id': self.users[1].partner_id.id,
-                'is_company': self.users[1].partner_id.is_company,
-                'user_livechat_username': self.users[1].livechat_username,
-                'type': "partner",
-                'userId': self.users[1].id,
-                'isInternalUser': self.users[1]._is_internal(),
-                'write_date': fields.Datetime.to_string(self.users[1].write_date),
+        self.assertEqual(
+            Store(message, for_current_user=True).get_result(),
+            {
+                "Message": [
+                    {
+                        "attachments": [],
+                        "author": {"id": self.users[1].partner_id.id, "type": "partner"},
+                        "body": message.body,
+                        "date": message.date,
+                        "write_date": message.write_date,
+                        "create_date": message.create_date,
+                        "id": message.id,
+                        "default_subject": "test1 Ernest Employee",
+                        "is_discussion": False,
+                        "is_note": True,
+                        "linkPreviews": [],
+                        "message_type": "notification",
+                        "reactions": [],
+                        "model": "discuss.channel",
+                        "needaction": False,
+                        "notifications": [],
+                        "thread": {"id": channel_livechat_1.id, "model": "discuss.channel"},
+                        "parentMessage": False,
+                        "pinned_at": False,
+                        "rating": {
+                            "id": record_rating.id,
+                            "ratingImageUrl": record_rating.rating_image_url,
+                            "ratingText": "top",
+                        },
+                        "recipients": [],
+                        "record_name": "test1 Ernest Employee",
+                        "res_id": channel_livechat_1.id,
+                        "scheduledDatetime": False,
+                        "starred": False,
+                        "subject": False,
+                        "subtype_description": False,
+                        "trackingValues": [],
+                    },
+                ],
+                "Persona": [
+                    {
+                        "id": self.users[1].partner_id.id,
+                        "is_company": False,
+                        "isInternalUser": True,
+                        "type": "partner",
+                        "user_livechat_username": "chuck",
+                        "userId": self.users[1].id,
+                        "write_date": fields.Datetime.to_string(self.users[1].write_date),
+                    },
+                ],
+                "Thread": [
+                    {
+                        "id": channel_livechat_1.id,
+                        "model": "discuss.channel",
+                        "module_icon": "/mail/static/description/icon.png",
+                    },
+                ],
             },
-            'body': message.body,
-            'date': message.date,
-            'write_date': message.write_date,
-            'create_date': message.create_date,
-            'id': message.id,
-            'default_subject': channel_livechat_1.name,
-            'is_discussion': False,
-            'is_note': True,
-            'linkPreviews': [],
-            'message_type': 'notification',
-            'reactions': [],
-            'model': 'discuss.channel',
-            'needaction': False,
-            'notifications': [],
-            'thread': {
-                'id': channel_livechat_1.id,
-                'model': 'discuss.channel',
-                'module_icon': '/mail/static/description/icon.png',
-            },
-            'pinned_at': False,
-            'rating': {
-                'id': record_rating.id,
-                'ratingImageUrl': record_rating.rating_image_url,
-                'ratingText': record_rating.rating_text,
-            },
-            'recipients': [],
-            'record_name': "test1 Ernest Employee",
-            'res_id': channel_livechat_1.id,
-            'scheduledDatetime': False,
-            'starred': False,
-            'subject': False,
-            'subtype_description': False,
-            'trackingValues': [],
-        }])
+        )

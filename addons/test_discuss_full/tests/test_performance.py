@@ -250,20 +250,18 @@ class TestDiscussFullPerformance(HttpCase):
                 self._expected_result_for_rtc_session(self.channel_channel_group_1, self.users[2]),
             ],
             "Store": {
-                "discuss": {
-                    "inbox": {
-                        "counter": 1,
-                        "counter_bus_id": bus_last_id,
-                        "id": "inbox",
-                        "model": "mail.box",
-                    },
-                    "starred":
-                    {
-                        "counter": 1,
-                        "counter_bus_id": bus_last_id,
-                        "id": "starred",
-                        "model": "mail.box",
-                    },
+                "inbox": {
+                    "counter": 1,
+                    "counter_bus_id": bus_last_id,
+                    "id": "inbox",
+                    "model": "mail.box",
+                },
+                "starred":
+                {
+                    "counter": 1,
+                    "counter_bus_id": bus_last_id,
+                    "id": "starred",
+                    "model": "mail.box",
                 },
                 "initChannelsUnreadCounter": 1,
                 "odoobotOnboarding": False,
@@ -338,21 +336,21 @@ class TestDiscussFullPerformance(HttpCase):
             ],
             "Thread": [
                 self._expected_result_for_channel(self.channel_general),
-                self._expected_result_for_channel(self.channel_channel_public_1),
-                self._expected_result_for_channel(self.channel_channel_public_2),
-                self._expected_result_for_channel(self.channel_channel_group_1),
-                self._expected_result_for_channel(self.channel_channel_group_2),
+                self._expected_result_for_channel(self.channel_channel_public_1, has_message=True),
+                self._expected_result_for_channel(self.channel_channel_public_2, has_message=True),
+                self._expected_result_for_channel(self.channel_channel_group_1, has_message=True),
+                self._expected_result_for_channel(self.channel_channel_group_2, has_message=True),
                 self._expected_result_for_channel(self.channel_group_1),
                 self._expected_result_for_channel(self.channel_chat_1),
                 self._expected_result_for_channel(self.channel_chat_2),
                 self._expected_result_for_channel(self.channel_chat_3),
                 self._expected_result_for_channel(self.channel_chat_4),
-                self._expected_result_for_channel(self.channel_livechat_1),
-                self._expected_result_for_channel(self.channel_livechat_2),
+                self._expected_result_for_channel(self.channel_livechat_1, has_message=True),
+                self._expected_result_for_channel(self.channel_livechat_2, has_message=True),
             ],
         }
 
-    def _expected_result_for_channel(self, channel):
+    def _expected_result_for_channel(self, channel, has_message=False):
         # sudo: bus.bus: reading non-sensitive last id
         bus_last_id = self.env["bus.bus"].sudo()._bus_last_id()
         members = channel.channel_member_ids
@@ -390,7 +388,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "uuid": channel.uuid,
             }
         if channel == self.channel_channel_public_1:
-            return {
+            res = {
                 "allow_public_upload": False,
                 "authorizedGroupFullName": False,
                 "anonymous_country": False,
@@ -419,8 +417,11 @@ class TestDiscussFullPerformance(HttpCase):
                 "state": "closed",
                 "uuid": channel.uuid,
             }
+            if has_message:
+                res["module_icon"] = "/mail/static/description/icon.png"
+            return res
         if channel == self.channel_channel_public_2:
-            return {
+            res = {
                 "allow_public_upload": False,
                 "authorizedGroupFullName": False,
                 "anonymous_country": False,
@@ -449,8 +450,11 @@ class TestDiscussFullPerformance(HttpCase):
                 "state": "closed",
                 "uuid": channel.uuid,
             }
+            if has_message:
+                res["module_icon"] = "/mail/static/description/icon.png"
+            return res
         if channel == self.channel_channel_group_1:
-            return {
+            res = {
                 "allow_public_upload": False,
                 "authorizedGroupFullName": self.group_user.full_name,
                 "anonymous_country": False,
@@ -482,8 +486,11 @@ class TestDiscussFullPerformance(HttpCase):
                 "state": "closed",
                 "uuid": channel.uuid,
             }
+            if has_message:
+                res["module_icon"] = "/mail/static/description/icon.png"
+            return res
         if channel == self.channel_channel_group_2:
-            return {
+            res = {
                 "allow_public_upload": False,
                 "authorizedGroupFullName": self.group_user.full_name,
                 "anonymous_country": False,
@@ -512,6 +519,9 @@ class TestDiscussFullPerformance(HttpCase):
                 "state": "closed",
                 "uuid": channel.uuid,
             }
+            if has_message:
+                res["module_icon"] = "/mail/static/description/icon.png"
+            return res
         if channel == self.channel_group_1:
             return {
                 "allow_public_upload": False,
@@ -663,7 +673,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "uuid": channel.uuid,
             }
         if channel == self.channel_livechat_1:
-            return {
+            res = {
                 "allow_public_upload": False,
                 "authorizedGroupFullName": False,
                 "anonymous_country": {
@@ -698,8 +708,11 @@ class TestDiscussFullPerformance(HttpCase):
                 "state": "closed",
                 "uuid": channel.uuid,
             }
+            if has_message:
+                res["module_icon"] = "/mail/static/description/icon.png"
+            return res
         if channel == self.channel_livechat_2:
-            return {
+            res = {
                 "allow_public_upload": False,
                 "authorizedGroupFullName": False,
                 "anonymous_country": {
@@ -734,6 +747,9 @@ class TestDiscussFullPerformance(HttpCase):
                 "state": "closed",
                 "uuid": channel.uuid,
             }
+            if has_message:
+                res["module_icon"] = "/mail/static/description/icon.png"
+            return res
         return {}
 
     def _expected_result_for_channel_member(self, channel, partner=None, guest=None):
@@ -985,11 +1001,8 @@ class TestDiscussFullPerformance(HttpCase):
         date = fields.Datetime.to_string(last_message.date)
         write_date = fields.Datetime.to_string(last_message.write_date)
         user_0 = self.users[0]
-        write_date_0 = fields.Datetime.to_string(user_0.partner_id.write_date)
         user_1 = self.users[1]
-        write_date_1 = fields.Datetime.to_string(user_1.partner_id.write_date)
         user_2 = self.users[2]
-        write_date_2 = fields.Datetime.to_string(user_2.partner_id.write_date)
         user_9 = self.users[9]
         user_12 = self.users[12]
         user_13 = self.users[13]
@@ -999,15 +1012,7 @@ class TestDiscussFullPerformance(HttpCase):
         if channel == self.channel_channel_public_1:
             return {
                 "attachments": [],
-                "author": {
-                    "id": user_2.partner_id.id,
-                    "is_company": False,
-                    "name": "test2",
-                    "type": "partner",
-                    "userId": user_2.id,
-                    "isInternalUser": True,
-                    "write_date": write_date_2,
-                },
+                "author": {"id": user_2.partner_id.id, "type": "partner"},
                 "body": "<p>test</p>",
                 "create_date": create_date,
                 "date": date,
@@ -1033,11 +1038,8 @@ class TestDiscussFullPerformance(HttpCase):
                         },
                     },
                 ],
-                "thread": {
-                    "id": channel.id,
-                    "model": "discuss.channel",
-                    "module_icon": "/mail/static/description/icon.png",
-                },
+                "thread": {"id": channel.id, "model": "discuss.channel"},
+                "parentMessage": False,
                 "pinned_at": False,
                 "reactions": [],
                 "recipients": [
@@ -1059,15 +1061,7 @@ class TestDiscussFullPerformance(HttpCase):
         if channel == self.channel_channel_public_2:
             return {
                 "attachments": [],
-                "author": {
-                    "id": user_0.partner_id.id,
-                    "is_company": False,
-                    "name": "Ernest Employee",
-                    "type": "partner",
-                    "userId": user_0.id,
-                    "isInternalUser": True,
-                    "write_date": write_date_0,
-                },
+                "author": {"id": user_0.partner_id.id, "type": "partner"},
                 "body": f'<div class="o_mail_notification">invited <a href="#" data-oe-model="res.partner" data-oe-id="{user_9.partner_id.id}">test9</a> to the channel</div>',
                 "create_date": create_date,
                 "date": date,
@@ -1081,11 +1075,8 @@ class TestDiscussFullPerformance(HttpCase):
                 "model": "discuss.channel",
                 "needaction": False,
                 "notifications": [],
-                "thread": {
-                    "id": channel.id,
-                    "model": "discuss.channel",
-                    "module_icon": "/mail/static/description/icon.png",
-                },
+                "thread": {"id": channel.id, "model": "discuss.channel"},
+                "parentMessage": False,
                 "pinned_at": False,
                 "reactions": [],
                 "recipients": [],
@@ -1101,15 +1092,7 @@ class TestDiscussFullPerformance(HttpCase):
         if channel == self.channel_channel_group_1:
             return {
                 "attachments": [],
-                "author": {
-                    "id": user_0.partner_id.id,
-                    "is_company": False,
-                    "name": "Ernest Employee",
-                    "type": "partner",
-                    "userId": user_0.id,
-                    "isInternalUser": True,
-                    "write_date": write_date_0,
-                },
+                "author": {"id": user_0.partner_id.id, "type": "partner"},
                 "body": f'<div class="o_mail_notification">invited <a href="#" data-oe-model="res.partner" data-oe-id="{user_12.partner_id.id}">test12</a> to the channel</div>',
                 "create_date": create_date,
                 "date": date,
@@ -1123,11 +1106,8 @@ class TestDiscussFullPerformance(HttpCase):
                 "model": "discuss.channel",
                 "needaction": False,
                 "notifications": [],
-                "thread": {
-                    "id": channel.id,
-                    "model": "discuss.channel",
-                    "module_icon": "/mail/static/description/icon.png",
-                },
+                "thread": {"id": channel.id, "model": "discuss.channel"},
+                "parentMessage": False,
                 "pinned_at": False,
                 "reactions": [],
                 "recipients": [],
@@ -1143,15 +1123,7 @@ class TestDiscussFullPerformance(HttpCase):
         if channel == self.channel_channel_group_2:
             return {
                 "attachments": [],
-                "author": {
-                    "id": user_0.partner_id.id,
-                    "is_company": False,
-                    "name": "Ernest Employee",
-                    "type": "partner",
-                    "userId": user_0.id,
-                    "isInternalUser": True,
-                    "write_date": write_date_0,
-                },
+                "author": {"id": user_0.partner_id.id, "type": "partner"},
                 "body": f'<div class="o_mail_notification">invited <a href="#" data-oe-model="res.partner" data-oe-id="{user_13.partner_id.id}">test13</a> to the channel</div>',
                 "create_date": create_date,
                 "date": date,
@@ -1165,11 +1137,8 @@ class TestDiscussFullPerformance(HttpCase):
                 "model": "discuss.channel",
                 "needaction": False,
                 "notifications": [],
-                "thread": {
-                    "id": channel.id,
-                    "model": "discuss.channel",
-                    "module_icon": "/mail/static/description/icon.png",
-                },
+                "thread": {"id": channel.id, "model": "discuss.channel"},
+                "parentMessage": False,
                 "pinned_at": False,
                 "reactions": [],
                 "recipients": [],
@@ -1185,15 +1154,7 @@ class TestDiscussFullPerformance(HttpCase):
         if channel == self.channel_livechat_1:
             return {
                 "attachments": [],
-                "author": {
-                    "id": user_1.partner_id.id,
-                    "is_company": False,
-                    "name": "test1",
-                    "type": "partner",
-                    "userId": user_1.id,
-                    "isInternalUser": True,
-                    "write_date": write_date_1,
-                },
+                "author": {"id": user_1.partner_id.id, "type": "partner"},
                 "body": "<p>test</p>",
                 "create_date": create_date,
                 "date": date,
@@ -1206,11 +1167,8 @@ class TestDiscussFullPerformance(HttpCase):
                 "model": "discuss.channel",
                 "needaction": False,
                 "notifications": [],
-                "thread": {
-                    "id": channel.id,
-                    "model": "discuss.channel",
-                    "module_icon": "/mail/static/description/icon.png",
-                },
+                "thread": {"id": channel.id, "model": "discuss.channel"},
+                "parentMessage": False,
                 "pinned_at": False,
                 "reactions": [],
                 "recipients": [],
@@ -1226,7 +1184,7 @@ class TestDiscussFullPerformance(HttpCase):
         if channel == self.channel_livechat_2:
             return {
                 "attachments": [],
-                "author": {"id": guest.id, "name": "Visitor", "type": "guest"},
+                "author": {"id": guest.id, "type": "guest"},
                 "body": "<p>test</p>",
                 "create_date": create_date,
                 "date": date,
@@ -1240,11 +1198,8 @@ class TestDiscussFullPerformance(HttpCase):
                 "model": "discuss.channel",
                 "needaction": False,
                 "notifications": [],
-                "thread": {
-                    "id": channel.id,
-                    "model": "discuss.channel",
-                    "module_icon": "/mail/static/description/icon.png",
-                },
+                "thread": {"id": channel.id, "model": "discuss.channel"},
+                "parentMessage": False,
                 "pinned_at": False,
                 "reactions": [],
                 "recipients": [],
@@ -1294,10 +1249,14 @@ class TestDiscussFullPerformance(HttpCase):
                     "name": "India",
                 },
                 "id": user.partner_id.id,
+                "isInternalUser": True,
                 "is_bot": False,
+                "is_company": False,
                 "is_public": False,
                 "name": "test1",
                 "type": "partner",
+                "userId": user.id,
+                "write_date": fields.Datetime.to_string(user.partner_id.write_date),
             }
         if user == self.users[2]:
             if only_inviting:

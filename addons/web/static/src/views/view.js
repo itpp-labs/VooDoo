@@ -10,6 +10,7 @@ import { WithSearch } from "@web/search/with_search/with_search";
 import { OnboardingBanner } from "@web/views/onboarding_banner";
 import { useActionLinks } from "@web/views/view_hook";
 import { computeViewClassName } from "./utils";
+import { loadBundle } from "@web/core/assets";
 import {
     Component,
     markRaw,
@@ -19,12 +20,16 @@ import {
     useSubEnv,
     reactive,
 } from "@odoo/owl";
+import { session } from "@web/session";
+
 const viewRegistry = registry.category("views");
 
 viewRegistry.addValidation({
+    type: { validate: (t) => t in session.view_info },
     Controller: { validate: (c) => c.prototype instanceof Component },
     "*": true,
 });
+const DEFAULT_LAZY_BUNDLE = "web.assets_backend_lazy";
 
 /** @typedef {Object} Config
  *  @property {integer|false} actionId
@@ -310,7 +315,14 @@ export class View extends Component {
             }
         }
 
-        let subType = archXmlDoc.getAttribute("js_class");
+        const jsClass = archXmlDoc.hasAttribute("js_class")
+            ? archXmlDoc.getAttribute("js_class")
+            : type;
+        if (!viewRegistry.contains(jsClass)) {
+            await loadBundle(DEFAULT_LAZY_BUNDLE);
+        }
+        const descr = viewRegistry.get(jsClass);
+
         const bannerRoute = archXmlDoc.getAttribute("banner_route");
         const sample = archXmlDoc.getAttribute("sample");
         const className = computeViewClassName(type, archXmlDoc, [
@@ -318,22 +330,12 @@ export class View extends Component {
             ...(props.className || "").split(" "),
         ]);
 
-        let descr = viewRegistry.get(type);
-        // determine ViewClass to instantiate (if not already done)
-        if (subType) {
-            if (viewRegistry.contains(subType)) {
-                descr = viewRegistry.get(subType);
-            } else {
-                subType = null;
-            }
-        }
-
         Object.assign(this.env.config, {
             rawArch: arch,
             viewArch: archXmlDoc,
             viewId: viewDescription.id,
             viewType: type,
-            viewSubType: subType,
+            viewSubType: jsClass,
             bannerRoute,
             noBreadcrumbs: props.noBreadcrumbs,
             ...extractLayoutComponents(descr),

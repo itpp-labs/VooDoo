@@ -260,7 +260,7 @@ class Users(models.Model):
         # sudo: res.partner - exposing OdooBot data
         odoobot = self.env.ref("base.partner_root").sudo()
         xmlid_to_res_id = self.env["ir.model.data"]._xmlid_to_res_id
-        store.add("Persona", odoobot.mail_partner_format().get(odoobot))
+        store.add(odoobot)
         store.add(
             {
                 "action_discuss_id": xmlid_to_res_id("mail.action_discuss"),
@@ -311,21 +311,19 @@ class Users(models.Model):
         bus_last_id = self.env["bus.bus"].sudo()._bus_last_id()
         store.add(
             {
-                "discuss": {
-                    "inbox": {
-                        "counter": self.partner_id._get_needaction_count(),
-                        "counter_bus_id": bus_last_id,
-                        "id": "inbox",
-                        "model": "mail.box",
-                    },
-                    "starred": {
-                        "counter": self.env["mail.message"].search_count(
-                            [("starred_partner_ids", "in", self.partner_id.ids)]
-                        ),
-                        "counter_bus_id": bus_last_id,
-                        "id": "starred",
-                        "model": "mail.box",
-                    },
+                "inbox": {
+                    "counter": self.partner_id._get_needaction_count(),
+                    "counter_bus_id": bus_last_id,
+                    "id": "inbox",
+                    "model": "mail.box",
+                },
+                "starred": {
+                    "counter": self.env["mail.message"].search_count(
+                        [("starred_partner_ids", "in", self.partner_id.ids)]
+                    ),
+                    "counter_bus_id": bus_last_id,
+                    "id": "starred",
+                    "model": "mail.box",
                 },
             }
         )

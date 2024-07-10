@@ -9,6 +9,7 @@ from odoo import exceptions
 from odoo.addons.mail.tests.common import MailCommon
 from odoo.addons.test_mail.models.test_mail_models import MailTestSimple
 from odoo.addons.test_mail.tests.common import TestRecipients
+from odoo.addons.mail.tools.discuss import Store
 from odoo.tests import Form, tagged, users
 from odoo.tools import mute_logger
 
@@ -366,6 +367,52 @@ class TestDiscuss(MailCommon, TestRecipients):
         self.assertFalse(msg.starred)
         self.assertTrue(msg_emp.starred)
 
+    def test_delete_starred_message(self):
+        msg = self.test_record.message_post(body="Hello!", message_type="comment")
+        msg_2 = self.test_record.message_post(body="Goodbye!", message_type="comment")
+        msg.with_user(self.user_admin).toggle_message_starred()
+        msg.with_user(self.user_employee).toggle_message_starred()
+        msg_2.with_user(self.user_employee).toggle_message_starred()
+        self.assertIn(self.partner_admin, msg.starred_partner_ids)
+        self.assertIn(self.partner_employee, msg.starred_partner_ids)
+        self.env["bus.bus"].search([]).unlink()
+        bus_last_id = self.env["bus.bus"].sudo()._bus_last_id()
+        self.test_record._message_update_content(message=msg, body="")
+        self.assertFalse(msg.starred)
+        self.assertBusNotifications(
+            [
+                (self.cr.dbname, "res.partner", self.partner_employee.id),
+                (self.cr.dbname, "res.partner", self.partner_admin.id),
+            ],
+            [
+                {
+                    "type": "mail.record/insert",
+                    "payload": {
+                        "Thread": {
+                            "id": "starred",
+                            "messages": [["DELETE", [{"id": msg.id}]]],
+                            "model": "mail.box",
+                            "counter": 1,
+                            "counter_bus_id": bus_last_id,
+                        },
+                    },
+                },
+                {
+                    "type": "mail.record/insert",
+                    "payload": {
+                        "Thread": {
+                            "id": "starred",
+                            "messages": [["DELETE", [{"id": msg.id}]]],
+                            "model": "mail.box",
+                            "counter": 0,
+                            "counter_bus_id": bus_last_id,
+                        },
+                    },
+                },
+            ],
+            check_unique=False,
+        )
+
     def test_inbox_message_fetch_needaction(self):
         user1 = self.env['res.users'].create({'login': 'user1', 'name': 'User 1'})
         user1.notification_type = 'inbox'
@@ -458,7 +505,7 @@ class TestNoThread(MailCommon, TestRecipients):
     """ Specific tests for cross models thread features """
 
     @users('employee')
-    def test_message_format(self):
+    def test_message_to_store(self):
         """ Test formatting of messages when linked to non-thread models.
         Format could be asked notably if an inbox notification due to a
         'message_notify' happens. """
@@ -468,15 +515,15 @@ class TestNoThread(MailCommon, TestRecipients):
         })
         message = self.env['mail.message'].create({
             'model': test_record._name,
-            'record_name': 'Not used in message_format',
+            'record_name': 'Not used in message _to_store',
             'res_id': test_record.id,
         })
-        formatted = message._message_format(for_current_user=True)[0]
+        formatted = Store(message, for_current_user=True).get_result()["Message"][0]
         self.assertEqual(formatted['default_subject'], test_record.name)
         self.assertEqual(formatted['record_name'], test_record.name)
 
         test_record.write({'name': 'Just Test'})
-        formatted = message._message_format(for_current_user=True)[0]
+        formatted = Store(message, for_current_user=True).get_result()["Message"][0]
         self.assertEqual(formatted['default_subject'], 'Just Test')
         self.assertEqual(formatted['record_name'], 'Just Test')
 

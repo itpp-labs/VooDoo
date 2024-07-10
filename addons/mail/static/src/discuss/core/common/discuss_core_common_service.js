@@ -40,39 +40,12 @@ export class DiscussCoreCommon {
                 });
             }
         });
-        this.busService.subscribe("discuss.channel/delete", (payload, { id: notifId }) => {
+        this.busService.subscribe("discuss.channel/delete", (payload, metadata) => {
             const thread = this.store.Thread.insert({
                 id: payload.id,
                 model: "discuss.channel",
             });
-            const filteredStarredMessages = [];
-            let starredCounter = 0;
-            for (const msg of this.store.discuss.starred.messages) {
-                if (!msg.thread?.eq(thread)) {
-                    filteredStarredMessages.push(msg);
-                } else {
-                    starredCounter++;
-                }
-            }
-            this.store.discuss.starred.messages = filteredStarredMessages;
-            if (notifId > this.store.discuss.starred.counter_bus_id) {
-                this.store.discuss.starred.counter -= starredCounter;
-            }
-            this.store.discuss.inbox.messages = this.store.discuss.inbox.messages.filter(
-                (msg) => !msg.thread?.eq(thread)
-            );
-            if (notifId > this.store.discuss.inbox.counter_bus_id) {
-                this.store.discuss.inbox.counter -= thread.message_needaction_counter;
-            }
-            this.store.discuss.history.messages = this.store.discuss.history.messages.filter(
-                (msg) => !msg.thread?.eq(thread)
-            );
-            thread.closeChatWindow?.();
-            if (thread.eq(this.store.discuss.thread)) {
-                this.store.discuss.inbox.setAsDiscussThread();
-            }
-            thread.messages.splice(0, thread.messages.length);
-            thread.delete();
+            this._handleNotificationChannelDelete(thread, metadata);
         });
         this.busService.subscribe("discuss.channel/new_message", (payload, metadata) =>
             this._handleNotificationNewMessage(payload, metadata)
@@ -155,8 +128,18 @@ export class DiscussCoreCommon {
         }
     }
 
+    /**
+     * @param {import("models").Thread} thread
+     * @param {{ notifId: number}} metadata
+     */
+    _handleNotificationChannelDelete(thread, metadata) {
+        thread.closeChatWindow();
+        thread.messages.splice(0, thread.messages.length);
+        thread.delete();
+    }
+
     async _handleNotificationNewMessage(payload, { id: notifId }) {
-        const { id: channelId, message: messageData } = payload;
+        const { data, id: channelId, temporary_id } = payload;
         const channel = await this.store.Thread.getOrFetch({
             model: "discuss.channel",
             id: channelId,
@@ -164,12 +147,11 @@ export class DiscussCoreCommon {
         if (!channel) {
             return;
         }
-        const temporaryId = messageData.temporary_id;
-        delete messageData.temporary_id;
-        const message = this.store.Message.insert(messageData, { html: true });
+        const { Message: messages = [] } = this.store.insert(data, { html: true });
+        const message = messages[0];
         if (message.notIn(channel.messages)) {
             if (!channel.loadNewer) {
-                channel.addOrReplaceMessage(message, this.store.Message.get(temporaryId));
+                channel.addOrReplaceMessage(message, this.store.Message.get(temporary_id));
             } else if (channel.status === "loading") {
                 channel.pendingNewMessages.push(message);
             }

@@ -865,7 +865,7 @@ class AccountMove(models.Model):
 
     @api.depends('line_ids.account_id.account_type')
     def _compute_always_tax_exigible(self):
-        for record in self:
+        for record in self.with_context(prefetch_fields=False):
             # We need to check is_invoice as well because always_tax_exigible is used to
             # set the tags as well, during the encoding. So, if no receivable/payable
             # line has been created yet, the invoice would be detected as always exigible,
@@ -5104,6 +5104,18 @@ class AccountMove(models.Model):
 
     def _mailing_get_default_domain(self, mailing):
         return ['&', ('move_type', '=', 'out_invoice'), ('state', '=', 'posted')]
+
+    @api.model
+    def _routing_check_route(self, message, message_dict, route, raise_exception=True):
+        if route[0] == 'account.move' and len(message_dict['attachments']) < 1:
+            # Don't create the move if no attachment.
+            body = self.env['ir.qweb']._render('account.email_template_mail_gateway_failed', {
+                'company_email': self.env.company.email,
+                'company_name': self.env.company.name,
+            })
+            self._routing_create_bounce_email(message_dict['from'], body, message)
+            return ()
+        return super()._routing_check_route(message, message_dict, route, raise_exception=raise_exception)
 
     @api.model
     def message_new(self, msg_dict, custom_values=None):

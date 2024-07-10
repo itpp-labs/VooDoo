@@ -26,9 +26,14 @@ class ThreadController(http.Controller):
             ("message_type", "!=", "user_notification"),
         ]
         res = request.env["mail.message"]._message_fetch(domain, search_term=search_term, before=before, after=after, around=around, limit=limit)
+        messages = res.pop("messages")
         if not request.env.user._is_public():
-            res["messages"].set_message_done()
-        return {**res, "messages": res["messages"]._message_format(for_current_user=True)}
+            messages.set_message_done()
+        return {
+            **res,
+            "data": Store(messages, for_current_user=True).get_result(),
+            "messages": [{"id": message.id} for message in messages],
+        }
 
     @http.route("/mail/partner/from_email", methods=["POST"], type="json", auth="user")
     def mail_thread_partner_from_email(self, emails, additional_values=None):
@@ -110,10 +115,14 @@ class ThreadController(http.Controller):
         post_data["partner_ids"] = list(set((post_data.get("partner_ids", [])) + new_partners))
         if "everyone" in special_mentions:
             post_data["partner_ids"] = [channel_member.partner_id.id for channel_member in thread.channel_member_ids if channel_member.partner_id]
-        message_data = thread.message_post(
-            **{key: value for key, value in post_data.items() if key in self._get_allowed_message_post_params()}
-        )._message_format(for_current_user=True)[0]
-        return message_data
+        message = thread.message_post(
+            **{
+                key: value
+                for key, value in post_data.items()
+                if key in self._get_allowed_message_post_params()
+            }
+        )
+        return Store(message, for_current_user=True).get_result()
 
     @http.route("/mail/message/update_content", methods=["POST"], type="json", auth="public")
     @add_guest_to_context
@@ -129,4 +138,4 @@ class ThreadController(http.Controller):
         guest.env[message_sudo.model].browse([message_sudo.res_id])._message_update_content(
             message_sudo, body, attachment_ids=attachment_ids, partner_ids=partner_ids
         )
-        return message_sudo._message_format(for_current_user=True)[0]
+        return Store(message_sudo, for_current_user=True).get_result()

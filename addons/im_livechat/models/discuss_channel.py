@@ -70,12 +70,8 @@ class DiscussChannel(models.Model):
             } if channel.country_id else False
             if operator := channel.livechat_operator_id:
                 store.add(
-                    "Persona",
-                    list(
-                        operator.mail_partner_format(
-                            fields={"id": True, "user_livechat_username": True, "write_date": True}
-                        ).values()
-                    ),
+                    operator,
+                    fields={"id": True, "user_livechat_username": True, "write_date": True},
                 )
                 channel_info["operator"] = {"id": operator.id, "type": "partner"}
             if channel.channel_type == "livechat" and channel.livechat_channel_id and self.env.user._is_internal():
@@ -233,7 +229,7 @@ class DiscussChannel(models.Model):
 
     def _message_post_after_hook(self, message, msg_vals):
         """
-        This method is called just before _notify_thread() method which is calling the _message_format()
+        This method is called just before _notify_thread() method which is calling the _to_store()
         method. We need a 'chatbot.message' record before it happens to correctly display the message.
         It's created only if the mail channel is linked to a chatbot step.
         """

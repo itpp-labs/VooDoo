@@ -74,7 +74,7 @@ patch(MockServer.prototype, {
             return this._mockRouteMailMessageHistory(search_term, after, before, limit);
         }
         if (route === "/mail/inbox/messages") {
-            return { count: 0, messages: [] };
+            return { count: 0, data: {}, message: [] };
         }
         if (route === "/mail/link_preview") {
             return this._mockRouteMailLinkPreview(args.message_id);
@@ -142,7 +142,7 @@ patch(MockServer.prototype, {
                     },
                 }
             );
-            return this._mockMailMessageMessageFormat([args.message_id])[0];
+            return { Message: this._mockMailMessageMessageFormat([args.message_id]) };
         }
         if (route === "/mail/partner/from_email") {
             return this._mockRouteMailPartnerFromEmail(args.emails, args.additional_values);
@@ -200,7 +200,7 @@ patch(MockServer.prototype, {
             ["res_id", "=", channel_id],
             ["pinned_at", "!=", false],
         ]);
-        return this._mockMailMessageMessageFormat(messageIds);
+        return { Message: this._mockMailMessageMessageFormat(messageIds) };
     },
     /**
      * Simulates the `/mail/attachment/delete` route.
@@ -251,7 +251,12 @@ patch(MockServer.prototype, {
         }
         return {
             ...res,
-            messages: this._mockMailMessageMessageFormat(res.messages.map((message) => message.id)),
+            data: {
+                Message: this._mockMailMessageMessageFormat(
+                    res.messages.map((message) => message.id)
+                ),
+            },
+            message: res.messages.map((message) => ({ id: message.id })),
         };
     },
     /**
@@ -360,9 +365,12 @@ patch(MockServer.prototype, {
 
         return {
             ...res,
-            messages: this._mockMailMessageMessageFormat(
-                messagesWithNotification.map((message) => message.id)
-            ),
+            data: {
+                Message: this._mockMailMessageMessageFormat(
+                    messagesWithNotification.map((message) => message.id)
+                ),
+            },
+            message: res.messages.map((message) => ({ id: message.id })),
         };
     },
     /**
@@ -388,7 +396,12 @@ patch(MockServer.prototype, {
         );
         return {
             ...res,
-            messages: this._mockMailMessageMessageFormat(res.messages.map((message) => message.id)),
+            data: {
+                Message: this._mockMailMessageMessageFormat(
+                    res.messages.map((message) => message.id)
+                ),
+            },
+            message: res.messages.map((message) => ({ id: message.id })),
         };
     },
     /**
@@ -649,7 +662,12 @@ patch(MockServer.prototype, {
         this._mockMailMessageSetMessageDone(res.messages.map((message) => message.id));
         return {
             ...res,
-            messages: this._mockMailMessageMessageFormat(res.messages.map((message) => message.id)),
+            data: {
+                Message: this._mockMailMessageMessageFormat(
+                    res.messages.map((message) => message.id)
+                ),
+            },
+            message: res.messages.map((message) => ({ id: message.id })),
         };
     },
 });

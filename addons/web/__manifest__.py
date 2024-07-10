@@ -128,6 +128,13 @@ This module provides the core of the Odoo Web Client.
             # Don't include dark mode files in light mode
             ('remove', 'web/static/src/**/*.dark.scss'),
         ],
+        'web.assets_backend_lazy': [
+            ('include', 'web._assets_helpers'),
+            'web/static/src/scss/pre_variables.scss',
+            'web/static/lib/bootstrap/scss/_variables.scss',
+            'web/static/lib/bootstrap/scss/_variables-dark.scss',
+            'web/static/lib/bootstrap/scss/_maps.scss',
+        ],
         'web.assets_web': [
             ('include', 'web.assets_backend'),
             'web/static/src/main.js',
@@ -213,8 +220,6 @@ This module provides the core of the Odoo Web Client.
             'web/static/src/legacy/js/libs/bootstrap.js',
             'web/static/src/legacy/js/libs/jquery.js',
             'web/static/src/legacy/js/core/class.js',
-            'web/static/src/legacy/js/core/dialog.js',
-            'web/static/src/legacy/xml/dialog.xml',
             'web/static/src/legacy/js/core/dom.js',
             'web/static/src/legacy/js/core/mixins.js',
             'web/static/src/legacy/js/core/service_mixins.js',
@@ -314,6 +319,17 @@ This module provides the core of the Odoo Web Client.
             "web/static/lib/ace/mode-python.js",
             "web/static/lib/ace/mode-scss.js",
             "web/static/lib/ace/theme-monokai.js",
+        ],
+
+        # ---------------------------------------------------------------------
+        # "DIRECT PRINT" BUNDLE
+        # ---------------------------------------------------------------------
+        "web.assets_web_print": [
+            'web/static/src/scss/functions.scss',
+            'web/static/src/scss/primary_variables_print.scss',
+
+            'web/static/src/**/*.print_variables.scss',
+            ('include', 'web.assets_backend'),
         ],
 
         # ---------------------------------------------------------------------
@@ -424,6 +440,7 @@ This module provides the core of the Odoo Web Client.
             # Assets for features to test (views, services, fields, ...)
             # Typically includes most files in 'web.web.assets_backend'
             ('include', 'web.assets_backend'),
+            ('include', 'web.assets_backend_lazy'),
 
             'web/static/src/public/public_component_service.js',
             'web/static/src/webclient/clickbot/clickbot.js',
@@ -437,6 +454,7 @@ This module provides the core of the Odoo Web Client.
         ],
         'web.tests_assets': [
             ('include', 'web.assets_backend'),
+            ('include', 'web.assets_backend_lazy'),
 
             'web/static/src/public/public_component_service.js',
             'web/static/tests/legacy/patch_translations.js',

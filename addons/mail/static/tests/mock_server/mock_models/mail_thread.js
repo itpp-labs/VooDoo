@@ -154,7 +154,7 @@ export class MailThread extends models.ServerModel {
             });
         }
         MailThread._notify_thread.call(this, ids, messageId, kwargs.context?.temporary_id);
-        return { ...MailMessage._message_format([messageId], true)[0] };
+        return messageId;
     }
 
     /**
@@ -439,7 +439,6 @@ export class MailThread extends models.ServerModel {
         const ResUsers = this.env["res.users"];
 
         const message = MailMessage._filter([["id", "=", message_id]])[0];
-        const messageFormat = MailMessage._message_format([message_id])[0];
         const notifications = [];
         if (this._name === "discuss.channel") {
             // members
@@ -460,8 +459,11 @@ export class MailThread extends models.ServerModel {
                     channel,
                     "discuss.channel/new_message",
                     {
+                        data: new mailDataHelpers.Store(
+                            MailMessage.browse(message_id)
+                        ).get_result(),
                         id: channel.id,
-                        message: Object.assign(messageFormat, { temporary_id }),
+                        temporary_id,
                     },
                 ]);
                 const memberOfCurrentUser = this._find_or_create_member_for_self(ids[0]);
@@ -488,10 +490,10 @@ export class MailThread extends models.ServerModel {
                         notifications.push([
                             partner,
                             "mail.message/inbox",
-                            MailMessage._message_format(
-                                [message_id],
+                            new mailDataHelpers.Store(
+                                MailMessage.browse(message.id),
                                 makeKwArgs({ for_current_user: true, add_followers: true })
-                            )[0],
+                            ).get_result(),
                         ]);
                     }
                 }

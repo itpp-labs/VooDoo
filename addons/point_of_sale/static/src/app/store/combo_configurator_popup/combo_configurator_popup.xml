@@ -18,6 +18,7 @@
                                 <ProductCard name="product.display_name"
                                     class="'flex-column h-100 border'"
                                     productId="product.id"
+                                    product="product"
                                     price="formattedComboPrice(combo_line)"
                                     imageUrl="product.getImageUrl()"
                                     onClick="(ev) => this.onClickProduct({ product, combo_line }, ev)" />
@@ -27,14 +28,16 @@
                 </t>
             </div>
             <t t-set-slot="footer">
-                <button class="confirm btn btn-lg btn-primary"
-                    t-att-disabled="!areAllCombosSelected()" t-on-click="confirm">
-                    Add to order
-                </button>
-                <div class="ms-auto">
-                    <t t-if="!areAllCombosSelected">
-                        Complete the selection to proceed
-                    </t>
+                <div class="d-flex w-100 justify-content-start gap-2">
+                    <button class="confirm btn btn-lg btn-primary"
+                        t-att-disabled="!areAllCombosSelected()" t-on-click="confirm">
+                        Add to order
+                    </button>
+                    <div class="ms-auto">
+                        <t t-if="!areAllCombosSelected">
+                            Complete the selection to proceed
+                        </t>
+                    </div>
                 </div>
             </t>
         </Dialog>

@@ -655,7 +655,7 @@ export class Thread extends Record {
         }
         try {
             // ordered messages received: newest to oldest
-            const { messages: rawMessages } = await rpc(this.getFetchRoute(), {
+            const { data, messages } = await rpc(this.getFetchRoute(), {
                 ...this.getFetchParams(),
                 limit:
                     !around && around !== 0 ? this.store.FETCH_LIMIT : this.store.FETCH_LIMIT * 2,
@@ -663,9 +663,9 @@ export class Thread extends Record {
                 around,
                 before,
             });
-            const messages = this.store.Message.insert(rawMessages.reverse(), { html: true });
+            this.store.insert(data, { html: true });
             this.isLoaded = true;
-            return messages;
+            return this.store.Message.insert(messages.reverse());
         } catch (e) {
             this.hasLoadingFailed = true;
             throw e;
@@ -790,8 +790,14 @@ export class Thread extends Record {
         if (this.model === "discuss.channel") {
             return "/discuss/channel/messages";
         }
-        if (this.model === "mail.box") {
-            return `/mail/${this.id}/messages`;
+        if (this.model === "mail.box" && this.id === "inbox") {
+            return `/mail/inbox/messages`;
+        }
+        if (this.model === "mail.box" && this.id === "starred") {
+            return `/mail/starred/messages`;
+        }
+        if (this.model === "mail.box" && this.id === "history") {
+            return `/mail/history/messages`;
         }
         return "/mail/thread/messages";
     }
@@ -1077,7 +1083,8 @@ export class Thread extends Record {
         if (!data) {
             return;
         }
-        const message = this.store.Message.insert(data, { html: true });
+        const { Message: messages = [] } = this.store.insert(data, { html: true });
+        const [message] = messages;
         this.addOrReplaceMessage(message, tmpMsg);
         if (this.selfMember?.seen_message_id?.id < message.id) {
             this.selfMember.seen_message_id = message;
@@ -1087,7 +1094,7 @@ export class Thread extends Record {
         // to avoid flickering.
         tmpMsg?.delete();
         if (message.hasLink && this.store.hasLinkPreviewFeature) {
-            rpc("/mail/link_preview", { message_id: data.id }, { silent: true });
+            rpc("/mail/link_preview", { message_id: message.id }, { silent: true });
         }
         return message;
     }

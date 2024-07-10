@@ -1,4 +1,11 @@
-import { Command, fields, getKwArgs, models, serverState } from "@web/../tests/web_test_helpers";
+import {
+    Command,
+    fields,
+    getKwArgs,
+    makeKwArgs,
+    models,
+    serverState,
+} from "@web/../tests/web_test_helpers";
 
 /** @typedef {import("@web/core/domain").DomainListRepr} DomainListRepr */
 
@@ -58,11 +65,12 @@ export class MailMessage extends models.ServerModel {
     }
 
     /** @param {number[]} ids */
-    _message_format(ids, for_current_user, add_followers) {
-        const kwargs = getKwArgs(arguments, "ids", "for_current_user", "add_followers");
+    _to_store(ids, store, for_current_user = false, add_followers = false) {
+        const kwargs = getKwArgs(arguments, "ids", "store", "for_current_user", "add_followers");
         ids = kwargs.ids;
-        for_current_user = kwargs.for_current_user ?? false;
-        add_followers = kwargs.add_followers ?? false;
+        store = kwargs.store;
+        for_current_user = kwargs.for_current_user;
+        add_followers = kwargs.add_followers;
 
         /** @type {import("mock_models").IrAttachment} */
         const IrAttachment = this.env["ir.attachment"];
@@ -72,6 +80,8 @@ export class MailMessage extends models.ServerModel {
         const MailFollowers = this.env["mail.followers"];
         /** @type {import("mock_models").MailLinkPreview} */
         const MailLinkPreview = this.env["mail.link.preview"];
+        /** @type {import("mock_models").MailMessage} */
+        const MailMessage = this.env["mail.message"];
         /** @type {import("mock_models").MailMessageReaction} */
         const MailMessageReaction = this.env["mail.message.reaction"];
         /** @type {import("mock_models").MailMessageSubtype} */
@@ -87,21 +97,12 @@ export class MailMessage extends models.ServerModel {
         /** @type {import("mock_models").ResPartner} */
         const ResPartner = this.env["res.partner"];
 
-        const messages = this._filter([["id", "in", ids]]);
-        // sorted from highest ID to lowest ID (i.e. from most to least recent)
-        messages.sort((m1, m2) => (m1.id < m2.id ? 1 : -1));
-        return messages.map((message) => {
+        const messages = MailMessage._filter([["id", "in", ids]]).sort(
+            (a, b) => ids.indexOf(a) - ids.indexOf(b)
+        );
+        for (const message of messages) {
             const thread =
                 message.model && this.env[message.model]._filter([["id", "=", message.res_id]])[0];
-            let author;
-            if (message.author_id) {
-                const [partner] = ResPartner._filter([["id", "=", message.author_id]], {
-                    active_test: false,
-                });
-                author = ResPartner.mail_partner_format([partner.id])[partner.id];
-            } else {
-                author = false;
-            }
             const attachments = IrAttachment._filter([["id", "in", message.attachment_ids]]);
             const formattedAttachments = IrAttachment._attachment_format(
                 attachments.map((attachment) => attachment.id)
@@ -156,7 +157,6 @@ export class MailMessage extends models.ServerModel {
             const response = {
                 ...message,
                 attachments: formattedAttachments,
-                author,
                 default_subject:
                     message.model &&
                     message.res_id &&
@@ -167,9 +167,7 @@ export class MailMessage extends models.ServerModel {
                 linkPreviews: linkPreviewsFormatted,
                 reactions: reactionGroups,
                 notifications,
-                parentMessage: message.parent_id
-                    ? this._message_format([message.parent_id])[0]
-                    : false,
+                parentMessage: message.parent_id ? { id: message.parent_id } : false,
                 recipients: partners.map((p) => ({ id: p.id, name: p.name, type: "partner" })),
                 record_name:
                     thread && (thread.name !== undefined ? thread.name : thread.display_name),
@@ -180,12 +178,6 @@ export class MailMessage extends models.ServerModel {
                 const subtype = MailMessageSubtype._filter([["id", "=", message.subtype_id]])[0];
                 response.subtype_description = subtype.description;
             }
-            let guestAuthor;
-            if (message.author_guest_id) {
-                const [guest] = MailGuest.search_read([["id", "=", message.author_guest_id]]);
-                guestAuthor = { id: guest.id, name: guest.name, type: "guest" };
-            }
-            response.author = author || guestAuthor;
             if (response.model && response.res_id) {
                 const thread = {
                     model: response.model,
@@ -228,8 +220,54 @@ export class MailMessage extends models.ServerModel {
                     }
                 }
             }
-            return response;
-        });
+            store.add("Message", response);
+            if (message.parent_id) {
+                store.add(MailMessage.browse(message.parent_id));
+            }
+        }
+        this._author_to_store(ids, store);
+    }
+    _author_to_store(ids, store) {
+        /** @type {import("mock_models").MailGuest} */
+        const MailGuest = this.env["mail.guest"];
+        /** @type {import("mock_models").MailMessage} */
+        const MailMessage = this.env["mail.message"];
+        /** @type {import("mock_models").ResPartner} */
+        const ResPartner = this.env["res.partner"];
+
+        for (const message of MailMessage._filter([["id", "in", ids]]).sort(
+            (a, b) => ids.indexOf(a) - ids.indexOf(b)
+        )) {
+            const data = {
+                author: false,
+                email_from: message.email_from,
+                id: message.id,
+                type: "partner",
+            };
+            if (message.author_guest_id) {
+                const [guest] = MailGuest.search_read([["id", "=", message.author_guest_id]]);
+                store.add("Persona", { id: guest.id, name: guest.name, type: "guest" });
+                data.author = { id: guest.id, type: "guest" };
+            } else if (message.author_id) {
+                const [partner] = ResPartner._filter([["id", "=", message.author_id]], {
+                    active_test: false,
+                });
+                store.add(
+                    ResPartner.browse(partner.id),
+                    makeKwArgs({
+                        fields: {
+                            id: true,
+                            name: true,
+                            is_company: true,
+                            user: { id: true },
+                            write_date: true,
+                        },
+                    })
+                );
+                data.author = { id: partner.id, type: "partner" };
+            }
+            store.add("Message", data);
+        }
     }
 
     /**
@@ -445,7 +483,10 @@ export class MailMessage extends models.ServerModel {
                 (m1, m2) => m1.id - m2.id
             );
             messagesAfter.length = Math.min(messagesAfter.length, limit / 2);
-            return { ...res, messages: messagesAfter.concat(messagesBefore.reverse()) };
+            const messages = messagesAfter
+                .concat(messagesBefore.reverse())
+                .sort((m1, m2) => m2.id - m1.id);
+            return { ...res, messages };
         }
         if (before) {
             domain.push(["id", "<", before]);
@@ -453,11 +494,7 @@ export class MailMessage extends models.ServerModel {
         if (after) {
             domain.push(["id", ">", after]);
         }
-        const messages = this._filter(domain);
-        // sorted from highest ID to lowest ID (i.e. from youngest to oldest)
-        messages.sort(function (m1, m2) {
-            return m1.id < m2.id ? 1 : -1;
-        });
+        const messages = this._filter(domain).sort((m1, m2) => m2.id - m1.id);
         // pick at most 'limit' messages
         messages.length = Math.min(messages.length, limit);
         res.messages = messages;
@@ -500,5 +537,40 @@ export class MailMessage extends models.ServerModel {
             }
             store.add("Message", message_data);
         }
+    }
+
+    _cleanup_side_records([id]) {
+        /** @type {import("mock_models").BusBus} */
+        const BusBus = this.env["bus.bus"];
+        /** @type {import("mock_models").MailMessage} */
+        const MailMessage = this.env["mail.message"];
+        /** @type {import("mock_models").ResPartner} */
+        const ResPartner = this.env["res.partner"];
+        const [message] = this._filter([["id", "=", id]]);
+        const outdatedStarredPartners = message.starred_partner_ids
+            ? ResPartner._filter([["id", "in", message.starred_partner_ids]])
+            : [];
+        this.write([id], { starred_partner_ids: [Command.clear()] });
+        if (outdatedStarredPartners.length === 0) {
+            return;
+        }
+        const notifications = [];
+        for (const partner of outdatedStarredPartners) {
+            notifications.push([
+                partner,
+                "mail.record/insert",
+                {
+                    Thread: {
+                        id: "starred",
+                        messages: [["DELETE", { id: message.id }]],
+                        model: "mail.box",
+                        counter: MailMessage._filter([["starred_partner_ids", "in", partner.id]])
+                            .length,
+                        counter_bus_id: this.env["bus.bus"].lastBusNotificationId,
+                    },
+                },
+            ]);
+        }
+        BusBus._sendmany(notifications);
     }
 }

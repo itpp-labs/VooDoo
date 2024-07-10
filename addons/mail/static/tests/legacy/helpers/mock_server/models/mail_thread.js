@@ -243,7 +243,7 @@ patch(MockServer.prototype, {
             });
         }
         this._mockMailThread_NotifyThread(model, ids, messageId, context?.temporary_id);
-        return Object.assign(this._mockMailMessageMessageFormat([messageId])[0]);
+        return { Message: this._mockMailMessageMessageFormat([messageId]) };
     },
     /**
      * Simulates `message_subscribe` on `mail.thread`.
@@ -330,10 +330,7 @@ patch(MockServer.prototype, {
                 notifications.push([
                     channel,
                     "discuss.channel/new_message",
-                    {
-                        id: channel.id,
-                        message: Object.assign(messageFormat, { temporary_id }),
-                    },
+                    { data: { Message: messageFormat }, id: channel.id, temporary_id },
                 ]);
             }
         }

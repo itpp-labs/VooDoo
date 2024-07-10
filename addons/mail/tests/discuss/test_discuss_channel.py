@@ -88,45 +88,56 @@ class TestChannelInternals(MailCommon, HttpCase):
                     {
                         "type": "discuss.channel/new_message",
                         "payload": {
-                            "id": channel.id,
-                            "message": {
-                                "id": message.id,
-                                "body": f'<div class="o_mail_notification">invited <a href="#" data-oe-model="res.partner" data-oe-id="{self.test_partner.id}">Test Partner</a> to the channel</div>',
-                                "date": "2020-03-22 10:42:06",
-                                "email_from": '"Ernest Employee" <e.e@example.com>',
-                                "message_type": "notification",
-                                "subject": False,
-                                "model": "discuss.channel",
-                                "res_id": channel.id,
-                                "record_name": "Channel",
-                                "author": {
-                                    "id": self.env.user.partner_id.id,
-                                    "name": "Ernest Employee",
-                                    "is_company": False,
-                                    "write_date": emp_partner_write_date,
-                                    "userId": self.env.user.id,
-                                    "isInternalUser": True,
-                                    "type": "partner",
-                                },
-                                "default_subject": "Channel",
-                                "notifications": [],
-                                "attachments": [],
-                                "linkPreviews": [],
-                                "reactions": [],
-                                "pinned_at": False,
-                                "create_date": fields.Datetime.to_string(message.create_date),
-                                "write_date": fields.Datetime.to_string(message.write_date),
-                                "is_note": False,
-                                "is_discussion": True,
-                                "subtype_description": False,
-                                "recipients": [],
-                                "scheduledDatetime": False,
-                                "thread": {
-                                    "model": "discuss.channel",
-                                    "id": channel.id,
-                                    "module_icon": "/mail/static/description/icon.png",
-                                },
+                            "data": {
+                                "Message": [
+                                    {
+                                        "attachments": [],
+                                        "author": {"id": self.env.user.partner_id.id, "type": "partner"},
+                                        "body": f'<div class="o_mail_notification">invited <a href="#" data-oe-model="res.partner" data-oe-id="{self.test_partner.id}">Test Partner</a> to the channel</div>',
+                                        "create_date": fields.Datetime.to_string(message.create_date),
+                                        "date": "2020-03-22 10:42:06",
+                                        "default_subject": "Channel",
+                                        "email_from": '"Ernest Employee" <e.e@example.com>',
+                                        "id": message.id,
+                                        "is_discussion": True,
+                                        "is_note": False,
+                                        "linkPreviews": [],
+                                        "message_type": "notification",
+                                        "model": "discuss.channel",
+                                        "notifications": [],
+                                        "parentMessage": False,
+                                        "pinned_at": False,
+                                        "reactions": [],
+                                        "recipients": [],
+                                        "record_name": "Channel",
+                                        "res_id": channel.id,
+                                        "scheduledDatetime": False,
+                                        "subject": False,
+                                        "subtype_description": False,
+                                        "thread": {"id": channel.id, "model": "discuss.channel"},
+                                        "write_date": fields.Datetime.to_string(message.write_date),
+                                    },
+                                ],
+                                "Persona": [
+                                    {
+                                        "id": self.env.user.partner_id.id,
+                                        "isInternalUser": True,
+                                        "is_company": False,
+                                        "name": "Ernest Employee",
+                                        "type": "partner",
+                                        "userId": self.env.user.id,
+                                        "write_date": emp_partner_write_date,
+                                    },
+                                ],
+                                "Thread": [
+                                    {
+                                        "id": channel.id,
+                                        "model": "discuss.channel",
+                                        "module_icon": "/mail/static/description/icon.png",
+                                    },
+                                ],
                             },
+                            "id": channel.id,
                         },
                     },
                     {
@@ -460,10 +471,10 @@ class TestChannelInternals(MailCommon, HttpCase):
     def test_channel_message_post_should_not_allow_adding_wrong_parent(self):
         channels = self.env['discuss.channel'].create([{'name': '1'}, {'name': '2'}])
         message = self._add_messages(channels[0], 'Body1')
-        message_format2 = channels[1].message_post(body='Body2', parent_id=message.id)
-        self.assertFalse(message_format2['parent_id'], "should not allow parent from wrong thread")
-        message_format3 = channels[1].message_post(body='Body3', parent_id=message.id + 100)
-        self.assertFalse(message_format3['parent_id'], "should not allow non-existing parent")
+        message_2 = channels[1].message_post(body='Body2', parent_id=message.id)
+        self.assertFalse(message_2.parent_id, "should not allow parent from wrong thread")
+        message_3 = channels[1].message_post(body='Body3', parent_id=message.id + 100)
+        self.assertFalse(message_3.parent_id, "should not allow non-existing parent")
 
     @mute_logger('odoo.models.unlink')
     def test_channel_unsubscribe_auto(self):
@@ -741,7 +752,7 @@ class TestChannelInternals(MailCommon, HttpCase):
             - OR we have access to the channel
         """
         self.authenticate(self.user_employee.login, self.user_employee.login)
-        self.assertEqual(self.make_jsonrpc_request("/mail/action", {"init_messaging": {}})["Store"]['discuss']['starred']['counter'], 0)
+        self.assertEqual(self.make_jsonrpc_request("/mail/action", {"init_messaging": {}})["Store"]['starred']['counter'], 0)
         test_group = self.env['discuss.channel'].create({
             'name': 'Private Channel',
             'channel_type': 'group',
@@ -750,14 +761,14 @@ class TestChannelInternals(MailCommon, HttpCase):
 
         test_group_own_message = test_group.with_user(self.user_employee.id).message_post(body='TestingMessage')
         test_group_own_message.write({'starred_partner_ids': [(6, 0, self.partner_employee.ids)]})
-        self.assertEqual(self.make_jsonrpc_request("/mail/action", {"init_messaging": {}})["Store"]['discuss']['starred']['counter'], 1)
+        self.assertEqual(self.make_jsonrpc_request("/mail/action", {"init_messaging": {}})["Store"]['starred']['counter'], 1)
 
         test_group_message = test_group.message_post(body='TestingMessage')
         test_group_message.write({'starred_partner_ids': [(6, 0, self.partner_employee.ids)]})
-        self.assertEqual(self.make_jsonrpc_request("/mail/action", {"init_messaging": {}})["Store"]['discuss']['starred']['counter'], 2)
+        self.assertEqual(self.make_jsonrpc_request("/mail/action", {"init_messaging": {}})["Store"]['starred']['counter'], 2)
 
         test_group.write({'channel_partner_ids': False})
-        self.assertEqual(self.make_jsonrpc_request("/mail/action", {"init_messaging": {}})["Store"]['discuss']['starred']['counter'], 1)
+        self.assertEqual(self.make_jsonrpc_request("/mail/action", {"init_messaging": {}})["Store"]['starred']['counter'], 1)
 
     def test_multi_company_chat(self):
         self.assertEqual(self.env.user.company_id, self.company_admin)

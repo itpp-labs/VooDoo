@@ -411,6 +411,15 @@ class Project(models.Model):
         new_projects = super(Project, self.with_context(mail_auto_subscribe_no_notify=True, mail_create_nosubscribe=True)).copy(default=default)
         if 'milestone_mapping' not in self.env.context:
             self = self.with_context(milestone_mapping={})
+        actions_per_project = dict(self.env['ir.embedded.actions']._read_group(
+            domain=[
+                ('parent_res_id', 'in', self.ids),
+                ('parent_res_model', '=', 'project.project'),
+                ('user_id', '=', False),
+            ],
+            groupby=['parent_res_id'],
+            aggregates=['id:recordset'],
+        ))
         for old_project, new_project in zip(self, new_projects):
             for follower in old_project.message_follower_ids:
                 new_project.message_subscribe(partner_ids=follower.partner_id.ids, subtype_ids=follower.subtype_ids.ids)
@@ -420,6 +429,12 @@ class Project(models.Model):
                 old_project.map_tasks(new_project.id)
             if not old_project.active:
                 new_project.with_context(active_test=False).tasks.active = True
+            # Copy the shared embedded actions in the new project
+            shared_embedded_actions = actions_per_project.get(old_project.id)
+            if shared_embedded_actions:
+                copy_shared_embedded_actions = shared_embedded_actions.copy({'parent_res_id': new_project.id})
+                for original_action, copied_action in zip(shared_embedded_actions, copy_shared_embedded_actions):
+                    copied_action.filter_ids = original_action.filter_ids.copy({'embedded_parent_res_id': new_project.id})
         return new_projects
 
     @api.model
@@ -649,6 +664,8 @@ class Project(models.Model):
         local_context = self.env.context | {
             'default_template_id': template.id if template else False,
             'default_email_layout_xmlid': 'mail.mail_notification_light',
+            'active_id': self.id,
+            'active_model': 'project.project',
         }
         action = self.env["ir.actions.actions"]._for_xml_id("project.project_share_wizard_action")
         if self.env.context.get('default_access_mode'):
