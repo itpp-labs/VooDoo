@@ -135,7 +135,7 @@ class AuthSignupHome(Home):
         if qcontext.get('token'):
             try:
                 # retrieve the user info (name, login or email) corresponding to a signup token
-                token_infos = request.env['res.partner'].sudo().signup_retrieve_info(qcontext.get('token'))
+                token_infos = request.env['res.partner'].sudo()._signup_retrieve_info(qcontext.get('token'))
                 for k, v in token_infos.items():
                     qcontext.setdefault(k, v)
             except:
@@ -164,9 +164,8 @@ class AuthSignupHome(Home):
     def _signup_with_values(self, token, values):
         login, password = request.env['res.users'].sudo().signup(values, token)
         request.env.cr.commit()     # as authenticate will use its own cursor we need to commit the current transaction
-        pre_uid = request.session.authenticate(request.db, login, password)
-        if not pre_uid:
-            raise SignupError(_('Authentication Failed.'))
+        credential = {'login': login, 'password': password, 'type': 'password'}
+        request.session.authenticate(request.db, credential)
 
 class AuthBaseSetup(BaseSetup):
     @http.route()

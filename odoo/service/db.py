@@ -27,7 +27,7 @@ import odoo.sql_db
 import odoo.tools
 from odoo.sql_db import db_connect
 from odoo.release import version_info
-from odoo.tools import find_pg_tool, exec_pg_environ
+from odoo.tools.misc import find_pg_tool, exec_pg_environ
 
 _logger = logging.getLogger(__name__)
 
@@ -430,7 +430,7 @@ def list_db_incompatible(databases):
     server_version = '.'.join(str(v) for v in version_info[:2])
     for database_name in databases:
         with closing(db_connect(database_name).cursor()) as cr:
-            if odoo.tools.table_exists(cr, 'ir_module_module'):
+            if odoo.tools.sql.table_exists(cr, 'ir_module_module'):
                 cr.execute("SELECT latest_version FROM ir_module_module WHERE name=%s", ('base',))
                 base_version = cr.fetchone()
                 if not base_version or not base_version[0]:
@@ -454,7 +454,7 @@ def exp_list(document=False):
     return list_dbs()
 
 def exp_list_lang():
-    return odoo.tools.scan_languages()
+    return odoo.tools.misc.scan_languages()
 
 def exp_list_countries():
     list_countries = []

@@ -58,8 +58,9 @@ from odoo.fields import Command
 from odoo.modules.registry import Registry
 from odoo.service import security
 from odoo.sql_db import BaseCursor, Cursor
-from odoo.tools import float_compare, single_email_re, profiler, lower_logging, SQL, DotDict
-from odoo.tools.misc import find_in_path, mute_logger
+from odoo.tools import float_compare, mute_logger, profiler, SQL, DotDict
+from odoo.tools.mail import single_email_re
+from odoo.tools.misc import find_in_path, lower_logging
 from odoo.tools.xml_utils import _validate_xml
 
 from . import case
@@ -1816,9 +1817,15 @@ class HttpCase(TransactionCase):
             # than this transaction.
             self.cr.flush()
             self.cr.clear()
-            with patch('odoo.addons.base.models.res_users.Users._check_credentials', return_value=True):
-                # patching to speedup the check in case the password is hashed with many hashround + avoid to update the password
-                uid = self.registry['res.users'].authenticate(session.db, user, password, {'interactive': False})
+
+            def patched_check_credentials(self, credential, env):
+                return {'uid': self.id, 'auth_method': 'password', 'mfa': 'default'}
+
+            # patching to speedup the check in case the password is hashed with many hashround + avoid to update the password
+            with patch('odoo.addons.base.models.res_users.Users._check_credentials', new=patched_check_credentials):
+                credential = {'login': user, 'password': password, 'type': 'password'}
+                auth_info = self.registry['res.users'].authenticate(session.db, credential, {'interactive': False})
+            uid = auth_info['uid']
             env = api.Environment(self.cr, uid, {})
             session.uid = uid
             session.login = user

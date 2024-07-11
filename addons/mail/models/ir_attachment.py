@@ -7,6 +7,7 @@ from odoo import _, api, models, SUPERUSER_ID
 from odoo.exceptions import AccessError, MissingError, UserError
 from odoo.http import request
 from odoo.tools import consteq
+from odoo.addons.mail.tools.discuss import Store
 
 
 class IrAttachment(models.Model):
@@ -74,19 +75,32 @@ class IrAttachment(models.Model):
         self.ensure_one()
         return self.env.user.partner_id
 
-    def _attachment_format(self):
-        safari = request and request.httprequest.user_agent and request.httprequest.user_agent.browser == 'safari'
-        return [{
-            'checksum': attachment.checksum,
-            'create_date': attachment.create_date,
-            'id': attachment.id,
-            'filename': attachment.name,
-            'name': attachment.name,
-            "size": attachment.file_size,
-            'res_name': attachment.res_name,
-            'mimetype': 'application/octet-stream' if safari and attachment.mimetype and 'video' in attachment.mimetype else attachment.mimetype,
-            'thread': {
-                'id': attachment.res_id,
-                'model': attachment.res_model,
-            },
-        } for attachment in self]
+    def _to_store(self, store: Store, *, access_token=False):
+        safari = (
+            request
+            and request.httprequest.user_agent
+            and request.httprequest.user_agent.browser == "safari"
+        )
+        for attachment in self:
+            res = {
+                "checksum": attachment.checksum,
+                "create_date": attachment.create_date,
+                "filename": attachment.name,
+                "id": attachment.id,
+                "mimetype": (
+                    "application/octet-stream"
+                    if safari and attachment.mimetype and "video" in attachment.mimetype
+                    else attachment.mimetype
+                ),
+                "name": attachment.name,
+                "res_name": attachment.res_name,
+                "size": attachment.file_size,
+                "thread": (
+                    {"id": attachment.res_id, "model": attachment.res_model}
+                    if attachment.res_id and attachment.res_model != "mail.compose.message"
+                    else False
+                ),
+            }
+            if access_token:
+                res["accessToken"] = attachment.access_token
+            store.add("Attachment", res)

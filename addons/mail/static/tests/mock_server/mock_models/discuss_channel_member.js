@@ -115,6 +115,7 @@ export class DiscussChannelMember extends models.ServerModel {
                 persona: {},
                 seen_message_id: true,
                 last_interest_dt: true,
+                last_seen_dt: true,
                 new_message_separator: true,
             };
         }
@@ -143,10 +144,7 @@ export class DiscussChannelMember extends models.ServerModel {
                     data.persona = { id: member.partner_id, type: "partner" };
                 }
                 if (member.guest_id) {
-                    store.add(
-                        "Persona",
-                        MailGuest._guest_format([member.guest_id])[member.guest_id]
-                    );
+                    store.add(MailGuest.browse(member.guest_id));
                     data.persona = { id: member.guest_id, type: "guest" };
                 }
             }
@@ -166,6 +164,9 @@ export class DiscussChannelMember extends models.ServerModel {
             }
             if ("last_interest_dt" in fields) {
                 data.last_interest_dt = member.last_interest_dt;
+            }
+            if ("last_seen_dt" in fields) {
+                data.last_seen_dt = member.last_seen_dt;
             }
             if ("new_message_separator" in fields) {
                 data.new_message_separator = member.new_message_separator;

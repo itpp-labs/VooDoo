@@ -19,8 +19,6 @@ from odoo.osv import expression
 from odoo.tools import (
     create_index,
     date_utils,
-    email_re,
-    email_split,
     float_compare,
     float_is_zero,
     float_repr,
@@ -31,10 +29,11 @@ from odoo.tools import (
     get_lang,
     groupby,
     index_exists,
-    is_html_empty,
     OrderedSet,
     SQL,
 )
+from odoo.tools.mail import email_re, email_split, is_html_empty
+
 
 _logger = logging.getLogger(__name__)
 
@@ -325,6 +324,7 @@ class AccountMove(models.Model):
         string='Commercial Entity',
         compute='_compute_commercial_partner_id', store=True, readonly=True,
         ondelete='restrict',
+        check_company=True,
     )
     partner_shipping_id = fields.Many2one(
         comodel_name='res.partner',
@@ -2871,11 +2871,12 @@ class AccountMove(models.Model):
             )
             moves_details.append(f"{entry_details}\n{account_details}")
 
-        return "\nForce deleted Journal Entries by {user_name} ({user_id})\nEntries\n{moves_details}".format(
-            user_name=self.env.user.name,
-            user_id=self.env.user.id,
-            moves_details="\n".join(moves_details),
-        )
+        if moves_details:
+            return "\nForce deleted Journal Entries by {user_name} ({user_id})\nEntries\n{moves_details}".format(
+                user_name=self.env.user.name,
+                user_id=self.env.user.id,
+                moves_details="\n".join(moves_details),
+            )
 
     @api.ondelete(at_uninstall=False)
     def _unlink_forbid_parts_of_chain(self):
@@ -3161,25 +3162,24 @@ class AccountMove(models.Model):
             domain.append(('account_id.internal_group', '=', 'expense'))
 
         query = self.env['account.move.line']._where_calc(domain)
-        from_clause, where_clause, params = query.get_sql()
-        self._cr.execute(f"""
+        rows = self.env.execute_query(SQL("""
             SELECT COUNT(foo.id), foo.account_id, foo.taxes
               FROM (
                          SELECT account_move_line__account_id.id AS account_id,
                                 account_move_line__account_id.code,
                                 account_move_line.id,
                                 ARRAY_AGG(tax_rel.account_tax_id) FILTER (WHERE tax_rel.account_tax_id IS NOT NULL) AS taxes
-                           FROM {from_clause}
+                           FROM %s
                       LEFT JOIN account_move_line_account_tax_rel tax_rel ON account_move_line.id = tax_rel.account_move_line_id
-                          WHERE {where_clause}
+                          WHERE %s
                        GROUP BY account_move_line__account_id.id,
                                 account_move_line.id
                    ) AS foo
           GROUP BY foo.account_id, foo.code, foo.taxes
           ORDER BY COUNT(foo.id) DESC, foo.code, taxes ASC NULLS LAST
              LIMIT 1
-        """, params)
-        return self._cr.fetchone() or (0, False, False)
+        """, query.from_clause, query.where_clause or SQL("TRUE")))
+        return rows[0] if rows else (0, False, False)
 
     def _get_quick_edit_suggestions(self):
         """

@@ -125,7 +125,9 @@ async function mail_attachment_upload(request) {
     if (body.get("voice")) {
         DiscussVoiceMetadata.create({ attachment_id: attachmentId });
     }
-    return IrAttachment._attachment_format([attachmentId])[0];
+    return {
+        data: new mailDataHelpers.Store(IrAttachment.browse(attachmentId)).get_result(),
+    };
 }
 
 registerRoute("/mail/attachment/delete", mail_attachment_delete);
@@ -166,7 +168,7 @@ async function load_attachments(request) {
         .sort()
         .slice(0, limit)
         .map(({ id }) => id);
-    return IrAttachment._attachment_format(attachmentIds);
+    return new mailDataHelpers.Store(IrAttachment.browse(attachmentIds)).get_result();
 }
 
 registerRoute("/mail/rtc/channel/join_call", channel_call_join);
@@ -501,7 +503,6 @@ async function mail_link_preview(request) {
     const MailMessage = this.env["mail.message"];
 
     const { message_id } = await parseRequestParams(request);
-    const linkPreviews = [];
     const [message] = MailMessage.search_read([["id", "=", message_id]]);
     if (message.body.includes("https://make-link-preview.com")) {
         const linkPreviewId = MailLinkPreview.create({
@@ -511,11 +512,11 @@ async function mail_link_preview(request) {
             og_type: "article",
             source_url: "https://make-link-preview.com",
         });
-        const [linkPreview] = MailLinkPreview.search_read([["id", "=", linkPreviewId]]);
-        linkPreviews.push(MailLinkPreview._link_preview_format(linkPreview));
-        BusBus._sendone(MailMessage._bus_notification_target(message_id), "mail.record/insert", {
-            LinkPreview: linkPreviews,
-        });
+        BusBus._sendone(
+            MailMessage._bus_notification_target(message_id),
+            "mail.record/insert",
+            new mailDataHelpers.Store(MailLinkPreview.browse(linkPreviewId)).get_result()
+        );
     }
 }
 
@@ -649,14 +650,18 @@ async function mail_message_update_content(request) {
         MailMessage._cleanup_side_records([message_id]);
     }
     const [message] = MailMessage.search_read([["id", "=", message_id]]);
-    BusBus._sendone(MailMessage._bus_notification_target(message_id), "mail.record/insert", {
-        Message: {
-            id: message_id,
-            body,
-            attachments: IrAttachment._attachment_format(attachment_ids),
-            pinned_at: message.pinned_at,
-        },
+    const broadcast_store = new mailDataHelpers.Store(IrAttachment.browse(attachment_ids));
+    broadcast_store.add("Message", {
+        id: message_id,
+        body,
+        attachments: attachment_ids.map((id) => ({ id })),
+        pinned_at: message.pinned_at,
     });
+    BusBus._sendone(
+        MailMessage._bus_notification_target(message_id),
+        "mail.record/insert",
+        broadcast_store.get_result()
+    );
     return new mailDataHelpers.Store(
         MailMessage.browse(message_id),
         makeKwArgs({ for_current_user: true })
@@ -1040,6 +1045,12 @@ class Store {
             }
         }
         return res;
+    }
+
+    toJSON() {
+        throw Error(
+            "Converting Store to JSON is not supported, you might want to call 'get_result()' instead."
+        );
     }
 }
 

@@ -114,6 +114,7 @@ class AccountMoveLine(models.Model):
         string='Balance',
         compute='_compute_balance', store=True, readonly=False, precompute=True,
         currency_field='company_currency_id',
+        tracking=True,
     )
     cumulated_balance = fields.Monetary(
         string='Cumulated Balance',
@@ -180,6 +181,7 @@ class AccountMoveLine(models.Model):
         compute='_compute_tax_ids', store=True, readonly=False, precompute=True,
         context={'active_test': False},
         check_company=True,
+        tracking=True,
     )
     group_tax_id = fields.Many2one(
         comodel_name='account.tax',
@@ -706,18 +708,14 @@ class AccountMoveLine(models.Model):
         # get the where clause
         query = self._where_calc(list(self.env.context.get('domain_cumulated_balance') or []))
         sql_order = self._order_to_sql(self.env.context.get('order_cumulated_balance'), query, reverse=True)
-        order_string = self.env.cr.mogrify(sql_order).decode()
-        from_clause, where_clause, where_clause_params = query.get_sql()
-        sql = """
-            SELECT account_move_line.id, SUM(account_move_line.balance) OVER (
-                ORDER BY %(order_by)s
-                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            )
-            FROM %(from)s
-            WHERE %(where)s
-        """ % {'from': from_clause, 'where': where_clause or 'TRUE', 'order_by': order_string}
-        self.env.cr.execute(sql, where_clause_params)
-        result = {r[0]: r[1] for r in self.env.cr.fetchall()}
+        result = dict(self.env.execute_query(query.select(
+            SQL.identifier(query.table, "id"),
+            SQL(
+                "SUM(%s) OVER (ORDER BY %s ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+                SQL.identifier(query.table, "balance"),
+                sql_order,
+            ),
+        )))
         for record in self:
             record.cumulated_balance = result[record.id]
 
@@ -1571,6 +1569,21 @@ class AccountMoveLine(models.Model):
             if line.move_id.state == 'posted':
                 line._check_tax_lock_date()
 
+        if not self.env.context.get('tracking_disable'):
+            # Log changes to move lines on each move
+            tracked_fields = [fname for fname, f in self._fields.items() if hasattr(f, 'tracking') and f.tracking and not (hasattr(f, 'related') and f.related)]
+            ref_fields = self.env['account.move.line'].fields_get(tracked_fields)
+            empty_values = dict.fromkeys(tracked_fields)
+            for move_id, modified_lines in lines.grouped('move_id').items():
+                if not move_id.posted_before:
+                    continue
+                for line in modified_lines:
+                    if tracking_value_ids := line._mail_track(ref_fields, empty_values)[1]:
+                        line.move_id._message_log(
+                            body=_("Journal Item %s created", line._get_html_link(title=f"#{line.id}")),
+                            tracking_value_ids=tracking_value_ids
+                        )
+
         lines.move_id._synchronize_business_models(['line_ids'])
         lines._check_constrains_account_id_journal_id()
         return lines
@@ -1702,6 +1715,21 @@ class AccountMoveLine(models.Model):
 
         # Check the tax lock date.
         self._check_tax_lock_date()
+
+        if not self.env.context.get('tracking_disable'):
+            # Log changes to move lines on each move
+            tracked_fields = [fname for fname, f in self._fields.items() if hasattr(f, 'tracking') and f.tracking and not (hasattr(f, 'related') and f.related)]
+            ref_fields = self.env['account.move.line'].fields_get(tracked_fields)
+            empty_line = self.browse([False])  # all falsy fields but not failing `ensure_one` checks
+            for move_id, modified_lines in self.grouped('move_id').items():
+                if not move_id.posted_before:
+                    continue
+                for line in modified_lines:
+                    if tracking_value_ids := empty_line._mail_track(ref_fields, line)[1]:
+                        line.move_id._message_log(
+                            body=_("Journal Item %s deleted", line._get_html_link(title=f"#{line.id}")),
+                            tracking_value_ids=tracking_value_ids
+                        )
 
         move_container = {'records': self.move_id}
         with self.move_id._check_balanced(move_container),\

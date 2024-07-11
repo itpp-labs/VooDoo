@@ -194,7 +194,7 @@ class Message(models.Model):
         at 100 chars with a ' [...]' suffix if applicable. It is the longest
         known mail client preview length (Outlook 2013)."""
         for message in self:
-            plaintext_ct = tools.html_to_inner_content(message.body)
+            plaintext_ct = tools.mail.html_to_inner_content(message.body)
             message.preview = textwrap.shorten(plaintext_ct, 190)
 
     @api.depends('author_id', 'author_guest_id')
@@ -263,7 +263,7 @@ class Message(models.Model):
         self._cr.execute("""CREATE INDEX IF NOT EXISTS mail_message_model_res_id_id_idx ON mail_message (model, res_id, id)""")
 
     @api.model
-    def _search(self, domain, offset=0, limit=None, order=None, access_rights_uid=None):
+    def _search(self, domain, offset=0, limit=None, order=None):
         """ Override that adds specific access rights of mail.message, to remove
         ids uid could not see according to our custom rules. Please refer to
         check_access_rule for more details about those rules.
@@ -280,14 +280,14 @@ class Message(models.Model):
         """
         # Rules do not apply to administrator
         if self.env.is_superuser():
-            return super()._search(domain, offset, limit, order, access_rights_uid)
+            return super()._search(domain, offset, limit, order)
 
         # Non-employee see only messages with a subtype and not internal
         if not self.env.user._is_internal():
             domain = self._get_search_domain_share() + domain
 
         # make the search query with the default rules
-        query = super()._search(domain, offset, limit, order, access_rights_uid)
+        query = super()._search(domain, offset, limit, order)
 
         # retrieve matching records and determine which ones are truly accessible
         self.flush_model(['model', 'res_id', 'author_id', 'message_type', 'partner_ids'])
@@ -1030,13 +1030,13 @@ class Message(models.Model):
                 "res_id": message.res_id,  # keep for iOS app
                 "subject": message.subject,
                 "default_subject": default_subject,
-                "notifications": message.notification_ids._filtered_for_web_client()._notification_format(),
-                "attachments": sorted(
-                    # sudo: mail.message - reading attachments on accessible message is allowed
-                    message.sudo().attachment_ids._attachment_format(),
-                    key=lambda a: a["id"],
-                ),
-                "linkPreviews": link_previews._link_preview_format(),
+                "notifications": [
+                    {"id": notif.id}
+                    for notif in message.notification_ids._filtered_for_web_client()
+                ],
+                # sudo: mail.message - reading attachments on accessible message is allowed
+                "attachments": [{"id": a.id} for a in message.sudo().attachment_ids.sorted("id")],
+                "linkPreviews": [{"id": p.id} for p in link_previews],
                 "reactions": reaction_groups,
                 "pinned_at": message.pinned_at,
                 "record_name": record_name,  # keep for iOS app
@@ -1072,6 +1072,11 @@ class Message(models.Model):
             store.add("Message", vals)
         # sudo: mail.message: access to author is allowed
         self.sudo()._author_to_store(store)
+        store.add(self.notification_ids._filtered_for_web_client())
+        # sudo: mail.message - reading link preview on accessible message is allowed
+        store.add(self.sudo().link_preview_ids.filtered(lambda l: not l.is_hidden))
+        # sudo: mail.message - reading attachments on accessible message is allowed
+        store.add(self.sudo().attachment_ids.sorted("id"))
         # Add extras at the end to guarantee order in result. In particular, the parent message
         # needs to be after the current message (client code assuming the first received message is
         # the one just posted for example, and not the message being replied to).
@@ -1086,10 +1091,7 @@ class Message(models.Model):
             }
             # sudo: mail.message: access to author is allowed
             if guest_author := message.sudo().author_guest_id:
-                store.add(
-                    "Persona",
-                    guest_author._guest_format(fields={"id": True, "name": True}).get(guest_author),
-                )
+                store.add(guest_author, fields={"id": True, "name": True})
                 data["author"] = {"id": guest_author.id, "type": "guest"}
             # sudo: mail.message: access to author is allowed
             elif author := message.sudo().author_id:
@@ -1153,7 +1155,10 @@ class Message(models.Model):
                 "date": message.date,
                 "message_type": message.message_type,
                 "body": message.body,
-                "notifications": message.notification_ids._filtered_for_web_client()._notification_format(),
+                "notifications": [
+                    {"id": notif.id}
+                    for notif in message.notification_ids._filtered_for_web_client()
+                ],
                 "thread": False,
             }
             if message.res_id:
@@ -1167,6 +1172,7 @@ class Message(models.Model):
                     },
                 )
             store.add("Message", message_data)
+        store.add(self.notification_ids._filtered_for_web_client())
 
     def _notify_message_notification_update(self):
         """Send bus notifications to update status of notifications in the web
@@ -1277,11 +1283,11 @@ class Message(models.Model):
     @api.model
     def _get_message_id(self, values):
         if values.get('reply_to_force_new', False) is True:
-            message_id = tools.generate_tracking_message_id('reply_to')
+            message_id = tools.mail.generate_tracking_message_id('reply_to')
         elif self.is_thread_message(values):
-            message_id = tools.generate_tracking_message_id('%(res_id)s-%(model)s' % values)
+            message_id = tools.mail.generate_tracking_message_id('%(res_id)s-%(model)s' % values)
         else:
-            message_id = tools.generate_tracking_message_id('private')
+            message_id = tools.mail.generate_tracking_message_id('private')
         return message_id
 
     def is_thread_message(self, vals=None):

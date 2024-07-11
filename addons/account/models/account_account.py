@@ -103,11 +103,13 @@ class AccountAccount(models.Model):
     company_id = fields.Many2one('res.company', string='Company', required=True, readonly=False,
         default=lambda self: self.env.company)
     tag_ids = fields.Many2many(
-        'account.account.tag', 'account_account_account_tag',
+        comodel_name='account.account.tag',
+        relation='account_account_account_tag',
         compute='_compute_account_tags', readonly=False, store=True, precompute=True,
         string='Tags',
         help="Optional tags you may want to assign for custom reporting",
         ondelete='restrict',
+        tracking=True,
     )
     group_id = fields.Many2one('account.group', compute='_compute_account_group', store=True, readonly=True,
                                help="Account prefixes can determine account groups.")
@@ -621,16 +623,19 @@ class AccountAccount(models.Model):
             _kind, rhs_table, condition = query._joins['account_move_line__account_id']
             query._joins['account_move_line__account_id'] = (SQL("RIGHT JOIN"), rhs_table, condition)
 
-        from_clause, where_clause, params = query.get_sql()
-        self._cr.execute(f"""
+        return [r[0] for r in self.env.execute_query(SQL(
+            """
             SELECT account_move_line__account_id.id
-              FROM {from_clause}
-             WHERE {where_clause}
+              FROM %s
+             WHERE %s
           GROUP BY account_move_line__account_id.id
           ORDER BY COUNT(account_move_line.id) DESC, account_move_line__account_id.code
-                   {f"LIMIT {limit:d}" if limit else ""}
-        """, params)
-        return [r[0] for r in self._cr.fetchall()]
+                %s
+            """,
+            query.from_clause,
+            query.where_clause or SQL("TRUE"),
+            SQL("LIMIT %s", limit) if limit else SQL(),
+        ))]
 
     @api.model
     def _get_most_frequent_account_for_partner(self, company_id, partner_id, move_type=None):

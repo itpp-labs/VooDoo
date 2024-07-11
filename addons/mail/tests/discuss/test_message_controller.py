@@ -57,7 +57,7 @@ class TestMessageController(HttpCaseWithUserDemo):
             data=json.dumps(
                 {
                     "params": {
-                        "thread_model": self.channel._name,
+                        "thread_model": "discuss.channel",
                         "thread_id": self.channel.id,
                         "post_data": {
                             "body": "test",
@@ -81,7 +81,7 @@ class TestMessageController(HttpCaseWithUserDemo):
             data=json.dumps(
                 {
                     "params": {
-                        "thread_model": self.channel._name,
+                        "thread_model": "discuss.channel",
                         "thread_id": self.channel.id,
                         "post_data": {
                             "body": "test",
@@ -97,8 +97,21 @@ class TestMessageController(HttpCaseWithUserDemo):
         self.assertEqual(res2.status_code, 200)
         data1 = res2.json()["result"]
         self.assertEqual(
-            data1["Message"][0]["attachments"],
-            json.loads(json.dumps(self.attachments[0]._attachment_format(), default=date_utils.json_default)),
+            data1["Attachment"],
+            [
+                    {
+                    "checksum": False,
+                    "create_date": fields.Datetime.to_string(self.attachments[0].create_date),
+                    "id": self.attachments[0].id,
+                    "filename": "File 1",
+                    "name": "File 1",
+                    "size": 0,
+                    "res_name": "Test channel",
+                    "mimetype": "application/octet-stream",
+                    "thread": {"id": self.channel.id, "model": "discuss.channel"},
+                    "voice": False,
+                },
+            ],
             "guest should be allowed to add attachment with token when posting message",
         )
         # test message update: token error
@@ -140,8 +153,33 @@ class TestMessageController(HttpCaseWithUserDemo):
         self.assertEqual(res4.status_code, 200)
         data2 = res4.json()["result"]
         self.assertEqual(
-            data2["Message"][0]["attachments"],
-            json.loads(json.dumps(self.attachments.sorted("id")._attachment_format(), default=date_utils.json_default)),
+            data2["Attachment"],
+            [
+                {
+                    "checksum": False,
+                    "create_date": fields.Datetime.to_string(self.attachments[0].create_date),
+                    "id": self.attachments[0].id,
+                    "filename": "File 1",
+                    "name": "File 1",
+                    "size": 0,
+                    "res_name": "Test channel",
+                    "mimetype": "application/octet-stream",
+                    "thread": {"id": self.channel.id, "model": "discuss.channel"},
+                    "voice": False,
+                },
+                {
+                    "checksum": False,
+                    "create_date": fields.Datetime.to_string(self.attachments[1].create_date),
+                    "id": self.attachments[1].id,
+                    "filename": "File 2",
+                    "name": "File 2",
+                    "size": 0,
+                    "res_name": "Test channel",
+                    "mimetype": "application/octet-stream",
+                    "thread": {"id": self.channel.id, "model": "discuss.channel"},
+                    "voice": False,
+                },
+            ],
             "guest should be allowed to add attachment with token when updating message",
         )
         # test message update: own attachment ok
@@ -161,8 +199,33 @@ class TestMessageController(HttpCaseWithUserDemo):
         self.assertEqual(res5.status_code, 200)
         data3 = res5.json()["result"]
         self.assertEqual(
-            data3["Message"][0]["attachments"],
-            json.loads(json.dumps(self.attachments.sorted("id")._attachment_format(), default=date_utils.json_default)),
+            data3["Attachment"],
+            [
+                {
+                    "checksum": False,
+                    "create_date": fields.Datetime.to_string(self.attachments[0].create_date),
+                    "id": self.attachments[0].id,
+                    "filename": "File 1",
+                    "name": "File 1",
+                    "size": 0,
+                    "res_name": "Test channel",
+                    "mimetype": "application/octet-stream",
+                    "thread": {"id": self.channel.id, "model": "discuss.channel"},
+                    "voice": False,
+                },
+                {
+                    "checksum": False,
+                    "create_date": fields.Datetime.to_string(self.attachments[1].create_date),
+                    "id": self.attachments[1].id,
+                    "filename": "File 2",
+                    "name": "File 2",
+                    "size": 0,
+                    "res_name": "Test channel",
+                    "mimetype": "application/octet-stream",
+                    "thread": {"id": self.channel.id, "model": "discuss.channel"},
+                    "voice": False,
+                },
+            ],
             "guest should be allowed to add own attachment without token when updating message",
         )
 
@@ -220,7 +283,7 @@ class TestMessageController(HttpCaseWithUserDemo):
             data=json.dumps(
                 {
                     "params": {
-                        "thread_model": self.channel._name,
+                        "thread_model": "discuss.channel",
                         "thread_id": self.channel.id,
                         "emails": ["john@test.be"],
                     },
@@ -239,7 +302,7 @@ class TestMessageController(HttpCaseWithUserDemo):
             data=json.dumps(
                 {
                     "params": {
-                        "thread_model": self.channel._name,
+                        "thread_model": "discuss.channel",
                         "thread_id": self.channel.id,
                         "post_data": {
                             "body": "test",
@@ -262,7 +325,7 @@ class TestMessageController(HttpCaseWithUserDemo):
             data=json.dumps(
                 {
                     "params": {
-                        "thread_model": self.channel._name,
+                        "thread_model": "discuss.channel",
                         "thread_id": self.channel.id,
                         "emails": ["john@test.be"],
                         'additional_values': {"john@test.be": {'phone': '123456789'}},
@@ -283,7 +346,7 @@ class TestMessageController(HttpCaseWithUserDemo):
             data=json.dumps(
                 {
                     "params": {
-                        "thread_model": self.channel._name,
+                        "thread_model": "discuss.channel",
                         "thread_id": self.channel.id,
                         "emails": ["john@test.be"],
                     },
@@ -305,7 +368,7 @@ class TestMessageController(HttpCaseWithUserDemo):
             data=json.dumps(
                 {
                     "params": {
-                        "thread_model": self.channel._name,
+                        "thread_model": "discuss.channel",
                         "thread_id": self.channel.id,
                         "post_data": {
                             "body": "test",
@@ -329,7 +392,7 @@ class TestMessageController(HttpCaseWithUserDemo):
             data=json.dumps(
                 {
                     "params": {
-                        "thread_model": self.channel._name,
+                        "thread_model": "discuss.channel",
                         "thread_id": self.channel.id,
                         "post_data": {
                             "body": "test",

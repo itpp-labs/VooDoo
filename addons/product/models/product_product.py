@@ -2,13 +2,13 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import re
-from collections import defaultdict
 from operator import itemgetter
 
 from odoo import api, fields, models, tools, _
 from odoo.exceptions import ValidationError
 from odoo.osv import expression
 from odoo.tools import float_compare, format_list, groupby
+from odoo.tools.image import is_image_size_above
 from odoo.tools.misc import unique
 
 
@@ -107,7 +107,7 @@ class ProductProduct(models.Model):
     @api.depends('image_variant_1920', 'image_variant_1024')
     def _compute_can_image_variant_1024_be_zoomed(self):
         for record in self:
-            record.can_image_variant_1024_be_zoomed = record.image_variant_1920 and tools.is_image_size_above(record.image_variant_1920, record.image_variant_1024)
+            record.can_image_variant_1024_be_zoomed = record.image_variant_1920 and is_image_size_above(record.image_variant_1920, record.image_variant_1024)
 
     def _set_template_field(self, template_field, variant_field):
         for record in self:
@@ -462,12 +462,12 @@ class ProductProduct(models.Model):
         return new_products
 
     @api.model
-    def _search(self, domain, offset=0, limit=None, order=None, access_rights_uid=None):
+    def _search(self, domain, offset=0, limit=None, order=None):
         # TDE FIXME: strange
         if self._context.get('search_default_categ_id'):
             domain = domain.copy()
             domain.append((('categ_id', 'child_of', self._context['search_default_categ_id'])))
-        return super()._search(domain, offset, limit, order, access_rights_uid)
+        return super()._search(domain, offset, limit, order)
 
     @api.depends('name', 'default_code', 'product_tmpl_id')
     @api.depends_context('display_default_code', 'seller_id', 'company_id', 'partner_id')

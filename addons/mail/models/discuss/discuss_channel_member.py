@@ -220,6 +220,7 @@ class ChannelMember(models.Model):
                 "id": True,
                 "persona": {},
                 "seen_message_id": True,
+                "last_seen_dt": True,
             }
         if extra_fields:
             fields.update(extra_fields)
@@ -233,9 +234,11 @@ class ChannelMember(models.Model):
             if 'id' in fields:
                 data['id'] = member.id
             if 'channel' in fields:
-                data['thread'] = member.channel_id._channel_format(fields=fields.get('channel')).get(member.channel_id)
+                data["thread"] = {"id": member.channel_id.id, "model": "discuss.channel"}
             if 'create_date' in fields:
                 data['create_date'] = odoo.fields.Datetime.to_string(member.create_date)
+            if 'last_seen_dt' in fields:
+                data['last_seen_dt'] = odoo.fields.Datetime.to_string(member.last_seen_dt)
             if 'persona' in fields:
                 if member.partner_id:
                     # sudo: res.partner - calling _partner_data_to_store related to a member is considered acceptable
@@ -244,13 +247,8 @@ class ChannelMember(models.Model):
                     )
                     data["persona"] = {"id": member.partner_id.id, "type": "partner"}
                 if member.guest_id:
-                    # sudo: mail.guest - reading _guest_format related to a member is considered acceptable
-                    store.add(
-                        "Persona",
-                        member.guest_id.sudo()
-                        ._guest_format(fields=fields.get("persona", {}).get("guest"))
-                        .get(member.guest_id),
-                    )
+                    # sudo: mail.guest - reading guest related to a member is considered acceptable
+                    store.add(member.guest_id.sudo(), fields=fields.get("persona", {}).get("guest"))
                     data["persona"] = {"id": member.guest_id.id, "type": "guest"}
             if 'custom_notifications' in fields:
                 data['custom_notifications'] = member.custom_notifications

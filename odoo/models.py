@@ -55,13 +55,14 @@ from . import api
 from . import tools
 from .exceptions import AccessError, MissingError, ValidationError, UserError
 from .tools import (
-    clean_context, config, CountingStream, date_utils, discardattr,
+    clean_context, config, date_utils, discardattr,
     DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT, format_list,
-    frozendict, get_lang, LastOrderedSet, lazy_classproperty, OrderedSet,
-    ormcache, partition, populate, Query, ReversedIterable, split_every, unique,
-    SQL, pycompat,
+    frozendict, get_lang, lazy_classproperty, OrderedSet,
+    ormcache, partition, populate, Query, split_every, unique,
+    SQL, pycompat, sql,
 )
 from .tools.lru import LRU
+from .tools.misc import CountingStream, LastOrderedSet, ReversedIterable
 from .tools.translate import _, _lt
 
 _logger = logging.getLogger(__name__)
@@ -2021,11 +2022,11 @@ class BaseModel(metaclass=MetaModel):
                            SQL | -----------------------
                     Monday  1  |  0     |  1    |  2
                     tuesday 2  |  1     |  2    |  3
-                    wed     3  |  3     |  4    |  4
+                    wed     3  |  2     |  3    |  4
                     thurs   4  |  3     |  4    |  5
                     friday  5  |  4     |  5    |  6
-                    sat     6  |  6     |  0    |  0
-                    sun     7  |  0     |  1    |  1
+                    sat     6  |  5     |  6    |  0
+                    sun     7  |  6     |  0    |  1
                     """
                     first_week_day = int(get_lang(self.env, self.env.context.get('tz')).week_start)
                     sql_expr = SQL("mod(7 - %s + date_part(%s, %s)::int, 7)", first_week_day, spec, sql_expr)
@@ -3190,7 +3191,7 @@ class BaseModel(metaclass=MetaModel):
                 _logger.debug("column %s is in the table %s but not in the corresponding object %s",
                               row['attname'], self._table, self._name)
             if row['attnotnull']:
-                tools.drop_not_null(cr, self._table, row['attname'])
+                sql.drop_not_null(cr, self._table, row['attname'])
 
     def _init_column(self, column_name):
         """ Initialize the value of the given column for existing rows. """
@@ -3250,7 +3251,7 @@ class BaseModel(metaclass=MetaModel):
 
         cr = self._cr
         update_custom_fields = self._context.get('update_custom_fields', False)
-        must_create_table = not tools.table_exists(cr, self._table)
+        must_create_table = not sql.table_exists(cr, self._table)
         parent_path_compute = False
 
         if self._auto:
@@ -3258,15 +3259,15 @@ class BaseModel(metaclass=MetaModel):
                 def make_type(field):
                     return field.column_type[1] + (" NOT NULL" if field.required else "")
 
-                tools.create_model_table(cr, self._table, self._description, [
+                sql.create_model_table(cr, self._table, self._description, [
                     (field.name, make_type(field), field.string)
                     for field in sorted(self._fields.values(), key=lambda f: f.column_order)
                     if field.name != 'id' and field.store and field.column_type
                 ])
 
             if self._parent_store:
-                if not tools.column_exists(cr, self._table, 'parent_path'):
-                    tools.create_column(self._cr, self._table, 'parent_path', 'VARCHAR')
+                if not sql.column_exists(cr, self._table, 'parent_path'):
+                    sql.create_column(self._cr, self._table, 'parent_path', 'VARCHAR')
                     parent_path_compute = True
                 self._check_parent_path()
 
@@ -3274,7 +3275,7 @@ class BaseModel(metaclass=MetaModel):
                 self._check_removed_columns(log=False)
 
             # update the database schema for fields
-            columns = tools.table_columns(cr, self._table)
+            columns = sql.table_columns(cr, self._table)
             fields_to_compute = []
 
             for field in sorted(self._fields.values(), key=lambda f: f.column_order):
@@ -3326,27 +3327,27 @@ class BaseModel(metaclass=MetaModel):
         for (key, definition, message) in self._sql_constraints:
             conname = '%s_%s' % (self._table, key)
             if len(conname) > 63:
-                hashed_conname = tools.make_identifier(conname)
-                current_definition = tools.constraint_definition(cr, self._table, hashed_conname)
+                hashed_conname = sql.make_identifier(conname)
+                current_definition = sql.constraint_definition(cr, self._table, hashed_conname)
                 if not current_definition:
                     _logger.info("Constraint name %r has more than 63 characters, internal PG identifier is %r", conname, hashed_conname)
                 conname = hashed_conname
             else:
-                current_definition = tools.constraint_definition(cr, self._table, conname)
+                current_definition = sql.constraint_definition(cr, self._table, conname)
             if current_definition == definition:
                 continue
 
             if current_definition:
                 # constraint exists but its definition may have changed
-                tools.drop_constraint(cr, self._table, conname)
+                sql.drop_constraint(cr, self._table, conname)
 
             if not definition:
                 # virtual constraint (e.g. implemented by a custom index)
-                self.pool.post_init(tools.check_index_exist, cr, conname)
+                self.pool.post_init(sql.check_index_exist, cr, conname)
             elif foreign_key_re.match(definition):
-                self.pool.post_init(tools.add_constraint, cr, self._table, conname, definition)
+                self.pool.post_init(sql.add_constraint, cr, self._table, conname, definition)
             else:
-                self.pool.post_constraint(tools.add_constraint, cr, self._table, conname, definition)
+                self.pool.post_constraint(sql.add_constraint, cr, self._table, conname, definition)
 
     #
     # Update objects that use this one to update their _inherits fields
@@ -5472,17 +5473,12 @@ class BaseModel(metaclass=MetaModel):
             self.env[model_name].flush_model(field_names)
 
     @api.model
-    def _search(self, domain, offset=0, limit=None, order=None, access_rights_uid=None) -> Query:
+    def _search(self, domain, offset=0, limit=None, order=None) -> Query:
         """
-        Private implementation of search() method, allowing specifying the uid to use for the access right check.
-        This is useful for example when filling in the selection list for a drop-down and avoiding access rights errors,
-        by specifying ``access_rights_uid=1`` to bypass access rights check, but not ir.rules!
-        This is ok at the security level because this method is private and not callable through XML-RPC.
+        Private implementation of search() method.
 
         No default order is applied when the method is invoked without parameter ``order``.
 
-        :param access_rights_uid: optional user ID to use when checking access rights
-                                  (not for ir.rules, this is only for ir.model.access)
         :return: a :class:`Query` object that represents the matching records
 
         This method may be overridden to modify the domain being searched, or to
@@ -5491,8 +5487,7 @@ class BaseModel(metaclass=MetaModel):
         default the returned query object is not actually executed, and it can
         be injected as a value in a domain in order to generate sub-queries.
         """
-        model = self.with_user(access_rights_uid) if access_rights_uid else self
-        model.check_access_rights('read')
+        self.check_access_rights('read')
 
         if expression.is_false(self, domain):
             # optimization: no need to query, as no record satisfies the domain

@@ -18,6 +18,7 @@ import { EditListPopup } from "@point_of_sale/app/store/select_lot_popup/select_
 import { ProductConfiguratorPopup } from "./product_configurator_popup/product_configurator_popup";
 import { ComboConfiguratorPopup } from "./combo_configurator_popup/combo_configurator_popup";
 import { makeAwaitable, ask } from "@point_of_sale/app/store/make_awaitable_dialog";
+import { deserializeDate } from "@web/core/l10n/dates";
 import { PartnerList } from "../screens/partner_list/partner_list";
 import { ScaleScreen } from "../screens/scale_screen/scale_screen";
 import { computeComboLines } from "../models/utils/compute_combo_lines";
@@ -198,27 +199,36 @@ export class PosStore extends Reactive {
     }
 
     async processProductAttributes() {
-        const productIds = [];
-        const productTmplIds = [];
+        const productIds = new Set();
+        const productTmplIds = new Set();
+        const productByTmplId = {};
 
         for (const product of this.models["product.product"].getAll()) {
             if (product.product_template_variant_value_ids.length > 0) {
-                productTmplIds.push(product.raw.product_tmpl_id);
-                productIds.push(product.id);
+                productTmplIds.add(product.raw.product_tmpl_id);
+                productIds.add(product.id);
+
+                if (!productByTmplId[product.raw.product_tmpl_id]) {
+                    productByTmplId[product.raw.product_tmpl_id] = [];
+                }
+
+                productByTmplId[product.raw.product_tmpl_id].push(product);
             }
         }
 
-        if (productIds.length) {
+        if (productIds.size > 0) {
             await this.data.searchRead("product.product", [
                 "&",
-                ["id", "not in", productIds],
-                ["product_tmpl_id", "in", productTmplIds],
+                ["id", "not in", [...productIds]],
+                ["product_tmpl_id", "in", [...productTmplIds]],
             ]);
         }
 
-        for (const product of this.models["product.product"].getAll()) {
-            if (!product.isConfigurable() && productTmplIds.includes(product.raw.product_tmpl_id)) {
-                product.available_in_pos = false;
+        for (const products of Object.values(productByTmplId)) {
+            const nbrProduct = products.length;
+
+            for (let i = 0; i < nbrProduct - 1; i++) {
+                products[i].available_in_pos = false;
             }
         }
     }
@@ -291,30 +301,53 @@ export class PosStore extends Reactive {
             }
         }
 
-        for (const product of products) {
-            const applicableRules = {};
-
-            for (const item of pricelistItems) {
-                if (!applicableRules[item.pricelist_id.id]) {
-                    applicableRules[item.pricelist_id.id] = [];
-                }
-
-                if (!product.isPricelistItemUsable(item, date)) {
-                    continue;
-                }
-
-                if (item.raw.product_id && product.id === item.raw.product_id) {
-                    applicableRules[item.pricelist_id.id].push(item);
-                } else if (
-                    !item.raw.product_id &&
-                    item.raw.product_tmpl_id &&
-                    product.raw?.product_tmpl_id === item.raw.product_tmpl_id
-                ) {
-                    applicableRules[item.pricelist_id.id].push(item);
-                } else if (!item.raw.product_tmpl_id && !item.raw.product_id) {
-                    applicableRules[item.pricelist_id.id].push(item);
-                }
+        const pushItem = (targetArray, key, item) => {
+            if (!targetArray[key]) {
+                targetArray[key] = [];
             }
+            targetArray[key].push(item);
+        };
+
+        const pricelistRules = {};
+
+        for (const item of pricelistItems) {
+            if (
+                (item.date_start && deserializeDate(item.date_start) > date) ||
+                (item.date_end && deserializeDate(item.date_end) < date)
+            ) {
+                continue;
+            }
+            const pricelistId = item.pricelist_id.id;
+
+            if (!pricelistRules[pricelistId]) {
+                pricelistRules[pricelistId] = {
+                    productItems: {},
+                    productTmlpItems: {},
+                    categoryItems: {},
+                    globalItems: [],
+                };
+            }
+
+            const productId = item.raw.product_id;
+            if (productId) {
+                pushItem(pricelistRules[pricelistId].productItems, productId, item);
+                continue;
+            }
+            const productTmplId = item.raw.product_tmpl_id;
+            if (productTmplId) {
+                pushItem(pricelistRules[pricelistId].productTmlpItems, productTmplId, item);
+                continue;
+            }
+            const categId = item.raw.categ_id;
+            if (categId) {
+                pushItem(pricelistRules[pricelistId].categoryItems, categId, item);
+            } else {
+                pricelistRules[pricelistId].globalItems.push(item);
+            }
+        }
+
+        for (const product of products) {
+            const applicableRules = product.getApplicablePricelistRules(pricelistRules);
             for (const pricelistId in applicableRules) {
                 if (product.cachedPricelistRules[pricelistId]) {
                     const existingRuleIds = product.cachedPricelistRules[pricelistId].map(
@@ -468,14 +501,15 @@ export class PosStore extends Reactive {
             merge = false;
         }
 
+        const product = vals.product_id;
+
         const values = {
             price_type: "price_unit" in vals ? "manual" : "original",
             price_extra: 0,
             price_unit: 0,
             order_id: this.get_order(),
             qty: 1,
-            product_id: vals.product_id,
-            tax_ids: vals.product_id.taxes_id[0] ? [["link", vals.product_id.taxes_id[0]]] : [],
+            tax_ids: product.taxes_id.length ? [["link", ...product.taxes_id]] : [],
             ...vals,
         };
 
@@ -577,8 +611,8 @@ export class PosStore extends Reactive {
                 "create",
                 {
                     product_id: comboLine.combo_line_id.product_id,
-                    tax_ids: comboLine.combo_line_id.product_id.taxes_id[0]
-                        ? [["link", comboLine.combo_line_id.product_id.taxes_id[0]]]
+                    tax_ids: comboLine.combo_line_id.product_id.taxes_id.length
+                        ? [["link", ...comboLine.combo_line_id.product_id.taxes_id]]
                         : [],
                     combo_line_id: comboLine.combo_line_id,
                     price_unit: comboLine.price_unit,

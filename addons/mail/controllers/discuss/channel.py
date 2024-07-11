@@ -173,7 +173,9 @@ class ChannelController(http.Controller):
         if before:
             domain.append(["id", "<", before])
         # sudo: ir.attachment - reading attachments of a channel that the current user can access
-        return request.env["ir.attachment"].sudo().search(domain, limit=limit, order="id DESC")._attachment_format()
+        return Store(
+            request.env["ir.attachment"].sudo().search(domain, limit=limit, order="id DESC")
+        ).get_result()
 
     @http.route("/discuss/channel/fold", methods=["POST"], type="json", auth="public")
     @add_guest_to_context

@@ -197,8 +197,9 @@ from .modules.module import get_manifest
 from .modules.registry import Registry
 from .service import security, model as service_model
 from .tools import (config, consteq, date_utils, file_path, get_lang,
-                    parse_version, profiler, submap, unique, ustr)
+                    parse_version, profiler, unique, ustr)
 from .tools.func import filter_kwargs, lazy_property
+from .tools.misc import submap
 from .tools._vendor import sessions
 from .tools._vendor.useragents import UserAgent
 
@@ -1005,10 +1006,10 @@ class Session(collections.abc.MutableMapping):
     #
     # Session methods
     #
-    def authenticate(self, dbname, login=None, password=None):
+    def authenticate(self, dbname, credential):
         """
         Authenticate the current user with the given db, login and
-        password. If successful, store the authentication parameters in
+        credential. If successful, store the authentication parameters in
         the current session, unless multi-factor-auth (MFA) is
         activated. In that case, that last part will be done by
         :ref:`finalize`.
@@ -1027,10 +1028,11 @@ class Session(collections.abc.MutableMapping):
         }
 
         registry = Registry(dbname)
-        pre_uid = registry['res.users'].authenticate(dbname, login, password, wsgienv)
+        auth_info = registry['res.users'].authenticate(dbname, credential, wsgienv)
+        pre_uid = auth_info['uid']
 
         self.uid = None
-        self.pre_login = login
+        self.pre_login = credential['login']
         self.pre_uid = pre_uid
 
         with registry.cursor() as cr:
@@ -1038,7 +1040,7 @@ class Session(collections.abc.MutableMapping):
 
             # if 2FA is disabled we finalize immediately
             user = env['res.users'].browse(pre_uid)
-            if not user._mfa_url():
+            if auth_info.get('mfa') == 'skip' or not user._mfa_url():
                 self.finalize(env)
 
         if request and request.session is self and request.db == dbname:
@@ -1047,7 +1049,7 @@ class Session(collections.abc.MutableMapping):
             # request env needs to be able to access the latest changes from the auth layers
             request.env.cr.commit()
 
-        return pre_uid
+        return auth_info
 
     def finalize(self, env):
         """

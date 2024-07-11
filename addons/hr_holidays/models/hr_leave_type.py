@@ -6,7 +6,7 @@ import logging
 import pytz
 
 from collections import defaultdict
-from datetime import time, datetime
+from datetime import date, datetime, time
 
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
@@ -341,7 +341,7 @@ class HolidaysType(models.Model):
             record.display_name = name
 
     @api.model
-    def _search(self, domain, offset=0, limit=None, order=None, access_rights_uid=None):
+    def _search(self, domain, offset=0, limit=None, order=None):
         """ Override _search to order the results, according to some employee.
         The order is the following
 
@@ -356,11 +356,11 @@ class HolidaysType(models.Model):
         employee = self.env['hr.employee']._get_contextual_employee()
         if order == self._order and employee:
             # retrieve all leaves, sort them, then apply offset and limit
-            leaves = self.browse(super()._search(domain, access_rights_uid=access_rights_uid))
+            leaves = self.browse(super()._search(domain))
             leaves = leaves.sorted(key=self._model_sorting_key, reverse=True)
             leaves = leaves[offset:(offset + limit) if limit else None]
             return leaves._as_query()
-        return super()._search(domain, offset, limit, order, access_rights_uid)
+        return super()._search(domain, offset, limit, order)
 
     def copy_data(self, default=None):
         vals_list = super().copy_data(default=default)
@@ -404,6 +404,20 @@ class HolidaysType(models.Model):
     # ------------------------------------------------------------
     # Leave - Allocation link methods
     # ------------------------------------------------------------
+
+    @api.model
+    def has_accrual_allocation(self):
+        employee = self.env['hr.employee']._get_contextual_employee()
+        if not employee:
+            return False
+        return bool(self.env['hr.leave.allocation'].search_count([
+            ('employee_id', '=', employee.id),
+            ('state', '=', 'validate'),
+            ('allocation_type', '=', 'accrual'),
+            '|',
+            ('date_to', '>', date.today()),
+            ('date_to', '=', False),
+        ]))
 
     @api.model
     def get_allocation_data_request(self, target_date=None, hidden_allocations=True):
@@ -457,7 +471,6 @@ class HolidaysType(models.Model):
                         'exceeding_duration': extra_data[employee][leave_type]['exceeding_duration'],
                         'request_unit': leave_type.request_unit,
                         'icon': leave_type.sudo().icon_id.url,
-                        'has_accrual_allocation': False,
                         'allows_negative': leave_type.allows_negative,
                         'max_allowed_negative': leave_type.max_allowed_negative,
                     },
@@ -485,8 +498,6 @@ class HolidaysType(models.Model):
                 for allocation, data in allocations_leaves_consumed[employee][leave_type].items():
                     # We only need the allocation that are valid at the given date
                     if allocation:
-                        if allocation.allocation_type == 'accrual':
-                            lt_info[1]['has_accrual_allocation'] = True
                         today = fields.Date.today()
                         if allocation.date_from <= today and (not allocation.date_to or allocation.date_to >= today):
                             # we get each allocation available now to indicate visually if
