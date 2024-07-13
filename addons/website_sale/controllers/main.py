@@ -210,7 +210,6 @@ class WebsiteSale(payment_portal.PaymentPortal):
     def shop(self, page=0, category=None, search='', min_price=0.0, max_price=0.0, ppg=False, **post):
         if not request.website.has_ecommerce_access():
             return request.redirect('/web/login')
-        add_qty = int(post.get('add_qty', 1))
         try:
             min_price = float(min_price)
         except ValueError:
@@ -375,9 +374,7 @@ class WebsiteSale(payment_portal.PaymentPortal):
                 layout_mode = 'grid'
             request.session['website_sale_shop_layout_mode'] = layout_mode
 
-        # Try to fetch geoip based fpos or fallback on partner one
-        fiscal_position_sudo = website.fiscal_position_id.sudo()
-        products_prices = lazy(lambda: products._get_sales_prices(pricelist, fiscal_position_sudo))
+        products_prices = lazy(lambda: products._get_sales_prices(website))
 
         attributes_values = request.env['product.attribute.value'].browse(attrib_set)
         sorted_attributes_values = attributes_values.sorted('sequence')
@@ -398,9 +395,6 @@ class WebsiteSale(payment_portal.PaymentPortal):
             'attrib_values': attrib_values,
             'attrib_set': attrib_set,
             'pager': pager,
-            'pricelist': pricelist,
-            'fiscal_position': fiscal_position_sudo,
-            'add_qty': add_qty,
             'products': products,
             'search_product': search_product,
             'search_count': product_count,  # common for all searchbox
@@ -637,7 +631,6 @@ class WebsiteSale(payment_portal.PaymentPortal):
         return {
             'search': search,
             'category': category,
-            'pricelist': request.website.pricelist_id,
             'keep': keep,
             'categories': ProductCategory.search([('parent_id', '=', False)]),
             'main_object': product,
@@ -1646,8 +1639,8 @@ class WebsiteSale(payment_portal.PaymentPortal):
         ], limit=1)
         address.update(country_id=country.id, state_id=state.id)
 
-    @route('/shop/cart/update_address', type='json', auth='public', website=True)
-    def update_cart_address(self, partner_id, address_type='billing', **kw):
+    @route('/shop/update_address', type='json', auth='public', website=True)
+    def shop_update_address(self, partner_id, address_type='billing', **kw):
         partner_id = int(partner_id)
 
         order_sudo = request.website.sale_get_order()

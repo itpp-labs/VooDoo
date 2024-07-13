@@ -225,7 +225,7 @@ registry.category("web_tour.tours").add("PosLoyaltyTour6", {
             PosLoyalty.checkAddedLoyaltyPoints("26.5"),
             ProductScreen.clickControlButton("Reward"),
             SelectionPopup.has("$ 1 per point on your order", { run: "click" }),
-            ProductScreen.totalAmountIs("138.50"),
+            ProductScreen.totalAmountIs("165.00"),
         ].flat(),
 });
 
@@ -436,9 +436,9 @@ registry.category("web_tour.tours").add("PosLoyaltyPointsGlobalDiscountProgramNo
     steps: () =>
         [
             Dialog.confirm("Open session"),
+            ProductScreen.addOrderline("product_a", "1"),
             ProductScreen.clickPartnerButton(),
             ProductScreen.clickCustomer("AAAA"),
-            ProductScreen.addOrderline("product_a", "1"),
             PosLoyalty.hasRewardLine("10% on your order", "-10.00"),
             PosLoyalty.orderTotalIs("90"),
             PosLoyalty.pointsAwardedAre("90"),

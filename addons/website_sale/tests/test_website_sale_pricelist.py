@@ -204,7 +204,6 @@ class TestWebsitePriceList(WebsiteSaleCommon):
             'taxes_id': False,
         })
         self.website.pricelist_id.write({
-            'discount_policy': 'with_discount',
             'item_ids': [Command.clear(), Command.create({
                 'applied_on': '1_product',
                 'product_tmpl_id': product.product_tmpl_id.id,
@@ -215,7 +214,6 @@ class TestWebsitePriceList(WebsiteSaleCommon):
         })
         promo_pricelist = self.env['product.pricelist'].create({
             'name': 'Super Pricelist',
-            'discount_policy': 'without_discount',
             'item_ids': [Command.create({
                 'applied_on': '1_product',
                 'product_tmpl_id': product.product_tmpl_id.id,
@@ -234,7 +232,7 @@ class TestWebsitePriceList(WebsiteSaleCommon):
                 'product_uom_qty': 1,
                 'product_uom': product.uom_id.id,
                 'price_unit': product.list_price,
-                'tax_id': False,
+                'tax_ids': False,
             })],
         })
         sol = so.order_line
@@ -252,7 +250,6 @@ class TestWebsitePriceList(WebsiteSaleCommon):
             'taxes_id': False,
         })
         self.website.pricelist_id.write({
-            'discount_policy': 'without_discount',
             'item_ids': [
                 Command.clear(),
                 Command.create({
@@ -274,7 +271,7 @@ class TestWebsitePriceList(WebsiteSaleCommon):
                 'product_uom_qty': 5,
                 'product_uom': product.uom_id.id,
                 'price_unit': product.list_price,
-                'tax_id': False,
+                'tax_ids': False,
             })]
         })
         sol = so.order_line
@@ -283,25 +280,6 @@ class TestWebsitePriceList(WebsiteSaleCommon):
         self.assertEqual(sol.price_unit, 10.0, 'Pricelist price should be applied')
         self.assertEqual(sol.discount, 0, 'Pricelist price should be applied')
         self.assertEqual(sol.price_total, 60.0)
-
-    def test_get_right_discount(self):
-        """ Test that `_get_sales_prices` from `product_template`
-        returns a dict with just `price_reduce` (no discount) as key
-        when the product is tax included.
-        """
-        self.env.company.country_id = self.env.ref('base.us')
-
-        product = self.env['product.template'].create({
-            'name': 'Event Product',
-            'list_price': 10.0,
-            'taxes_id': [Command.create({
-                'name': "Tax 10",
-                'amount': 10,
-            })],
-        })
-
-        prices = product._get_sales_prices(self.list_christmas, self.env['account.fiscal.position'])
-        self.assertFalse('base_price' in prices[product.id])
 
     def test_pricelist_item_based_on_cost_for_templates(self):
         """ Test that `_get_sales_prices` from `product_template` computes the correct price when
@@ -326,8 +304,9 @@ class TestWebsitePriceList(WebsiteSaleCommon):
             'name': 'Product Template', 'list_price': 10.0, 'standard_price': 5.0
         })
         self.assertEqual(product_template.standard_price, 5)
-        price = product_template._get_sales_prices(
-            pricelist, self.env['account.fiscal.position'])[product_template.id]['price_reduce']
+        # Hack to enforce the use of this pricelist in the call to `_get_sales_price`
+        self.website.pricelist_id = pricelist
+        price = product_template._get_sales_prices(self.website)[product_template.id]['price_reduce']
         msg = "Template has no variants, the price should be computed based on the template's cost."
         self.assertEqual(price, 4.5, msg)
 
@@ -338,14 +317,14 @@ class TestWebsitePriceList(WebsiteSaleCommon):
         self.assertEqual(product_template.standard_price, 0, msg)
         self.assertEqual(product_template.product_variant_ids[0].standard_price, 0)
 
-        price = product_template._get_sales_prices(
-            pricelist, self.env['account.fiscal.position'])[product_template.id]['price_reduce']
+        self.website.pricelist_id = pricelist
+        price = product_template._get_sales_prices(self.website)[product_template.id]['price_reduce']
         msg = "Template has variants, the price should be computed based on the 1st variant's cost."
         self.assertEqual(price, 0, msg)
 
         product_template.product_variant_ids[0].standard_price = 20
-        price = product_template._get_sales_prices(
-            pricelist, self.env['account.fiscal.position'])[product_template.id]['price_reduce']
+        self.website.pricelist_id = pricelist
+        price = product_template._get_sales_prices(self.website)[product_template.id]['price_reduce']
         self.assertEqual(price, 18, msg)
 
     def test_base_price_with_discount_on_pricelist_tax_included(self):
@@ -358,7 +337,6 @@ class TestWebsitePriceList(WebsiteSaleCommon):
         """
         self.env['res.config.settings'].create({                  # Set Settings:
             'show_line_subtotals_tax_selection': 'tax_included',  # Set "Tax Included" on the "Display Product Prices"
-            'product_pricelist_setting': 'advanced',              # advanced pricelist (discounts, etc.)
             'group_product_price_comparison': True,               # price comparison
         }).execute()
 
@@ -376,14 +354,15 @@ class TestWebsitePriceList(WebsiteSaleCommon):
             'is_published': True,
         })
         self.pricelist.write({
-            'discount_policy': 'without_discount',
             'item_ids': [Command.create({
                 'price_discount': 20,
                 'compute_price': 'formula',
                 'product_tmpl_id': product_tmpl.id,
             })],
         })
-        res = product_tmpl._get_sales_prices(self.pricelist, self.env['account.fiscal.position'])
+        # Hack to enforce the use of this pricelist in the call to `_get_sales_price`
+        self.website.pricelist_id = self.pricelist
+        res = product_tmpl._get_sales_prices(self.website)
         self.assertEqual(res[product_tmpl.id]['base_price'], 75)
 
 def simulate_frontend_context(self, website_id=1):

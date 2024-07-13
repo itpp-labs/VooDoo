@@ -17,7 +17,11 @@ import { TicketScreen } from "@point_of_sale/app/screens/ticket_screen/ticket_sc
 import { EditListPopup } from "@point_of_sale/app/store/select_lot_popup/select_lot_popup";
 import { ProductConfiguratorPopup } from "./product_configurator_popup/product_configurator_popup";
 import { ComboConfiguratorPopup } from "./combo_configurator_popup/combo_configurator_popup";
-import { makeAwaitable, ask } from "@point_of_sale/app/store/make_awaitable_dialog";
+import {
+    makeAwaitable,
+    ask,
+    makeActionAwaitable,
+} from "@point_of_sale/app/store/make_awaitable_dialog";
 import { deserializeDate } from "@web/core/l10n/dates";
 import { PartnerList } from "../screens/partner_list/partner_list";
 import { ScaleScreen } from "../screens/scale_screen/scale_screen";
@@ -45,6 +49,7 @@ export class PosStore extends Reactive {
         "notification",
         "printer",
         "action",
+        "alert",
     ];
     constructor() {
         super();
@@ -64,6 +69,7 @@ export class PosStore extends Reactive {
             bus_service,
             pos_data,
             action,
+            alert,
         }
     ) {
         this.env = env;
@@ -75,6 +81,7 @@ export class PosStore extends Reactive {
         this.bus = bus_service;
         this.data = pos_data;
         this.action = action;
+        this.alert = alert;
         this.notification = notification;
         this.unwatched = markRaw({});
         this.pushOrderMutex = new Mutex();
@@ -1367,18 +1374,16 @@ export class PosStore extends Reactive {
     /**
      * @param {import("@point_of_sale/app/models/res_partner").ResPartner?} partner leave undefined to create a new partner
      */
-    editPartner(partner) {
-        this.action.doAction("point_of_sale.res_partner_action_edit_pos", {
-            props: {
-                resId: partner?.id,
-                onSave: (record) => {
-                    this.data.read("res.partner", record.config.resIds);
-                    this.action.doAction({
-                        type: "ir.actions.act_window_close",
-                    });
-                },
-            },
-        });
+    async editPartner(partner) {
+        const record = await makeActionAwaitable(
+            this.action,
+            "point_of_sale.res_partner_action_edit_pos",
+            {
+                props: { resId: partner?.id },
+            }
+        );
+        const newPartner = await this.data.read("res.partner", record.config.resIds);
+        return newPartner[0];
     }
     /**
      * @param {import("@point_of_sale/app/models/product_product").ProductProduct?} product leave undefined to create a new product

@@ -101,6 +101,7 @@
                                     </t>
                             </kanban>
                             <tree string="Order lines" editable="bottom">
+                                <field name="name" column_invisible="True"/>
                                 <field name="full_product_name" optional="hide" readonly="1"/>
                                 <field name="product_id" widget="product_label_section_and_note_field" />
                                 <field name="pack_lot_ids" widget="many2many_tags" groups="stock.group_production_lot"/>
@@ -314,7 +315,7 @@
                 <field name="pos_reference"/>
                 <field name="tracking_number" optional="hide"/>
                 <field name="partner_id"/>
-                <field string="Cashier" name="user_id" widget="many2one_avatar_user" readonly="state in ['done', 'invoiced']"/>
+                <field name="user_id" widget="many2one_avatar_user" readonly="state in ['done', 'invoiced']"/>
                 <field name="amount_total" sum="Amount total" widget="monetary" decoration-bf="1"/>
                 <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-success="state not in ('draft','cancel')"/>
             </tree>

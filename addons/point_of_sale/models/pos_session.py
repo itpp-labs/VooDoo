@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 from collections import defaultdict
 from datetime import timedelta
-from itertools import groupby
+from itertools import groupby, starmap
 
 from odoo import api, fields, models, _, Command
 from odoo.exceptions import AccessDenied, AccessError, UserError, ValidationError
@@ -666,8 +666,11 @@ class PosSession(models.Model):
         payments = orders.payment_ids.filtered(lambda p: p.payment_method_id.type != "pay_later")
         cash_payment_method_ids = self.payment_method_ids.filtered(lambda pm: pm.type == 'cash')
         default_cash_payment_method_id = cash_payment_method_ids[0] if cash_payment_method_ids else None
-        total_default_cash_payment_amount = sum(payments.filtered(lambda p: p.payment_method_id == default_cash_payment_method_id).mapped('amount')) if default_cash_payment_method_id else 0
-        other_payment_method_ids = self.payment_method_ids - default_cash_payment_method_id if default_cash_payment_method_id else self.payment_method_ids
+        default_cash_payments = payments.filtered(lambda p: p.payment_method_id == default_cash_payment_method_id) if default_cash_payment_method_id else []
+        total_default_cash_payment_amount = sum(default_cash_payments.mapped('amount')) if default_cash_payment_method_id else 0
+        non_cash_payment_method_ids = self.payment_method_ids - default_cash_payment_method_id if default_cash_payment_method_id else self.payment_method_ids
+        non_cash_payments_grouped_by_method_id = {pm: orders.payment_ids.filtered(lambda p: p.payment_method_id == pm) for pm in non_cash_payment_method_ids}
+
         cash_in_count = 0
         cash_out_count = 0
         cash_in_out_list = []
@@ -699,13 +702,13 @@ class PosSession(models.Model):
                 'moves': cash_in_out_list,
                 'id': default_cash_payment_method_id.id
             } if default_cash_payment_method_id else None,
-            'other_payment_methods': [{
+            'non_cash_payment_methods': [{
                 'name': pm.name,
-                'amount': sum(orders.payment_ids.filtered(lambda p: p.payment_method_id == pm).mapped('amount')),
-                'number': len(orders.payment_ids.filtered(lambda p: p.payment_method_id == pm)),
+                'amount': sum(non_cash_payments_grouped_by_method_id[pm].mapped('amount')),
+                'number': len(non_cash_payments_grouped_by_method_id[pm]),
                 'id': pm.id,
                 'type': pm.type,
-            } for pm in other_payment_method_ids],
+            } for pm in non_cash_payment_method_ids],
             'is_manager': self.env.user.has_group("point_of_sale.group_pos_manager"),
             'amount_authorized_diff': self.config_id.amount_authorized_diff if self.config_id.set_maximum_difference else None
         }
@@ -873,12 +876,15 @@ class PosSession(models.Model):
                         # for taxes
                         tuple(base_line['record'].tax_ids_after_fiscal_position.flatten_taxes_hierarchy().ids),
                         tuple(to_update['tax_tag_ids'][0][2]),
+                        base_line['product'].id if self.config_id.is_closing_entry_by_product else False,
                     )
                     sales[sale_key] = self._update_amounts(
                         sales[sale_key],
                         {'amount': to_update['price_subtotal']},
                         order.date_order,
                     )
+                    if self.config_id.is_closing_entry_by_product:
+                        sales[sale_key] = self._update_quantities(sales[sale_key], base_line['quantity'])
 
                 # Combine tax lines
                 for tax_line in tax_results['tax_lines_to_add']:
@@ -994,7 +1000,7 @@ class PosSession(models.Model):
             rounding_vals = [self._get_rounding_difference_vals(rounding_difference['amount'], rounding_difference['amount_converted'])]
 
         MoveLine.create(tax_vals)
-        move_line_ids = MoveLine.create([self._get_sale_vals(key, amounts['amount'], amounts['amount_converted']) for key, amounts in sales.items()])
+        move_line_ids = MoveLine.create(list(starmap(self._get_sale_vals, sales.items())))
         for key, ml_id in zip(sales.keys(), move_line_ids.ids):
             sales[key]['move_line_id'] = ml_id
         MoveLine.create(
@@ -1317,7 +1323,8 @@ class PosSession(models.Model):
         partial_vals = {
             'account_id': self._get_receivable_account(payment_method).id,
             'move_id': self.move_id.id,
-            'name': '%s - %s' % (self.name, payment_method.name)
+            'name': '%s - %s' % (self.name, payment_method.name),
+            'display_type': 'payment_term',
         }
         return self._debit_amounts(partial_vals, amount, amount_converted)
 
@@ -1326,23 +1333,38 @@ class PosSession(models.Model):
             'account_id': self.company_id.account_default_pos_receivable_account_id.id,
             'move_id': self.move_id.id,
             'name': _('From invoice payments'),
+            'display_type': 'payment_term',
         }
         return self._credit_amounts(partial_vals, amount, amount_converted)
 
-    def _get_sale_vals(self, key, amount, amount_converted):
-        account_id, sign, tax_ids, base_tag_ids = key
+    def _get_sale_vals(self, key, sale_vals):
+        account_id, sign, tax_ids, base_tag_ids, product_id = key
+        amount = sale_vals['amount']
+        amount_converted = sale_vals['amount_converted']
         applied_taxes = self.env['account.tax'].browse(tax_ids)
+        if product_id:
+            product = self.env['product.product'].browse(product_id)
+            product_name = product.display_name
+            product_uom = product.uom_id.id
+        else:
+            product_name = ""
+            product_uom = False
         title = 'Sales' if sign == 1 else 'Refund'
         name = '%s untaxed' % title
         if applied_taxes:
-            name = '%s with %s' % (title, ', '.join([tax.name for tax in applied_taxes]))
+            name = '%s %s with %s' % (title, product_name, ', '.join([tax.name for tax in applied_taxes]))
         partial_vals = {
             'name': name,
             'account_id': account_id,
             'move_id': self.move_id.id,
             'tax_ids': [(6, 0, tax_ids)],
             'tax_tag_ids': [(6, 0, base_tag_ids)],
+            'product_id': product_id,
+            'display_type': 'product',
+            'product_uom_id': product_uom
         }
+        if partial_vals.get('product_id'):
+            partial_vals['quantity'] = sale_vals.get('quantity') or 1
         return self._credit_amounts(partial_vals, amount, amount_converted)
 
     def _get_tax_vals(self, key, amount, amount_converted, base_amount_converted):
@@ -1388,6 +1410,12 @@ class PosSession(models.Model):
             'counterpart_account_id': accounting_partner.property_account_receivable_id.id,
             'partner_id': accounting_partner.id,
         }
+
+    def _update_quantities(self, vals, qty_to_add):
+        vals.setdefault('quantity', 0)
+        # update quantity
+        vals['quantity'] += qty_to_add
+        return vals
 
     def _update_amounts(self, old_amounts, amounts_to_add, date, round=True, force_company_currency=False):
         """Responsible for adding `amounts_to_add` to `old_amounts` considering the currency of the session.
@@ -1646,22 +1674,27 @@ class PosSession(models.Model):
             ))
         return True
 
+    def _prepare_account_bank_statement_line_vals(self, session, sign, amount, reason, extras):
+        return {
+            'pos_session_id': session.id,
+            'journal_id': session.cash_journal_id.id,
+            'amount': sign * amount,
+            'date': fields.Date.context_today(self),
+            'payment_ref': '-'.join([session.name, extras['translatedType'], reason]),
+        }
+
     def try_cash_in_out(self, _type, amount, reason, extras):
         sign = 1 if _type == 'in' else -1
         sessions = self.filtered('cash_journal_id')
         if not sessions:
             raise UserError(_("There is no cash payment method for this PoS Session"))
 
-        self.env['account.bank.statement.line'].create([
-            {
-                'pos_session_id': session.id,
-                'journal_id': session.cash_journal_id.id,
-                'amount': sign * amount,
-                'date': fields.Date.context_today(self),
-                'payment_ref': '-'.join([session.name, extras['translatedType'], reason]),
-            }
+        vals_list = [
+            self._prepare_account_bank_statement_line_vals(session, sign, amount, reason, extras)
             for session in sessions
-        ])
+        ]
+
+        self.env['account.bank.statement.line'].create(vals_list)
 
     def _get_attributes_by_ptal_id(self):
         # performance trick: prefetch fields with search_fetch() and fetch()

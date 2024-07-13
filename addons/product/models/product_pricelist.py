@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models, _
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -10,7 +9,7 @@ class Pricelist(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = "Pricelist"
     _rec_names_search = ['name', 'currency_id']  # TODO check if should be removed
-    _order = "sequence asc, id asc"
+    _order = "sequence, id, name"
 
     def _default_currency_id(self):
         return self.env.company.currency_id.id
@@ -45,16 +44,6 @@ class Pricelist(models.Model):
         tracking=10,
     )
 
-    discount_policy = fields.Selection(
-        selection=[
-            ('with_discount', "Discount included in the price"),
-            ('without_discount', "Show public price & discount to the customer"),
-        ],
-        default='with_discount',
-        required=True,
-        tracking=15,
-    )
-
     item_ids = fields.One2many(
         comodel_name='product.pricelist.item',
         inverse_name='pricelist_id',
@@ -69,7 +58,8 @@ class Pricelist(models.Model):
     @api.depends('currency_id')
     def _compute_display_name(self):
         for pricelist in self:
-            pricelist.display_name = f'{pricelist.name} ({pricelist.currency_id.name})'
+            pricelist_name = pricelist.name and pricelist.name or _('New')
+            pricelist.display_name = f'{pricelist_name} ({pricelist.currency_id.name})'
 
     def write(self, values):
         res = super().write(values)
