@@ -39,7 +39,7 @@ patch(Thread.prototype, {
     },
 
     get membersThatCanSeen() {
-        return super.membersThatCanSeen.filter(({ persona }) => !persona.is_bot);
+        return super.membersThatCanSeen.filter((member) => !member.is_bot);
     },
 
     get avatarUrl() {
@@ -67,5 +67,12 @@ patch(Thread.prototype, {
         const message = await super.post(body, params);
         this.store.env.services["im_livechat.chatbot"].bus.trigger("MESSAGE_POST", message);
         return message;
+    },
+
+    get showUnreadBanner() {
+        if (this.chatbot && !this.chatbot.currentStep?.operatorFound) {
+            return false;
+        }
+        return super.showUnreadBanner;
     },
 });
