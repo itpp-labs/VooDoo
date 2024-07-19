@@ -12740,12 +12740,12 @@ msgstr "會計科目自動轉帳範例資料"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_website_sale_delivery_avatax
 msgid "Account AvaTax - Ecommerce - Delivery"
-msgstr ""
+msgstr "AvaTax 帳戶 - 電子商務 - 送貨"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_website_sale_account_avatax
 msgid "Account Avatax - Ecommerce"
-msgstr ""
+msgstr "Avatax 賬戶 - 電子商務"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_account_bank_statement_import
@@ -20301,7 +20301,7 @@ msgstr "法國-會計報表"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_fr_invoice_addr
 msgid "France - Adding Mandatory Invoice Mentions (Decree no. 2022-1299)"
-msgstr ""
+msgstr "法國 - 新增強制性發票提及（第 2022-1299 號法令）"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_fr_fec
