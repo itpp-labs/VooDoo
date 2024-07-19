@@ -1022,7 +1022,7 @@ test.tags("desktop")("execute smart button and back", async () => {
     expect.verifySteps(["web_read", "web_search_read", "web_read"]);
 });
 
-test("execute smart button and fails", async () => {
+test.tags("desktop")("execute smart button and fails on desktop", async () => {
     expect.errors(1);
     onRpc("web_search_read", () => {
         throw makeServerError({ message: "Oups" });
@@ -1034,7 +1034,37 @@ test("execute smart button and fails", async () => {
     expect(".o_form_view").toHaveCount(1);
     expect(".o_form_button_create:not([disabled]):visible").toHaveCount(1);
 
-    await contains(".oe_stat_button").click();
+    await contains("button.oe_stat_button").click();
+    expect(".o_form_view").toHaveCount(1);
+    expect(".o_form_button_create:not([disabled]):visible").toHaveCount(1);
+    expect.verifySteps([
+        "/web/webclient/translations",
+        "/web/webclient/load_menus",
+        "/web/action/load",
+        "get_views",
+        "web_read",
+        "/web/action/load",
+        "get_views",
+        "web_search_read",
+        "web_read",
+    ]);
+    expect.verifyErrors(["Oups"]);
+});
+
+test.tags("mobile")("execute smart button and fails on mobile", async () => {
+    expect.errors(1);
+    onRpc("web_search_read", () => {
+        throw makeServerError({ message: "Oups" });
+    });
+    stepAllNetworkCalls();
+
+    await mountWithCleanup(WebClient);
+    await getService("action").doAction(2);
+    expect(".o_form_view").toHaveCount(1);
+    expect(".o_form_button_create:not([disabled]):visible").toHaveCount(1);
+
+    await contains(".o-form-buttonbox .o_button_more").click();
+    await contains("button.oe_stat_button").click();
     expect(".o_form_view").toHaveCount(1);
     expect(".o_form_button_create:not([disabled]):visible").toHaveCount(1);
     expect.verifySteps([
@@ -1484,7 +1514,6 @@ test("switch request to unknown view type", async () => {
 });
 
 test.tags("desktop")("execute action with unknown view type", async () => {
-    Partner._views["unknown,false"] = "<unknown/>";
     defineActions([
         {
             id: 33,
@@ -1500,9 +1529,9 @@ test.tags("desktop")("execute action with unknown view type", async () => {
         },
     ]);
     await mountWithCleanup(WebClient);
-    await getService("action").doAction(33);
-    expect(".o_list_view").toHaveCount(1);
-    expect("nav.o_cp_switch_buttons button").toHaveCount(2);
+    await expect(getService("action").doAction(33)).rejects.toThrow(
+        /View types not defined unknown found in act_window action 33/
+    );
 });
 
 test("flags field of ir.actions.act_window is used", async () => {

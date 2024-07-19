@@ -159,7 +159,7 @@ class IrHttp(models.AbstractModel):
     def _authenticate_explicit(cls, auth):
         try:
             if request.session.uid is not None:
-                if not security.check_session(request.session, request.env):
+                if not security.check_session(request.session, request.env, request):
                     request.session.logout(keep_db=True)
                     request.env = api.Environment(request.env.cr, None, request.session.context)
             getattr(cls, f'_auth_method_{auth}')()
@@ -290,6 +290,7 @@ class IrHttp(models.AbstractModel):
             "direction": lang_data.direction,
             "date_format": lang_data.date_format,
             "time_format": lang_data.time_format,
+            "short_time_format": lang_data.short_time_format,
             "grouping": lang_data.grouping,
             "decimal_point": lang_data.decimal_point,
             "thousands_sep": lang_data.thousands_sep,

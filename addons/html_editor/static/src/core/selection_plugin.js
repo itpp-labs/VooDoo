@@ -11,10 +11,12 @@ import { closestElement, descendants } from "@html_editor/utils/dom_traversal";
 import { Plugin } from "../plugin";
 import { DIRECTIONS, childNodeIndex, endPos, nodeSize, startPos } from "../utils/position";
 import {
+    getAdjacentCharacter,
     normalizeCursorPosition,
     normalizeDeepCursorPosition,
     normalizeFakeBR,
 } from "../utils/selection";
+import { getActiveHotkey } from "@web/core/hotkeys/hotkey_service";
 
 /**
  * @typedef { Object } EditorSelection
@@ -134,6 +136,10 @@ export class SelectionPlugin extends Plugin {
         });
         this.addDomListener(this.editable, "keydown", (ev) => {
             this.currentKeyDown = ev.key;
+            const handled = ["arrowright", "shift+arrowright", "arrowleft", "shift+arrowleft"];
+            if (handled.includes(getActiveHotkey(ev))) {
+                this.onKeyDownArrows(ev);
+            }
         });
         this.addDomListener(this.editable, "pointerdown", () => {
             this.isPointerDown = true;
@@ -274,7 +280,7 @@ export class SelectionPlugin extends Plugin {
                 commonAncestorContainer: range.commonAncestorContainer,
                 isCollapsed: range.collapsed,
                 direction,
-                textContent: () => range.collapsed ? "" : selection.toString(),
+                textContent: () => (range.collapsed ? "" : selection.toString()),
                 inEditable,
             };
         }
@@ -302,13 +308,7 @@ export class SelectionPlugin extends Plugin {
      */
     getEditableSelection({ deep = false } = {}) {
         const selection = this.document.getSelection();
-        if (
-            selection &&
-            selection.rangeCount &&
-            this.editable.contains(selection.anchorNode) &&
-            (selection.focusNode === selection.anchorNode ||
-                this.editable.contains(selection.focusNode))
-        ) {
+        if (selection && selection.rangeCount && this.isSelectionInEditable(selection)) {
             this.activeSelection = this.makeSelection(selection, true);
         } else if (!this.activeSelection.anchorNode.isConnected) {
             this.activeSelection = this.makeSelection();
@@ -366,10 +366,7 @@ export class SelectionPlugin extends Plugin {
         { anchorNode, anchorOffset, focusNode = anchorNode, focusOffset = anchorOffset },
         { normalize = true } = {}
     ) {
-        if (
-            !this.editable.contains(anchorNode) ||
-            !(anchorNode === focusNode || this.editable.contains(focusNode))
-        ) {
+        if (!this.isSelectionInEditable({ anchorNode, focusNode })) {
             throw new Error("Selection is not in editor");
         }
         [anchorNode, anchorOffset] = normalizeCursorPosition(anchorNode, anchorOffset, "left");
@@ -766,10 +763,7 @@ export class SelectionPlugin extends Plugin {
      * @returns { EditorSelection|null } selection, rectified selection or null
      */
     rectifySelection(selection) {
-        if (
-            !this.editable.contains(selection.anchorNode) ||
-            !this.editable.contains(selection.focusNode)
-        ) {
+        if (!this.isSelectionInEditable(selection)) {
             return null;
         }
         const anchorSize = nodeSize(selection.anchorNode);
@@ -802,14 +796,58 @@ export class SelectionPlugin extends Plugin {
             return editorSelection;
         }
         selection.modify(alter, direction, granularity);
-        const { anchorNode, focusNode } = selection;
-        if (
-            !this.editable.contains(anchorNode) ||
-            !(anchorNode === focusNode || this.editable.contains(focusNode))
-        ) {
-            throw new Error("Selection is not in editor");
+        if (!this.isSelectionInEditable(selection)) {
+            // If selection was moved to outside the editable, restore it.
+            return this.setSelection(editorSelection);
         }
         this.activeSelection = this.makeSelection(selection, true);
         return this.activeSelection;
+    }
+
+    /**
+     * Changes the selection before the browser's default behavior moves the
+     * cursor, in order to skip undesired characters (typically invisible
+     * characters).
+     */
+    onKeyDownArrows(ev) {
+        const selection = this.document.getSelection();
+        if (!selection || !this.isSelectionInEditable(selection)) {
+            return;
+        }
+
+        // Whether moving a collapsed cursor or extending a selection.
+        const mode = ev.shiftKey ? "extend" : "move";
+
+        // Direction of the movement (take rtl writing into account)
+        const screenDirection = ev.key === "ArrowLeft" ? "left" : "right";
+        const isRtl = closestElement(selection.focusNode, "[dir]")?.dir === "rtl";
+        const domDirection = (screenDirection === "left") ^ isRtl ? "previous" : "next";
+
+        // Whether the character next to the cursor should be skipped.
+        const shouldSkipCallbacks = this.resources.arrows_should_skip || [];
+        let adjacentCharacter = getAdjacentCharacter(selection, domDirection, this.editable);
+        let shouldSkip = shouldSkipCallbacks.some((cb) => cb(ev, adjacentCharacter));
+
+        while (shouldSkip) {
+            const { focusNode: nodeBefore, focusOffset: offsetBefore } = selection;
+
+            selection.modify(mode, screenDirection, "character");
+
+            const hasSelectionChanged =
+                nodeBefore !== selection.focusNode || offsetBefore !== selection.focusOffset;
+            const lastSkippedChar = adjacentCharacter;
+            adjacentCharacter = getAdjacentCharacter(selection, domDirection, this.editable);
+
+            shouldSkip =
+                hasSelectionChanged &&
+                shouldSkipCallbacks.some((cb) => cb(ev, adjacentCharacter, lastSkippedChar));
+        }
+    }
+
+    isSelectionInEditable({ anchorNode, focusNode }) {
+        return (
+            this.editable.contains(anchorNode) &&
+            (focusNode === anchorNode || this.editable.contains(focusNode))
+        );
     }
 }

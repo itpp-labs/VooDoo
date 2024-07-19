@@ -12,6 +12,7 @@ import { compileTourToMacro } from "./tour_compilers";
 import { createPointerState } from "./tour_pointer_state";
 import { tourState } from "./tour_state";
 import { callWithUnloadCheck } from "./tour_utils";
+import { TourInteractive } from "./tour_interactive";
 
 /**
  * @typedef {string} HootSelector
@@ -34,24 +35,15 @@ import { callWithUnloadCheck } from "./tour_utils";
  * @property {"enterprise"|"community"|"mobile"|"desktop"|HootSelector[][]} isActive Active the step following {@link isActiveStep} filter
  * @property {string} [id]
  * @property {HootSelector} trigger The node on which the action will be executed.
- * @property {HootSelector} [alt_trigger] An alternative node to the trigger (trigger or alt_trigger).
  * @property {string} [content] Description of the step.
  * @property {"top" | "botton" | "left" | "right"} [position] The position where the UI helper is shown.
- * @property {"community" | "enterprise"} [edition]
  * @property {RunCommand} [run] The action to perform when trigger conditions are verified.
  * @property {boolean} [allowInvisible] Allow trigger nodes (any of them) to be invisible
- * @property {boolean} [allowDisabled] Allow the trigger node to be disabled.
- === run() {}``` (mainly to avoid clicking on the trigger by default)
- allows that trigger node can be disabled. run() {} does not allow this behavior.
- * @property {boolean} [auto]
  * @property {boolean} [in_modal] When true, check that trigger node is present in the last visible .modal.
  * @property {number} [timeout] By default, when the trigger node isn't found after 10000 milliseconds, it throws an error.
  * You can change this value to lengthen or shorten the time before the error occurs [ms].
  * @property {string} [consumeEvent] Only in manual mode (onboarding tour). It's the event we want the customer to do.
- * @property {boolean} [mobile] When true, step will only trigger in mobile view.
  * @property {string} [title]
- * @property {string|false|undefined} [shadow_dom] By default, trigger nodes are selected in the main document node
- * but this property forces to search in a shadowRoot document.
 
  * @typedef {"manual" | "auto"} TourMode
  */
@@ -64,13 +56,11 @@ function checkTourStepKeyValues(tourStep) {
     const stepschema = {
         id: { type: String, optional: true },
         trigger: { type: String },
-        alt_trigger: { type: String, optional: true },
         isActive: { type: Array, element: String, optional: true },
         content: { type: [String, Object], optional: true }, //allow object for _t && markup
         position: { type: String, optional: true },
         run: { type: [String, Function], optional: true },
         allowInvisible: { type: Boolean, optional: true },
-        allowDisabled: { type: Boolean, optional: true },
         in_modal: { type: Boolean, optional: true },
         timeout: { type: Number, optional: true },
         consumeEvent: { type: String, optional: true },
@@ -156,6 +146,7 @@ export const tourService = {
 
         const bus = new EventBus();
         const macroEngine = new MacroEngine({ target: document });
+        const tourInteractive = new TourInteractive();
 
         const pointers = reactive({});
         /** @type {Set<string>} */
@@ -243,54 +234,47 @@ export const tourService = {
                 onStepConsummed(tour, step) {
                     bus.trigger("STEP-CONSUMMED", { tour, step });
                 },
-                onTourEnd({ name, rainbowManMessage, fadeout }) {
-                    if (mode === "auto") {
-                        transitionConfig.disabled = false;
-                    }
-                    let message;
-                    if (typeof rainbowManMessage === "function") {
-                        message = rainbowManMessage({
-                            isTourConsumed: (name) => consumedTours.has(name),
-                        });
-                    } else if (typeof rainbowManMessage === "string") {
-                        message = rainbowManMessage;
-                    } else {
-                        message = markup(
-                            _t(
-                                "<strong><b>Good job!</b> You went through all steps of this tour.</strong>"
-                            )
-                        );
-                    }
-                    effect.add({ type: "rainbow_man", message, fadeout });
-                    if (mode === "manual") {
-                        consumedTours.add(name);
-                        orm.call("web_tour.tour", "consume", [[name]]);
-                    }
+                onTourEnd: (tour) => {
+                    transitionConfig.disabled = false;
                     pointer.stop();
-                    bus.trigger("TOUR-FINISHED");
-                    // Used to signal the python test runner that the tour finished without error.
-                    browser.console.log("tour succeeded");
-                    // Used to see easily in the python console and to know which tour has been succeeded in suite tours case.
-                    const succeeded = `║ TOUR ${name} SUCCEEDED ║`;
-                    const msg = [succeeded];
-                    msg.unshift("╔" + "═".repeat(succeeded.length - 2) + "╗");
-                    msg.push("╚" + "═".repeat(succeeded.length - 2) + "╝");
-                    browser.console.log(`\n\n${msg.join("\n")}\n`);
-                    runningTours.delete(name);
+                    endTour(tour);
                 },
             });
         }
 
-        /**
-         * Disable transition before starting an "auto" tour.
-         * @param {Macro} macro
-         * @param {'auto' | 'manual'} mode
-         */
-        function activateMacro(macro, mode) {
-            if (mode === "auto") {
-                transitionConfig.disabled = true;
+        function endTour({ name, rainbowManMessage, fadeout }) {
+            let message;
+            if (typeof rainbowManMessage === "function") {
+                message = rainbowManMessage({
+                    isTourConsumed: (name) => consumedTours.has(name),
+                });
+            } else if (typeof rainbowManMessage === "string") {
+                message = rainbowManMessage;
+            } else {
+                message = markup(
+                    _t("<strong><b>Good job!</b> You went through all steps of this tour.</strong>")
+                );
             }
-            macroEngine.activate(macro, mode === "auto");
+            effect.add({ type: "rainbow_man", message, fadeout });
+            bus.trigger("TOUR-FINISHED");
+            // Used to signal the python test runner that the tour finished without error.
+            browser.console.log("tour succeeded");
+            // Used to see easily in the python console and to know which tour has been succeeded in suite tours case.
+            const succeeded = `║ TOUR ${name} SUCCEEDED ║`;
+            const msg = [succeeded];
+            msg.unshift("╔" + "═".repeat(succeeded.length - 2) + "╗");
+            msg.push("╚" + "═".repeat(succeeded.length - 2) + "╝");
+            browser.console.log(`\n\n${msg.join("\n")}\n`);
+            runningTours.delete(name);
+            tourState.clear(name);
+        }
+
+        /**
+         * @param {Macro} macro
+         */
+        function activateMacro(macro) {
+            transitionConfig.disabled = true;
+            macroEngine.activate(macro, true);
         }
 
         function startTour(tourName, options = {}) {
@@ -327,15 +311,27 @@ export const tourService = {
             const pointer = createPointer(tourName, {
                 bounce: !(options.mode === "auto" && options.keepWatchBrowser),
             });
-            const macro = convertToMacro(tour, pointer, options);
+
             const willUnload = callWithUnloadCheck(() => {
                 if (tour.url && tour.url !== options.startUrl && options.redirect) {
                     browser.location.href = browser.location.origin + tour.url;
                 }
             });
+
             if (!willUnload) {
-                pointer.start();
-                activateMacro(macro, options.mode);
+                if (options.mode === "auto") {
+                    const macro = convertToMacro(tour, pointer, options);
+                    pointer.start();
+                    activateMacro(macro);
+                } else {
+                    tourInteractive.loadTour(tour, pointer, () => {
+                        pointer.stop();
+                        consumedTours.add(tour.name);
+                        orm.call("web_tour.tour", "consume", [[tour.name]]);
+                        endTour(tour);
+                    });
+                    tourInteractive.start();
+                }
             }
         }
 
@@ -352,14 +348,24 @@ export const tourService = {
             const pointer = createPointer(tourName, {
                 bounce: !(mode === "auto" && keepWatchBrowser),
             });
-            const macro = convertToMacro(tour, pointer, {
-                mode,
-                stepDelay,
-                keepWatchBrowser,
-                showPointerDuration,
-            });
-            pointer.start();
-            activateMacro(macro, mode);
+            if (mode === "auto") {
+                const macro = convertToMacro(tour, pointer, {
+                    mode,
+                    stepDelay,
+                    keepWatchBrowser,
+                    showPointerDuration,
+                });
+                pointer.start();
+                activateMacro(macro);
+            } else {
+                tourInteractive.loadTour(tour, pointer, () => {
+                    pointer.stop();
+                    consumedTours.add(tour.name);
+                    orm.call("web_tour.tour", "consume", [[tour.name]]);
+                    endTour(tour);
+                });
+                tourInteractive.start(tourState.get(tourName, "currentIndex"));
+            }
         }
 
         function getSortedTours() {

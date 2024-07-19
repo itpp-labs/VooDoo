@@ -2415,29 +2415,30 @@ class AccountMove(models.Model):
 
     @contextmanager
     def _sync_unbalanced_lines(self, container):
+        def has_tax(move):
+            return bool(move.line_ids.tax_ids)
+
+        move_had_tax = {move: has_tax(move) for move in container['records']}
         yield
         # Skip posted moves.
-        for invoice in (x for x in container['records'] if x.state != 'posted'):
-
-            # Unlink tax lines if all taxes have been removed.
-            if not invoice.line_ids.tax_ids:
-                # if there isn't any tax but there remains a tax_line_id, it means we are currently in the process of
-                # removing the taxes from the entry. Thus, we want the automatic balancing to happen in order  to have
-                # a smooth process for tax deletion
-                if not invoice.line_ids.filtered('tax_line_id'):
-                    continue
-                invoice.line_ids.filtered('tax_line_id').unlink()
+        for move in (x for x in container['records'] if x.state != 'posted'):
+            if not has_tax(move) and not move_had_tax.get(move):
+                continue  # only manage automatically unbalanced when taxes are involved
+            if move_had_tax.get(move) and not has_tax(move):
+                # taxes have been removed, the tax sync is deactivated so we need to clear everything here
+                move.line_ids.filtered('tax_line_id').unlink()
+                move.line_ids.tax_tag_ids = [Command.set([])]
 
             # Set the balancing line's balance and amount_currency to zero,
             # so that it does not interfere with _get_unbalanced_moves() below.
             balance_name = _('Automatic Balancing Line')
-            existing_balancing_line = invoice.line_ids.filtered(lambda line: line.name == balance_name)
+            existing_balancing_line = move.line_ids.filtered(lambda line: line.name == balance_name)
             if existing_balancing_line:
                 existing_balancing_line.balance = existing_balancing_line.amount_currency = 0.0
 
             # Create an automatic balancing line to make sure the entry can be saved/posted.
             # If such a line already exists, we simply update its amounts.
-            unbalanced_moves = self._get_unbalanced_moves({'records': invoice})
+            unbalanced_moves = self._get_unbalanced_moves({'records': move})
             if isinstance(unbalanced_moves, list) and len(unbalanced_moves) == 1:
                 dummy, debit, credit = unbalanced_moves[0]
 
@@ -2447,9 +2448,9 @@ class AccountMove(models.Model):
                 else:
                     vals.update({
                         'name': balance_name,
-                        'move_id': invoice.id,
-                        'account_id': invoice.company_id.account_journal_suspense_account_id.id,
-                        'currency_id': invoice.currency_id.id,
+                        'move_id': move.id,
+                        'account_id': move.company_id.account_journal_suspense_account_id.id,
+                        'currency_id': move.currency_id.id,
                     })
                     self.env['account.move.line'].create(vals)
 
@@ -2910,21 +2911,10 @@ class AccountMove(models.Model):
             ))
 
     def unlink(self):
-        downpayment_lines = (
-            self.mapped('line_ids')
-                ._get_order_lines()
-                .filtered(
-                    lambda line:
-                        line.is_downpayment
-                        and line.account_move_line_ids <= self.mapped('line_ids')  # See https://github.com/odoo/odoo/pull/52648
-                )
-        )
         self = self.with_context(skip_invoice_sync=True, dynamic_unlink=True)  # no need to sync to delete everything
         logger_message = self._get_unlink_logger_message()
         self.line_ids.unlink()
         res = super().unlink()
-        if downpayment_lines:
-            downpayment_lines.unlink()
         if logger_message:
             _logger.info(logger_message)
         return res
@@ -4550,28 +4540,7 @@ class AccountMove(models.Model):
             }
         if other_moves:
             other_moves._post(soft=False)
-        res = False
-        # Update any linked downpayment lines
-        dp_lines = (
-            self.line_ids._get_order_lines()
-                .filtered(
-                    lambda l:
-                        l.is_downpayment and
-                        not l.display_type
-                )
-        )
-        dp_lines._compute_name()  # Update the description of DP lines (Draft -> Posted)
-        downpayment_lines = dp_lines.filtered(lambda ol: not ol.order_id._is_locked())
-        other_order_lines = downpayment_lines.order_id.order_line - downpayment_lines
-        real_invoices = set(other_order_lines.account_move_line_ids.move_id)
-        for dpl in downpayment_lines:
-            dpl.price_unit = sum(
-                l.price_unit if l.move_id.move_type in ('out_invoice', 'in_invoice') else -l.price_unit
-                for l in dpl.account_move_line_ids
-                if l.move_id.state == 'posted' and l.move_id not in real_invoices  # don't recompute with the final invoice
-            )
-            dpl.tax_ids = dpl.account_move_line_ids.tax_ids
-        return res
+        return False
 
     def js_assign_outstanding_line(self, line_id):
         ''' Called by the 'payment' widget to reconcile a suggested journal item to the present
@@ -4641,8 +4610,6 @@ class AccountMove(models.Model):
 
         self.mapped('line_ids').remove_move_reconcile()
         self.state = 'draft'
-        # Update any linked downpayments
-        self.line_ids.filtered('is_downpayment')._get_order_lines().filtered(lambda ol: not ol.display_type)._compute_name()
 
     def button_hash(self):
         self._hash_moves(force_hash=True)
@@ -4664,8 +4631,6 @@ class AccountMove(models.Model):
             raise UserError(_("Only draft journal entries can be cancelled."))
 
         self.write({'auto_post': 'no', 'state': 'cancel'})
-        # Update any linked downpayments
-        self.line_ids.filtered('is_downpayment')._get_order_lines().filtered(lambda ol: not ol.display_type)._compute_name()
 
     def action_activate_currency(self):
         self.currency_id.filtered(lambda currency: not currency.active).write({'active': True})

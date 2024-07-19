@@ -34,7 +34,7 @@ class Project(models.Model):
         count_fields = {fname for fname in self._fields if 'count' in fname}
         if count_field not in count_fields:
             raise ValueError(f"Parameter 'count_field' can only be one of {count_fields}, got {count_field} instead.")
-        domain = [('project_id', 'in', self.ids)]
+        domain = [('project_id', 'in', self.ids), ('display_in_project', '=', True)]
         if additional_domain:
             domain = AND([domain, additional_domain])
         tasks_count_by_project = dict(self.env['project.task'].with_context(
@@ -906,7 +906,7 @@ class Project(models.Model):
 
     @api.model
     def _get_values_analytic_account_batch(self, project_vals):
-        project_plan_id = int(self.env['ir.config_parameter'].sudo().get_param('analytic.analytic_plan_projects'))
+        project_plan_id = int(self.env['ir.config_parameter'].sudo().get_param('analytic.project_plan'))
 
         if not project_plan_id:
             project_plan, _other_plans = self.env['account.analytic.plan']._get_all_plans()

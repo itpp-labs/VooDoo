@@ -75,7 +75,6 @@ You could use this simplified accounting in case you work with an (external) acc
         'data/account_reports_data.xml',
         'views/uom_uom_views.xml',
         'views/product_views.xml',
-        'wizard/account_advance_payments_views.xml',
         'views/tests_shared_js_python.xml',
         'views/base_document_layout_views.xml',
         'views/report_templates.xml'
@@ -97,6 +96,7 @@ You could use this simplified accounting in case you work with an (external) acc
             'account/static/src/scss/account_journal_dashboard.scss',
             'account/static/src/scss/account_searchpanel.scss',
             'account/static/src/scss/account_payment_term.scss',
+            'account/static/src/scss/account_reconcile_model.scss',
             'account/static/src/components/**/*',
             'account/static/src/services/*.js',
             'account/static/src/views/*.js',

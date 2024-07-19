@@ -9,7 +9,6 @@ import {
     isShrunkBlock,
     isTangible,
     isUnbreakable,
-    isVisibleTextNode,
     isWhitespace,
     isZWS,
     nextLeaf,
@@ -129,7 +128,6 @@ export class DeletePlugin extends Plugin {
         }
 
         let range = this.adjustRange(selection, [
-            this.correctTripleClick,
             this.expandRangeToIncludeNonEditables,
             this.includeEndOrStartBlock,
             this.fullyIncludeLinks,
@@ -409,15 +407,15 @@ export class DeletePlugin extends Plugin {
     removeFakeBRs(range) {
         let { startContainer, startOffset, endContainer, endOffset, commonAncestorContainer } =
             range;
-        const getLastBrChild = (node) =>
-            [...node.childNodes].filter((child) => child.nodeName === "BR").pop();
         const visitedNodes = new Set();
         const removeBRs = (container, offset) => {
             let node = container;
             while (node !== commonAncestorContainer) {
-                const lastBR = getLastBrChild(node);
+                const lastBR = childNodes(node).findLast((child) => child.nodeName === "BR");
                 if (lastBR && isFakeLineBreak(lastBR)) {
-                    if (node === container && offset > childNodeIndex(lastBR)) {
+                    if (lastBR === container) {
+                        [container, offset] = leftPos(lastBR);
+                    } else if (node === container && offset > childNodeIndex(lastBR)) {
                         offset -= 1;
                     }
                     lastBR.remove();
@@ -425,17 +423,18 @@ export class DeletePlugin extends Plugin {
                 visitedNodes.add(node);
                 node = node.parentNode;
             }
-            return offset;
+            return [container, offset];
         };
-        startOffset = removeBRs(startContainer, startOffset);
-        endOffset = removeBRs(endContainer, endOffset);
+        [startContainer, startOffset] = removeBRs(startContainer, startOffset);
+        [endContainer, endOffset] = removeBRs(endContainer, endOffset);
+        range = { startContainer, startOffset, endContainer, endOffset, commonAncestorContainer };
 
         const restoreFakeBRs = () => {
             for (const node of visitedNodes) {
                 if (!node.isConnected) {
                     continue;
                 }
-                const lastBR = getLastBrChild(node);
+                const lastBR = childNodes(node).findLast((child) => child.nodeName === "BR");
                 if (lastBR && isFakeLineBreak(lastBR)) {
                     lastBR.after(this.document.createElement("br"));
                 }
@@ -443,7 +442,7 @@ export class DeletePlugin extends Plugin {
             }
         };
 
-        return { restoreFakeBRs, range: { ...range, startOffset, endOffset } };
+        return { restoreFakeBRs, range };
     }
 
     fillEmptyInlines(range) {
@@ -906,33 +905,6 @@ export class DeletePlugin extends Plugin {
             startContainer.textContent[startOffset - 1] === "\u200B"
         ) {
             range.setStart(startContainer, startOffset - 1);
-        }
-        return range;
-    }
-
-    // @phoenix @todo: triple click correction is now done by the selection
-    // plugin, and this is no longer necessary. Adapt tests that rely on it and
-    // remove this method.
-    /**
-     * @param {Range} range
-     * @returns {Range}
-     */
-    correctTripleClick(range) {
-        const { startContainer, startOffset, endContainer, endOffset } = range;
-        const endLeaf = firstLeaf(endContainer);
-        const beforeEnd = endLeaf.previousSibling;
-        if (
-            !endOffset &&
-            (startContainer !== endContainer || startOffset !== endOffset) &&
-            (!beforeEnd ||
-                (beforeEnd.nodeType === Node.TEXT_NODE &&
-                    !isVisibleTextNode(beforeEnd) &&
-                    !isZWS(beforeEnd)))
-        ) {
-            const previous = previousLeaf(endLeaf, this.editable, true);
-            if (previous && closestElement(previous).isContentEditable) {
-                range.setEnd(previous, nodeSize(previous));
-            }
         }
         return range;
     }
