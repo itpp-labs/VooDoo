@@ -178,7 +178,7 @@
                     <field name="currency_id" groups="base.group_multi_currency" optional="hide" string="Currency" readonly="1" invisible="is_same_currency"/>
                     <field name="debit" sum="Total Debit" readonly="1"/>
                     <field name="credit" sum="Total Credit" readonly="1"/>
-                    <field name="tax_tag_ids" string="Tax Grids" widget="many2many_tags" optional="hide"/>
+                    <field name="tax_tag_ids" string="Tax Grids" domain="[('applicability', '=', 'taxes')]" widget="many2many_tags" optional="hide"/>
                     <field name="discount_date" string="Discount Date" optional="hide" />
                     <field name="discount_amount_currency" string="Discount Amount" optional="hide" />
                     <field name="tax_line_id" string="Originator Tax" optional="hide" readonly="1"/>
@@ -719,7 +719,8 @@
                                 invisible="move_type != 'entry' or state != 'posted' or payment_state == 'reversed'"/>
                         <button name="action_reverse" string='Credit Note'
                                 type='object' groups="account.group_account_invoice"
-                                invisible="move_type not in ('out_invoice', 'in_invoice') or state != 'posted'"/>
+                                invisible="move_type not in ('out_invoice', 'in_invoice') or state != 'posted'"
+                                data-hotkey="n"/>
                         <!-- Cancel -->
                         <button name="button_cancel" string="Cancel Entry" type="object" groups="account.group_account_invoice" data-hotkey="x"
                                 invisible="not id or state != 'draft' or move_type != 'entry'"/>
