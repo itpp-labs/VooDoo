@@ -1,4 +1,6 @@
 import { mailModels } from "@mail/../tests/mail_test_helpers";
+import { mailDataHelpers } from "@mail/../tests/mock_server/mail_mock_server";
+
 import { fields, makeKwArgs } from "@web/../tests/web_test_helpers";
 
 export class DiscussChannel extends mailModels.DiscussChannel {
@@ -15,7 +17,7 @@ export class DiscussChannel extends mailModels.DiscussChannel {
         const ResPartner = this.env["res.partner"];
 
         super._to_store(...arguments);
-        const channels = this._filter([["id", "in", ids]]);
+        const channels = this.browse(ids);
         for (const channel of channels) {
             const channelInfo = { id: channel.id };
             channelInfo["anonymous_name"] = channel.anonymous_name;
@@ -23,12 +25,11 @@ export class DiscussChannel extends mailModels.DiscussChannel {
             if (channel.channel_type === "livechat") {
                 // add the operator id
                 if (channel.livechat_operator_id) {
-                    store.add(
+                    // livechat_username ignored for simplicity
+                    channelInfo.operator = mailDataHelpers.Store.one(
                         ResPartner.browse(channel.livechat_operator_id),
                         makeKwArgs({ fields: ["user_livechat_username", "write_date"] })
                     );
-                    // livechat_username ignored for simplicity
-                    channelInfo.operator = { id: channel.livechat_operator_id, type: "partner" };
                 } else {
                     channelInfo.operator = false;
                 }

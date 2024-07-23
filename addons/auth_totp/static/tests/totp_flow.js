@@ -11,7 +11,7 @@ function openRoot() {
         trigger: 'body',
         run() {
             document.querySelector("body").classList.add("wait");
-            window.location = '/web';
+            window.location = '/odoo';
         }
     }, {
         content: "wait for client reload",
@@ -74,7 +74,7 @@ function closeProfileDialog({content, totp_state}) {
 
 registry.category("web_tour.tours").add('totp_tour_setup', {
     test: true,
-    url: '/web',
+    url: '/odoo',
     steps: () => [...openUserProfileAtSecurityTab(), {
     content: "Open totp wizard",
     trigger: 'button[name=action_totp_enable_wizard]',
@@ -257,12 +257,17 @@ registry.category("web_tour.tours").add('totp_login_device', {
 },
 {
     content: "Check that we have to enter enhanced security mode and input password",
-    trigger: '[name=password] input',
+    trigger: ".modal [name=password] input",
+    in_modal: false,
     run: "edit demo",
 }, {
     content: "Confirm",
-    trigger: "button:contains(Confirm Password)",
+    trigger: ".modal button:contains(Confirm Password)",
+    in_modal: false,
     run: "click",
+},
+{
+    trigger: "body:not(:has(.modal))",
 },
 ...openRoot(),
 ...openUserProfileAtSecurityTab(),
@@ -304,7 +309,7 @@ registry.category("web_tour.tours").add('totp_login_disabled', {
 const columns = {};
 registry.category("web_tour.tours").add('totp_admin_disables', {
     test: true,
-    url: '/web',
+    url: '/odoo',
     steps: () => [stepUtils.showAppsMenuItem(), {
     content: 'Go to settings',
     trigger: '[data-menu-xmlid="base.menu_administration"]',

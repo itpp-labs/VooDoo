@@ -58,7 +58,7 @@ export class DiscussChannel extends models.ServerModel {
         /** @type {import("mock_models").ResPartner} */
         const ResPartner = this.env["res.partner"];
 
-        const channel = this._filter([["id", "in", ids]])[0];
+        const [channel] = this.browse(ids);
         const custom_store = new mailDataHelpers.Store("discuss.channel", {
             id: channel.id,
             is_pinned: false,
@@ -88,13 +88,16 @@ export class DiscussChannel extends models.ServerModel {
         BusBus._sendone(partner, "discuss.channel/leave", custom_store.get_result());
         const store = new mailDataHelpers.Store("discuss.channel", {
             id: channel.id,
-            channelMembers: [["DELETE", { id: channelMember.id }]],
+            channelMembers: mailDataHelpers.Store.many(
+                DiscussChannelMember.browse(channelMember.id),
+                "DELETE",
+                makeKwArgs({ only_id: true })
+            ),
             memberCount: DiscussChannelMember.search_count([["channel_id", "=", channel.id]]),
         });
         BusBus._sendone(channel, "mail.record/insert", store.get_result());
         // limitation of mock server, partner already unsubscribed from channel
         BusBus._sendone(partner, "mail.record/insert", store.get_result());
-        return true;
     }
 
     /**
@@ -114,8 +117,8 @@ export class DiscussChannel extends models.ServerModel {
         /** @type {import("mock_models").ResPartner} */
         const ResPartner = this.env["res.partner"];
 
-        const [channel] = this._filter([["id", "in", ids]]);
-        const partners = ResPartner._filter([["id", "in", partner_ids]]);
+        const [channel] = this.browse(ids);
+        const partners = ResPartner.browse(partner_ids);
         for (const partner of partners) {
             if (partner.id === this.env.user.partner_id) {
                 continue; // adding 'yourself' to the conversation is handled below
@@ -182,7 +185,7 @@ export class DiscussChannel extends models.ServerModel {
         delete kwargs.ids;
         description = kwargs.description || "";
 
-        const channel = this._filter([["id", "in", ids]])[0];
+        const [channel] = this.browse(ids);
         this.write([channel.id], { description });
     }
 
@@ -245,7 +248,7 @@ export class DiscussChannel extends models.ServerModel {
             makeKwArgs({ load: false })
         );
         const [channel] = this.browse(ids);
-        const [group_public_id] = ResGroups._filter([["id", "=", channel.group_public_id]]);
+        const [group_public_id] = ResGroups.browse(channel.group_public_id);
         const memberOfCurrentUser = this._find_or_create_member_for_self(channel.id);
         Object.assign(data, {
             authorizedGroupFullName: group_public_id ? group_public_id.name : false,
@@ -279,7 +282,7 @@ export class DiscussChannel extends models.ServerModel {
         /** @type {import("mock_models").MailMessage} */
         const MailMessage = this.env["mail.message"];
 
-        const channels = this._filter([["id", "in", ids]]);
+        const channels = this.browse(ids);
         for (const channel of channels) {
             if (!["chat", "whatsapp"].includes(channel.channel_type)) {
                 continue;
@@ -329,7 +332,7 @@ export class DiscussChannel extends models.ServerModel {
         if (!partners_to.includes(this.env.user.partner_id)) {
             partners_to.push(this.env.user.partner_id);
         }
-        const partners = ResPartner._filter([["id", "in", partners_to]], { active_test: false });
+        const partners = ResPartner.browse(partners_to);
         const channels = this.search_read([["channel_type", "=", "chat"]]);
         for (const channel of channels) {
             const channelMemberIds = DiscussChannelMember.search([
@@ -377,11 +380,9 @@ export class DiscussChannel extends models.ServerModel {
         /** @type {import("mock_models").MailNotification} */
         const MailNotification = this.env["mail.notification"];
 
-        const channels = this._filter([["id", "in", ids]]);
+        const channels = this.browse(ids);
         for (const channel of channels) {
-            const members = DiscussChannelMember._filter([
-                ["id", "in", channel.channel_member_ids],
-            ]);
+            const members = DiscussChannelMember.browse(channel.channel_member_ids);
             const messages = MailMessage._filter([
                 ["model", "=", "discuss.channel"],
                 ["res_id", "=", channel.id],
@@ -413,9 +414,9 @@ export class DiscussChannel extends models.ServerModel {
                     state: memberOfCurrentUser.fold_state || "closed",
                 });
                 if (memberOfCurrentUser.rtc_inviting_session_id) {
-                    res.rtcInvitingSession = {
-                        id: memberOfCurrentUser.rtc_inviting_session_id,
-                    };
+                    res.rtcInvitingSession = mailDataHelpers.Store.one(
+                        DiscussChannelMember.browse(memberOfCurrentUser.rtc_inviting_session_id)
+                    );
                 }
                 store.add(
                     DiscussChannelMember.browse(memberOfCurrentUser.id),
@@ -428,16 +429,11 @@ export class DiscussChannel extends models.ServerModel {
                 );
                 store.add(otherMembers.map((member) => member.id));
             }
-            store.add(
+            res.rtcSessions = mailDataHelpers.Store.many(
                 DiscussChannelRtcSession.browse(channel.rtc_session_ids),
+                "ADD",
                 makeKwArgs({ extra: true })
             );
-            res.rtcSessions = [
-                [
-                    "ADD",
-                    (channel.rtc_session_ids || []).map((rtcSessionId) => ({ id: rtcSessionId })),
-                ],
-            ];
             res.allow_public_upload = channel.allow_public_upload;
             store.add("discuss.channel", res);
         }
@@ -462,7 +458,7 @@ export class DiscussChannel extends models.ServerModel {
         /** @type {import("mock_models").ResPartner} */
         const ResPartner = this.env["res.partner"];
 
-        const [channel] = this._filter([["id", "in", ids]]);
+        const [channel] = this.browse(ids);
         const memberOfCurrentUser = this._find_or_create_member_for_self(channel.id);
         if (memberOfCurrentUser && memberOfCurrentUser.is_pinned !== pinned) {
             DiscussChannelMember.write([memberOfCurrentUser.id], {
@@ -493,7 +489,7 @@ export class DiscussChannel extends models.ServerModel {
         delete kwargs.ids;
         name = kwargs.name || "";
 
-        const channel = this._filter([["id", "in", ids]])[0];
+        const [channel] = this.browse(ids);
         this.write([channel.id], { name });
     }
 
@@ -543,7 +539,7 @@ export class DiscussChannel extends models.ServerModel {
         /** @type {import("mock_models").ResPartner} */
         const ResPartner = this.env["res.partner"];
 
-        const partners = ResPartner._filter([["id", "in", partners_to]], { active_test: false });
+        const partners = ResPartner.browse(partners_to);
         const id = this.create({
             channel_type: "group",
             channel_member_ids: partners.map((partner) =>
@@ -603,7 +599,7 @@ export class DiscussChannel extends models.ServerModel {
         ids = kwargs.ids;
         delete kwargs.ids;
 
-        const channel = this._filter([["id", "in", ids]])[0];
+        const [channel] = this.browse(ids);
         if (channel.channel_type === "channel") {
             this.action_unfollow([channel.id]);
         } else {
@@ -624,17 +620,15 @@ export class DiscussChannel extends models.ServerModel {
         /** @type {import("mock_models").ResPartner} */
         const ResPartner = this.env["res.partner"];
 
-        const channels = this._filter([["id", "in", ids]]);
+        const channels = this.browse(ids);
         for (const channel of channels) {
-            const members = DiscussChannelMember._filter([
-                ["id", "in", channel.channel_member_ids],
-            ]);
+            const members = DiscussChannelMember.browse(channel.channel_member_ids);
             const otherPartnerIds = members
                 .filter(
                     (member) => member.partner_id && member.partner_id !== this.env.user.partner_id
                 )
                 .map((member) => member.partner_id);
-            const otherPartners = ResPartner._filter([["id", "in", otherPartnerIds]]);
+            const otherPartners = ResPartner.browse(otherPartnerIds);
             let message = "You are alone in this channel.";
             if (otherPartners.length > 0) {
                 message = `Users in this channel: ${otherPartners
@@ -763,7 +757,7 @@ export class DiscussChannel extends models.ServerModel {
         const MailThread = this.env["mail.thread"];
 
         kwargs.message_type ||= "notification";
-        const channel = this._filter([["id", "=", id]])[0];
+        const [channel] = this.browse(id);
         this.write([id], {
             last_interest_dt: serializeDateTime(today()),
         });
@@ -858,7 +852,7 @@ export class DiscussChannel extends models.ServerModel {
             );
         }
         const notifications = [];
-        const [channel] = this._filter([["id", "=", firstId]]);
+        const [channel] = this.browse(firstId);
         if (channel) {
             const diff = {};
             for (const key in values) {
