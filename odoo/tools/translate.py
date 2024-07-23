@@ -5,6 +5,8 @@
 # AltGr + V for the opening curly quotes “
 # AltGr + B for the closing curly quotes ”
 
+from __future__ import annotations
+
 import codecs
 import fnmatch
 import functools
@@ -34,7 +36,6 @@ from psycopg2.extras import Json
 
 import odoo
 from odoo.exceptions import UserError
-from . import pycompat
 from .config import config
 from .misc import file_open, file_path, get_iso_codes, OrderedSet, SKIPPED_ELEMENT_TYPES
 
@@ -780,9 +781,10 @@ def TranslationFileWriter(target, fileformat='po', lang=None):
                       '.csv, .po, or .tgz (received .%s).') % fileformat)
 
 
+_writer = codecs.getwriter('utf-8')
 class CSVFileWriter:
     def __init__(self, target):
-        self.writer = pycompat.csv_writer(target, dialect='UNIX')
+        self.writer = csv.writer(_writer(target), dialect='UNIX')
         # write header first
         self.writer.writerow(("module","type","name","res_id","src","value","comments"))
 
@@ -1384,7 +1386,7 @@ class TranslationImporter:
                      the language must be present and activated in the database
         :param xmlids: if given, only translations for records with xmlid in xmlids will be loaded
         """
-        with suppress(FileNotFoundError), file_open(filepath, mode='rb') as fileobj:
+        with suppress(FileNotFoundError), file_open(filepath, mode='rb', env=self.env) as fileobj:
             _logger.info('loading base translation file %s for language %s', filepath, lang)
             fileformat = os.path.splitext(filepath)[-1][1:].lower()
             self.load(fileobj, fileformat, lang, xmlids=xmlids)
@@ -1623,8 +1625,7 @@ def load_language(cr, lang):
     installer.lang_install()
 
 
-
-def get_po_paths(module_name: str, lang: str):
+def get_po_paths(module_name: str, lang: str, env: odoo.api.Environment | None = None):
     lang_base = lang.split('_')[0]
     # Load the base as a fallback in case a translation is missing:
     po_names = [lang_base, lang]
@@ -1632,14 +1633,13 @@ def get_po_paths(module_name: str, lang: str):
     if lang_base == 'es' and lang not in ('es_ES', 'es_419'):
         po_names.insert(1, 'es_419')
     po_paths = [
-        path
+        join(module_name, dir_, filename + '.po')
         for filename in po_names
         for dir_ in ('i18n', 'i18n_extra')
-        if (path := join(module_name, dir_, filename + '.po'))
     ]
     for path in po_paths:
         with suppress(FileNotFoundError):
-            yield file_path(path)
+            yield file_path(path, env=env)
 
 
 class CodeTranslations:

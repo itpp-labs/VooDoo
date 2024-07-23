@@ -946,21 +946,23 @@ class Module(models.Model):
         return super(Module, self).search_panel_select_range(field_name, **kwargs)
 
     @api.model
-    def _load_module_terms(self, modules, langs, overwrite=False):
+    def _load_module_terms(self, modules, langs, overwrite=False, imported_module=False):
         """ Load PO files of the given modules for the given languages. """
         # load i18n files
         translation_importer = TranslationImporter(self.env.cr, verbose=False)
 
         for module_name in modules:
-            modpath = get_module_path(module_name)
+            modpath = get_module_path(module_name, downloaded=imported_module)
             if not modpath:
                 continue
             for lang in langs:
-                po_paths = get_po_paths(module_name, lang)
-                for po_path in po_paths:
+                is_lang_imported = False
+                env = self.env if imported_module else None
+                for po_path in get_po_paths(module_name, lang, env=env):
                     _logger.info('module %s: loading translation file %s for language %s', module_name, po_path, lang)
                     translation_importer.load_file(po_path, lang)
-                if lang != 'en_US' and not po_paths:
+                    is_lang_imported = True
+                if lang != 'en_US' and not is_lang_imported:
                     _logger.info('module %s: no translation for language %s', module_name, lang)
 
         translation_importer.save(overwrite=overwrite)
