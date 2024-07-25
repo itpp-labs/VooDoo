@@ -8,6 +8,7 @@ import {
     formatDateTime,
     today,
 } from "@web/core/l10n/dates";
+import { evaluateBooleanExpr } from "@web/core/py_js/py";
 import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { ensureArray } from "@web/core/utils/arrays";
@@ -142,7 +143,9 @@ export class DateTimeField extends Component {
      */
     async addDate(valueIndex) {
         const values = this.values;
-        values[valueIndex] = values[valueIndex ? 0 : 1];
+        values[valueIndex] = valueIndex
+            ? values[0].plus({ hours: 1 })
+            : values[1].minus({ hours: 1 });
 
         this.state.focusedDateIndex = valueIndex;
         this.state.value = values;
@@ -364,6 +367,31 @@ export const dateRangeField = {
     ],
     supportedTypes: ["date", "datetime"],
     listViewWidth: ({ type }) => (type === "datetime" ? 294 : 180),
+    isValid: (record, fieldname, fieldInfo) => {
+        if (fieldInfo.widget === "daterange") {
+            if (
+                !record.data[fieldInfo.options[END_DATE_FIELD_OPTION]] !==
+                    !record.data[fieldname] &&
+                evaluateBooleanExpr(
+                    record.activeFields[fieldInfo.options[END_DATE_FIELD_OPTION]]?.required,
+                    record.evalContextWithVirtualIds
+                )
+            ) {
+                return false;
+            }
+            if (
+                !record.data[fieldInfo.options[START_DATE_FIELD_OPTION]] !==
+                    !record.data[fieldname] &&
+                evaluateBooleanExpr(
+                    record.activeFields[fieldInfo.options[START_DATE_FIELD_OPTION]]?.required,
+                    record.evalContextWithVirtualIds
+                )
+            ) {
+                return false;
+            }
+        }
+        return !record.isFieldInvalid(fieldname);
+    },
 };
 
 registry

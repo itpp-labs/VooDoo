@@ -146,7 +146,6 @@ export function clickPartnerButton() {
         {
             content: "partner screen is shown",
             trigger: `${PartnerList.clickPartner().trigger}`,
-            in_modal: false,
         },
     ];
 }
@@ -299,7 +298,6 @@ export function clickFiscalPosition(name, checkIsNeeded = false) {
             {
                 content: "cancel dialog",
                 trigger: ".modal .modal-body button[aria-label='Close']",
-                in_modal: false,
                 run: "click",
                 isActive: ["mobile"],
             }
@@ -312,7 +310,6 @@ export function closeWithCashAmount(val) {
     return [
         {
             trigger: ".modal .close-pos-popup .cash-input input",
-            in_modal: false,
             run: `edit ${val}`,
         },
     ];
@@ -539,10 +536,7 @@ export function finishOrder() {
             trigger: ".payment-screen .btn-switchpane:contains('Validate')",
             run: "click",
         },
-        {
-            content: "verify that the order has been successfully sent to the backend",
-            trigger: ".js_connected:visible",
-        },
+        Chrome.isSyncStatusConnected(),
         {
             isActive: ["desktop"],
             content: "click Next Order",

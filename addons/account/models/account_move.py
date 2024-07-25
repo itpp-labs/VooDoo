@@ -487,7 +487,7 @@ class AccountMove(models.Model):
         copy=False,
         check_company=True,
     )
-    reversal_move_id = fields.One2many('account.move', 'reversed_entry_id')
+    reversal_move_ids = fields.One2many('account.move', 'reversed_entry_id')
 
     # === Vendor bill fields === #
     invoice_vendor_bill_id = fields.Many2one(
@@ -607,6 +607,8 @@ class AccountMove(models.Model):
     partner_credit = fields.Monetary(compute='_compute_partner_credit')
     duplicated_ref_ids = fields.Many2many(comodel_name='account.move', compute='_compute_duplicated_ref_ids')
     need_cancel_request = fields.Boolean(compute='_compute_need_cancel_request')
+
+    show_update_fpos = fields.Boolean(string="Has Fiscal Position Changed", store=False)  # True if the fiscal position was changed
 
     # used to display the various dates and amount dues on the invoice's PDF
     payment_term_details = fields.Binary(compute="_compute_payment_term_details", exportable=False)
@@ -1935,6 +1937,10 @@ class AccountMove(models.Model):
 
             # Reset
             self.invoice_vendor_bill_id = False
+
+    @api.onchange('fiscal_position_id')
+    def _onchange_fpos_id_show_update_fpos(self):
+        self.show_update_fpos = self.line_ids and self._origin.fiscal_position_id != self.fiscal_position_id
 
     @api.onchange('partner_id')
     def _onchange_partner_id(self):
@@ -4428,6 +4434,10 @@ class AccountMove(models.Model):
             'res_id': res_id,
             'target': 'current',
         }
+
+    def action_update_fpos_values(self):
+        self.invoice_line_ids._compute_tax_ids()
+        self.line_ids._compute_account_id()
 
     def open_created_caba_entries(self):
         self.ensure_one()

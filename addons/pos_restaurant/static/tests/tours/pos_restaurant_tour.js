@@ -13,14 +13,6 @@ import { registry } from "@web/core/registry";
 
 const ProductScreen = { ...ProductScreenPos, ...ProductScreenResto };
 
-function isSyncStatusConnected() {
-    return [
-        {
-            trigger:
-                ".pos-topheader .pos-rightheader .status-buttons .oe_status:has(.js_connected)",
-        },
-    ];
-}
 function checkOrderChanges(expected_changes) {
     return [
         {
@@ -167,7 +159,7 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
                 content:
                     "acknowledge printing error ( because we don't have printer in the test. )",
             },
-            isSyncStatusConnected(),
+            Chrome.isSyncStatusConnected(),
             TicketScreen.selectOrder("-0005"),
             TicketScreen.loadSelectedOrder(),
             ProductScreen.isShown(),
@@ -251,7 +243,7 @@ registry.category("web_tour.tours").add("BillScreenTour", {
             ProductScreen.clickDisplayedProduct("Coca-Cola"),
             ProductScreen.clickControlButton("Bill"),
             // HACK: is_modal should be false so that the trigger can be found.
-            { ...negateStep(billScreenQRCode), in_modal: false },
+            { ...negateStep(billScreenQRCode) },
             BillScreen.closeBillPopup(),
             ProductScreen.clickPayButton(),
             PaymentScreen.clickPaymentMethod("Bank"),
