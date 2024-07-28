@@ -3,6 +3,7 @@
 import { EventBus, whenReady } from "@odoo/owl";
 import { getCurrentDimensions, mockedMatchMedia } from "@web/../lib/hoot-dom/helpers/dom";
 import { getRunner } from "../main_runner";
+import { MockConsole } from "./console";
 import { MockClipboardItem, mockNavigator } from "./navigator";
 import {
     MockBroadcastChannel,
@@ -137,6 +138,7 @@ const EVENT_TARGET_PROTOTYPES = new Map(
 /** @type {{ descriptor: PropertyDescriptor; owner: any; property: string; target: any }[]} */
 const originalDescriptors = [];
 
+const mockConsole = new MockConsole();
 const mockLocalStorage = new MockStorage();
 const mockSessionStorage = new MockStorage();
 let mockTitle = "";
@@ -159,6 +161,7 @@ const WINDOW_MOCK_DESCRIPTORS = {
     cancelAnimationFrame: { value: mockedCancelAnimationFrame, writable: false },
     clearInterval: { value: mockedClearInterval, writable: false },
     clearTimeout: { value: mockedClearTimeout, writable: false },
+    console: { value: mockConsole, writable: false },
     ClipboardItem: { value: MockClipboardItem },
     Date: { value: MockDate, writable: false },
     fetch: { value: mockedFetch, writable: false },
@@ -206,6 +209,24 @@ export function getTitle() {
         return titleDescriptor.get.call(document);
     } else {
         return document.title;
+    }
+}
+
+export function getViewPortHeight() {
+    const heightDescriptor = findOriginalDescriptor(window, "innerHeight");
+    if (heightDescriptor) {
+        return heightDescriptor.get.call(window);
+    } else {
+        return window.innerHeight;
+    }
+}
+
+export function getViewPortWidth() {
+    const titleDescriptor = findOriginalDescriptor(window, "innerWidth");
+    if (titleDescriptor) {
+        return titleDescriptor.get.call(window);
+    } else {
+        return window.innerWidth;
     }
 }
 

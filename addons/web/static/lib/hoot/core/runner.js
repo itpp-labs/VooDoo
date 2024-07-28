@@ -23,7 +23,7 @@ import { internalRandom } from "../mock/math";
 import { cleanupNavigator, mockUserAgent } from "../mock/navigator";
 import { cleanupNetwork } from "../mock/network";
 import { Deferred, cleanupTime, setFrameRate } from "../mock/time";
-import { cleanupWindow, mockTouch } from "../mock/window";
+import { cleanupWindow, getViewPortHeight, getViewPortWidth, mockTouch } from "../mock/window";
 import { DEFAULT_CONFIG, FILTER_KEYS } from "./config";
 import { makeExpect } from "./expect";
 import { makeFixtureManager } from "./fixture";
@@ -58,6 +58,7 @@ import { EXCLUDE_PREFIX, setParams, urlParams } from "./url";
  *  icon?: string;
  *  label: string;
  *  platform?: import("../mock/navigator").Platform;
+ *  size?: [number, number];
  *  tags?: string[];
  *  touch?: boolean;
  * }} Preset
@@ -85,6 +86,7 @@ import { EXCLUDE_PREFIX, setParams, urlParams } from "./url";
 const {
     clearTimeout,
     console: { groupEnd: $groupEnd, log: $log, table: $table },
+    EventTarget,
     Map,
     Math: { floor: $floor },
     Object: {
@@ -114,7 +116,7 @@ const $now = performance.now.bind(performance);
 const filterReady = (jobs) =>
     jobs.filter((job) => {
         if (job instanceof Suite) {
-            job.currentJobs = filterReady(job.currentJobs);
+            job.setCurrentJobs(filterReady(job.currentJobs));
             return job.currentJobs.length;
         }
         return job.run;
@@ -126,10 +128,10 @@ const filterReady = (jobs) =>
 const formatAssertions = (assertions) => {
     const lines = [];
     for (let i = 0; i < assertions.length; i++) {
-        const { info, label, message } = assertions[i];
+        const { failedDetails, label, message } = assertions[i];
         lines.push(`\n${i + 1}. [${label}] ${message}`);
-        if (info) {
-            for (let [key, value] of info) {
+        if (failedDetails) {
+            for (let [key, value] of failedDetails) {
                 if (Markup.isMarkup(key)) {
                     key = key.content;
                 }
@@ -147,7 +149,7 @@ const formatAssertions = (assertions) => {
 };
 
 /**
- * @returns {Map<Job, Preset>}
+ * @returns {Map<string, Preset>}
  */
 const getDefaultPresets = () =>
     new Map([
@@ -163,6 +165,7 @@ const getDefaultPresets = () =>
                 icon: "fa-desktop",
                 label: "Desktop",
                 platform: "linux",
+                size: [1366, 768],
                 tags: ["-mobile"],
                 touch: false,
             },
@@ -173,6 +176,7 @@ const getDefaultPresets = () =>
                 icon: "fa-mobile",
                 label: "Mobile",
                 platform: "android",
+                size: [375, 667],
                 tags: ["-desktop"],
                 touch: true,
             },
@@ -201,33 +205,53 @@ const shuffle = (array) => {
 };
 
 /**
+ * @param {Test} test
  * @param {boolean} shouldSuppress
  */
-const suppressErrorsAndWarnings = (shouldSuppress) => {
-    if (!shouldSuppress) {
-        return noop;
-    }
+const handleConsoleIssues = (test, shouldSuppress) => {
+    if (shouldSuppress && test.config.todo) {
+        const restoreConsole = () => $assign(globalThis.console, originalMethods);
 
-    /**
-     * @param {string} label
-     * @param {string} color
-     */
-    const suppressedMethod = (label, color) => {
-        const groupName = [`%c[${label}]%c suppressed by "test.todo"`, `color: ${color}`, ""];
-        return (...args) => {
-            logger.groupCollapsed(...groupName);
-            $log(...args);
-            $groupEnd();
+        /**
+         * @param {string} label
+         * @param {string} color
+         */
+        const suppressIssueLogger = (label, color) => {
+            const groupName = [`%c[${label}]%c suppressed by "test.todo"`, `color: ${color}`, ""];
+            return (...args) => {
+                logger.groupCollapsed(...groupName);
+                $log(...args);
+                $groupEnd();
+            };
         };
-    };
 
-    const originalMethods = { ...globalThis.console };
-    $assign(globalThis.console, {
-        error: suppressedMethod("ERROR", "#9f1239"),
-        warn: suppressedMethod("WARNING", "#f59e0b"),
-    });
+        const originalMethods = {
+            error: globalThis.console.error,
+            warn: globalThis.console.warn,
+        };
+        $assign(globalThis.console, {
+            error: suppressIssueLogger("ERROR", "#9f1239"),
+            warn: suppressIssueLogger("WARNING", "#f59e0b"),
+        });
 
-    return () => $assign(globalThis.console, originalMethods);
+        return restoreConsole;
+    } else {
+        const offConsoleEvents = () => {
+            while (cleanups.length) {
+                cleanups.pop()();
+            }
+        };
+
+        const cleanups = [];
+        if (globalThis.console instanceof EventTarget) {
+            cleanups.push(
+                on(globalThis.console, "error", () => test.logs.error++),
+                on(globalThis.console, "warn", () => test.logs.warn++)
+            );
+        }
+
+        return offConsoleEvents;
+    }
 };
 
 /**
@@ -248,6 +272,8 @@ const warnUserEvent = (ev) => {
 
 const RESIZE_OBSERVER_MESSAGE = "ResizeObserver loop completed with undelivered notifications";
 const handledErrors = new WeakSet();
+/** @type {string | null} */
+let lastPresetWarn = null;
 
 //-----------------------------------------------------------------------------
 // Exports
@@ -318,8 +344,8 @@ export class Runner {
     suites = new Map();
     /** @type {Suite[]} */
     suiteStack = [];
-    /** @type {Set<Tag>} */
-    tags = new Set();
+    /** @type {Map<string, Tag>} */
+    tags = new Map();
     /** @type {Map<string, Test>} */
     tests = new Map();
     /** @type {string | RegExp} */
@@ -460,7 +486,7 @@ export class Runner {
         } else {
             this.suites.set(suite.id, suite);
             if (parentSuite) {
-                parentSuite.jobs.push(suite);
+                parentSuite.addJob(suite);
                 suite.reporting = createReporting(parentSuite.reporting);
             } else {
                 this.rootSuites.push(suite);
@@ -525,8 +551,7 @@ export class Runner {
             test = originalTest;
             test.setRunFn(runFn);
         } else {
-            parentSuite.jobs.push(test);
-            parentSuite.increaseWeight();
+            parentSuite.addJob(test);
             this.tests.set(test.id, test);
         }
 
@@ -660,6 +685,35 @@ export class Runner {
         for (const callback of callbacks) {
             callbackRegistry.add("before-test", callback);
         }
+    }
+
+    checkPresetForViewPort() {
+        const presetId = this.config.preset;
+        const preset = this.presets.get(presetId);
+        if (!preset.size) {
+            return true;
+        }
+        const innerWidth = getViewPortWidth();
+        const innerHeight = getViewPortHeight();
+        const [width, height] = preset.size;
+        if (width !== innerWidth || height !== innerHeight) {
+            if (lastPresetWarn !== presetId) {
+                logger.warn(
+                    `viewport size does not match the expected size for the "${preset.label}" preset`,
+                    `\n> expected:`,
+                    width,
+                    "x",
+                    height,
+                    `\n> current:`,
+                    innerWidth,
+                    "x",
+                    innerHeight
+                );
+            }
+            lastPresetWarn = presetId;
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -848,14 +902,14 @@ export class Runner {
                 // Skipped test
                 this._pushTest(test);
                 test.setRunFn(null);
-                test.parent.reporting.add({ skipped: +1 });
+                test.parent.reporting.add({ skipped: +1, tests: +1 });
                 job = nextJob(job);
                 continue;
             }
 
             // Suppress console errors and warnings if test is in "todo" mode
             // (and not in debug).
-            const restoreConsole = suppressErrorsAndWarnings(test.config.todo && !this.debug);
+            const restoreConsole = handleConsoleIssues(test, !this.debug);
 
             // Before test
             this.state.currentTest = test;
@@ -919,7 +973,7 @@ export class Runner {
             restoreConsole();
 
             // Log test errors and increment counters
-            this.expectHooks.after(test, this);
+            this.expectHooks.after(this);
             test.runCount++;
             if (lastResults.pass) {
                 logger.logTest(test);
@@ -1129,7 +1183,7 @@ export class Runner {
         let skip = false;
         let ignoreSkip = false;
         for (const tag of job.tags) {
-            this.tags.add(tag);
+            this.tags.set(tag.name, tag);
             switch (tag.name) {
                 case Tag.DEBUG:
                     if (typeof this.debug !== "boolean" && this.debug !== job) {
@@ -1168,6 +1222,22 @@ export class Runner {
                 );
             } else {
                 job.config.skip = true;
+            }
+        }
+    }
+
+    /**
+     * @param {keyof Runner["config"]} configKey
+     * @param {keyof Runner["state"]["includeSpecs"]} specKey
+     * @param {Map<string, any>} valuesMap
+     */
+    _checkUrlValidity(configKey, specKey, valuesMap) {
+        const values = this.state.includeSpecs[specKey];
+        const availableValues = new Set(valuesMap.keys());
+        for (const [key, incLevel] of Object.entries(values)) {
+            if (Math.abs(incLevel) === INCLUDE_LEVEL.url && !availableValues.has(key)) {
+                delete values[key];
+                this.config[configKey] = this.config[configKey].filter((val) => key !== val);
             }
         }
     }
@@ -1255,6 +1325,7 @@ export class Runner {
      * @param {number} [priority=1]
      */
     _include(type, ids, priority = INCLUDE_LEVEL.url) {
+        priority = Math.abs(priority);
         if (priority === INCLUDE_LEVEL.url) {
             this._hasRemovableFilter = true;
         }
@@ -1262,10 +1333,10 @@ export class Runner {
         for (const id of ids) {
             const nId = normalize(id);
             if (id.startsWith(EXCLUDE_PREFIX)) {
-                values[nId.slice(EXCLUDE_PREFIX.length)] = Math.abs(priority) * -1;
+                values[nId.slice(EXCLUDE_PREFIX.length)] = priority * -1;
             } else if ((values[nId]?.[0] || 0) >= 0) {
                 this._hasIncludeFilter = true;
-                values[nId] = Math.abs(priority);
+                values[nId] = priority;
             }
         }
     }
@@ -1340,7 +1411,7 @@ export class Runner {
             const jobs = debugTest.path;
             for (let i = 0; i < jobs.length - 1; i++) {
                 const suite = jobs[i];
-                suite.currentJobs = [jobs[i + 1]];
+                suite.setCurrentJobs([jobs[i + 1]]);
                 if (this._populateState) {
                     this.state.suites.push(suite);
                 }
@@ -1364,7 +1435,7 @@ export class Runner {
             let included = explicitInclude || implicitInclude || this._isImplicitlyIncluded(job);
             if (job instanceof Suite) {
                 // For suites: included if at least 1 included job
-                job.currentJobs = this._prepareJobs(job.jobs, included);
+                job.setCurrentJobs(this._prepareJobs(job.jobs, included));
                 included = Boolean(job.currentJobs.length);
 
                 if (included && this._populateState) {
@@ -1406,10 +1477,21 @@ export class Runner {
             if (preset.platform) {
                 mockUserAgent(preset.platform);
             }
-
             if (typeof preset.touch === "boolean") {
                 mockTouch(preset.touch);
             }
+            this.checkPresetForViewPort();
+        }
+
+        // Cleanup invalid IDs and tags from URL
+        if (this.config.suite) {
+            this._checkUrlValidity("suite", "suites", this.suites);
+        }
+        if (this.config.tag) {
+            this._checkUrlValidity("tag", "tags", this.tags);
+        }
+        if (this.config.test) {
+            this._checkUrlValidity("test", "tests", this.tests);
         }
 
         this._populateState = true;

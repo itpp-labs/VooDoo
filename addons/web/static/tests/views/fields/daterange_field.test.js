@@ -1,13 +1,15 @@
+import { beforeEach, expect, test } from "@odoo/hoot";
 import {
     queryAll,
     queryAllProperties,
-    queryFirst,
-    queryText,
     queryAllTexts,
-    queryValue,
     queryAllValues,
+    queryFirst,
+    queryValue,
     resize,
 } from "@odoo/hoot-dom";
+import { animationFrame, Deferred, mockDate, mockTimeZone } from "@odoo/hoot-mock";
+import { getTimePickers } from "@web/../tests/core/datetime/datetime_test_helpers";
 import {
     clickSave,
     contains,
@@ -18,9 +20,6 @@ import {
     onRpc,
     pagerNext,
 } from "../../web_test_helpers";
-import { beforeEach, expect, test } from "@odoo/hoot";
-import { getTimePickers } from "@web/../tests/core/datetime/datetime_test_helpers";
-import { animationFrame, mockDate, mockTimeZone } from "@odoo/hoot-mock";
 
 function getPickerCell(expr) {
     return queryAll(`.o_datetime_picker .o_date_item_cell:contains(/^${expr}$/)`);
@@ -83,33 +82,31 @@ test.tags("desktop")("Datetime field - interaction with the datepicker", async (
     const daterange = queryFirst(".o_field_daterange");
     await contains("input[data-field=datetime]", { root: daterange }).click();
 
-    let datepicker = queryFirst(".o_datetime_picker");
-    expect(datepicker).toBeDisplayed();
+    expect(".o_datetime_picker").toBeDisplayed();
 
-    expect(queryText(".o_date_item_cell.o_select_start", { root: datepicker })).toBe("8");
+    expect(".o_date_item_cell.o_select_start").toHaveText("8");
     let [hourSelectStart, minuteSelectStart] = getTimePickers().at(0);
     expect(hourSelectStart.value).toBe("15");
     expect(minuteSelectStart.value).toBe("30");
-    expect(queryText(".o_date_item_cell.o_select_end", { root: datepicker })).toBe("13");
+    expect(".o_date_item_cell.o_select_end").toHaveText("13");
     let [hourSelectEnd, minuteSelectEnd] = getTimePickers().at(1);
     expect(hourSelectEnd.value).toBe("5");
     expect(minuteSelectEnd.value).toBe("30");
     expect(queryAll("option", { root: minuteSelectStart })).toHaveCount(12);
     // Close picker
     await contains(".o_form_view_container").click();
-    expect(".o_datetime_picker", "datepicker should be closed").toHaveCount(0);
+    expect(".o_datetime_picker").toHaveCount(0);
 
     // Try to check with end date
     await contains("input[data-field=datetime_end]", { root: daterange }).click();
 
-    datepicker = queryFirst(".o_datetime_picker");
-    expect(datepicker).toBeDisplayed();
+    expect(".o_datetime_picker").toBeDisplayed();
 
-    expect(queryText(".o_date_item_cell.o_select_start", { root: datepicker })).toBe("8");
+    expect(".o_date_item_cell.o_select_start").toHaveText("8");
     [hourSelectStart, minuteSelectStart] = getTimePickers().at(0);
     expect(hourSelectStart.value).toBe("15");
     expect(minuteSelectStart.value).toBe("30");
-    expect(queryText(".o_date_item_cell.o_select_end", { root: datepicker })).toBe("13");
+    expect(".o_date_item_cell.o_select_end").toHaveText("13");
     [hourSelectEnd, minuteSelectEnd] = getTimePickers().at(1);
     expect(hourSelectEnd.value).toBe("5");
     expect(minuteSelectEnd.value).toBe("30");
@@ -357,7 +354,7 @@ test("Render with initial empty value and optional start date", async () => {
         type: "form",
         resModel: "partner",
         arch: `
-            <form>  
+            <form>
                 <field name="datetime_end" widget="daterange" options="{'start_date_field': 'datetime'}"/>
             </form>`,
     });
@@ -1008,4 +1005,44 @@ test("invalid empty date with optional start date", async () => {
     await contains(".o_form_view").click();
     expect(".o_field_daterange input:eq(0)").toHaveValue("");
     expect(".o_field_daterange").toHaveClass("o_field_invalid");
+});
+
+test.tags("desktop")("date values are selected eagerly and do not flicker", async () => {
+    Partner._onChanges.datetime = () => {};
+
+    const def = new Deferred();
+    onRpc("onchange", async () => {
+        await def;
+        expect.step("onchange");
+    });
+
+    await mountView({
+        type: "form",
+        resModel: "partner",
+        arch: `
+            <form>
+                <field name="datetime" options="{'end_date_field': 'datetime_end'}"/>
+            </form>`,
+        resId: 1,
+    });
+
+    await contains(".o_field_datetime input").click();
+    await contains(getPickerCell("19")).click();
+    await contains(".o_add_date").click();
+    await contains(".btn:contains(Apply)").click();
+
+    expect(queryAllValues(".o_field_datetime input")).toEqual([
+        "02/19/2017 15:30:00",
+        "02/19/2017 16:30:00",
+    ]);
+    expect.verifySteps([]);
+
+    def.resolve();
+    await animationFrame();
+
+    expect(queryAllValues(".o_field_datetime input")).toEqual([
+        "02/19/2017 15:30:00",
+        "02/19/2017 16:30:00",
+    ]);
+    expect.verifySteps(["onchange"]);
 });
