@@ -44,8 +44,7 @@
                     <i class="fa fa-clone" role="img" aria-label="Copy" title="Copy" />Copy</button>
                 <button t-attf-class="{{editButtonClass}}" t-on-click.stop="deleteFloorOrTable">
                     <i class="fa fa-trash" role="img" aria-label="Delete" title="Delete" />Delete</button>
-                <button t-attf-class="ms-auto {{editButtonClass}}" t-on-click.stop="closeEditMode">
-                    <i class="fa fa-times" role="img" aria-label="Close" title="Close" />Close</button>
+                <button t-attf-class="ms-auto text-uppercase my-1 btn btn-primary" t-on-click.stop="closeEditMode">Save</button>
             </div>
             <div class="floor-selector d-flex text-center bg-100 fs-3 w-100">
                 <t t-foreach="pos.models['restaurant.floor'].getAll()" t-as="floor" t-key="floor.id">
@@ -112,7 +111,7 @@
                                     >
                                     <t t-set="offset" t-value="getTableHandleOffset(table)"/>
                                     <div class="info position-relative w-100 h-100" t-att-class="{'opacity-25': table.parent_id}">
-                                        <div t-esc="table.name" class="label fw-bolder fs-4 position-absolute top-50 start-50 translate-middle" />
+                                        <div t-esc="table.table_number" class="label fw-bolder fs-4 position-absolute top-50 start-50 translate-middle" />
                                         <div  t-esc="getOrderCount(table)" t-if="getOrderCount(table)"
                                             t-att-class="{
                                                 'text-bg-danger': table.uiState.changeCount,
