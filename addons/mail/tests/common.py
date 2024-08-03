@@ -806,12 +806,14 @@ class MailCase(MockEmail):
 
         with patch.object(ImBus, 'create', autospec=True, wraps=ImBus, side_effect=_bus_bus_create) as _bus_bus_create_mock:
             yield
+            self.env.cr.precommit.run()  # trigger the creation of bus.bus records
 
     def _init_mock_bus(self):
         self._new_bus_notifs = self.env['bus.bus'].sudo()
 
     def _reset_bus(self):
-        self.env['bus.bus'].sudo().search([]).unlink()
+        self.env.cr.precommit.run()  # trigger the creation of bus.bus records
+        self.env["bus.bus"].sudo().search([]).unlink()
 
     @contextmanager
     def mock_mail_app(self):
@@ -1185,13 +1187,20 @@ class MailCase(MockEmail):
               }}
             }, {...}]
         """
+        self.env.cr.precommit.run()  # trigger the creation of bus.bus records
         bus_notifs = self.env['bus.bus'].sudo().search([('channel', 'in', [json_dump(channel) for channel in channels])])
         new_line = "\n"
+
+        def notif_to_string(notif):
+            message = json.loads(notif.message)
+            payload = json_dump(message.get("payload"))
+            return f"{notif.channel}  # {message.get('type')} - {payload[0:120]}{'…' if len(payload) > 120 else ''}"
+
         self.assertEqual(
             bus_notifs.mapped("channel"),
             [json_dump(channel) for channel in channels],
             f"\nExpected:\n{new_line.join([json_dump(channel) for channel in channels])}"
-            f"\nReturned:\n{new_line.join(bus_notifs.mapped('channel'))}"
+            f"\nReturned:\n{new_line.join([notif_to_string(notif) for notif in bus_notifs])}",
         )
         notif_messages = [n.message for n in bus_notifs]
         for expected in message_items or []:

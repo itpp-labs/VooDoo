@@ -1,6 +1,6 @@
 import { usePos } from "@point_of_sale/app/store/pos_hook";
 import { useService } from "@web/core/utils/hooks";
-import { isMobileOS } from "@web/core/browser/feature_detection";
+import { isDisplayStandalone, isMobileOS } from "@web/core/browser/feature_detection";
 
 import { CashierName } from "@point_of_sale/app/navbar/cashier_name/cashier_name";
 import { ProxyStatus } from "@point_of_sale/app/navbar/proxy_status/proxy_status";
@@ -22,6 +22,8 @@ import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { deduceUrl } from "@point_of_sale/utils";
 import { PaymentScreen } from "@point_of_sale/app/screens/payment_screen/payment_screen";
 import { user } from "@web/core/user";
+import { TextInputPopup } from "@point_of_sale/app/utils/input_popups/text_input_popup";
+import { ListContainer } from "@point_of_sale/app/generic_components/list_container/list_container";
 
 export class Navbar extends Component {
     static template = "point_of_sale.Navbar";
@@ -34,6 +36,7 @@ export class Navbar extends Component {
         Dropdown,
         DropdownItem,
         SyncPopup,
+        ListContainer,
     };
     static props = {};
     setup() {
@@ -43,6 +46,7 @@ export class Navbar extends Component {
         this.dialog = useService("dialog");
         this.notification = useService("notification");
         this.hardwareProxy = useService("hardware_proxy");
+        this.isDisplayStandalone = isDisplayStandalone();
         this.isBarcodeScannerSupported = isBarcodeScannerSupported;
         onMounted(async () => {
             this.isSystemUser = await user.hasGroup("base.group_system");
@@ -60,6 +64,36 @@ export class Navbar extends Component {
     }
     get showCashMoveButton() {
         return Boolean(this.pos.config.cash_control && this.pos.session._has_cash_move_perm);
+    }
+    showTabs() {
+        return true;
+    }
+    newFloatingOrder() {
+        this.pos.add_new_order();
+        this.pos.showScreen("ProductScreen");
+    }
+    selectFloatingOrder(order) {
+        this.pos.set_order(order);
+        this.pos.showScreen("ProductScreen");
+    }
+    getFloatingOrders() {
+        return this.pos.get_open_orders();
+    }
+    editOrderNote(order) {
+        this.dialog.add(TextInputPopup, {
+            title: _t("Edit order note"),
+            placeholder: _t("Emma's Birthday Party"),
+            startingValue: order.note || "",
+            getPayload: async (newName) => {
+                if (typeof order.id == "number") {
+                    this.pos.data.write("pos.order", [order.id], {
+                        note: newName,
+                    });
+                } else {
+                    order.note = newName;
+                }
+            },
+        });
     }
     onCashMoveButtonClick() {
         this.hardwareProxy.openCashbox(_t("Cash in / out"));
@@ -83,6 +117,12 @@ export class Navbar extends Component {
 
     get orderCount() {
         return this.pos.get_open_orders().length;
+    }
+
+    get appUrl() {
+        return `/scoped_app?app_id=point_of_sale&app_name=${encodeURIComponent(
+            this.pos.config.display_name
+        )}&path=${encodeURIComponent(`pos/ui?config_id=${this.pos.config.id}`)}`;
     }
 
     async closeSession() {

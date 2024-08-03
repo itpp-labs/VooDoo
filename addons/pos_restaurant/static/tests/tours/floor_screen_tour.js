@@ -61,7 +61,6 @@ registry.category("web_tour.tours").add("FloorScreenTour", {
             NumberPopup.enterValue("100"),
             NumberPopup.isShown("100"),
             Dialog.confirm(),
-            FloorScreen.clickTable("100"),
             FloorScreen.selectedTableIs("100"),
 
             // test duplicate table
@@ -73,7 +72,6 @@ registry.category("web_tour.tours").add("FloorScreenTour", {
             NumberPopup.enterValue("1111"),
             NumberPopup.isShown("1111"),
             Dialog.confirm(),
-            FloorScreen.clickTable("1111"),
             FloorScreen.selectedTableIs("1111"),
 
             // switch floor, switch back and check if
@@ -116,19 +114,17 @@ registry.category("web_tour.tours").add("FloorScreenTour", {
             NumberPopup.enterValue("9"),
             NumberPopup.isShown("9"),
             Dialog.confirm(),
-            FloorScreen.table({ name: "4", numOfSeats: "9" }),
+            FloorScreen.table({ name: "4" }),
 
             // change number of seat when the input is already selected
-            FloorScreen.clickTable("4"),
             FloorScreen.selectedTableIs("4"),
             FloorScreen.clickEditButton("Seats"),
             NumberPopup.enterValue("15"),
             NumberPopup.isShown("15"),
             Dialog.confirm(),
-            FloorScreen.table({ name: "4", numOfSeats: "15" }),
+            FloorScreen.table({ name: "4" }),
 
             // change shape
-            FloorScreen.clickTable("4"),
             FloorScreen.clickEditButton("MakeRound"),
 
             // Opening product screen in main floor should go back to main floor

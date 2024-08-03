@@ -538,22 +538,22 @@ overridden by modules), because:
 
 <template id="new_page_template_about_full_s_numbers" inherit_id="website.new_page_template_about_s_numbers" primary="True">
     <xpath expr="//section" position="attributes">
-        <attribute name="class" add="o_cc3 o_colored_level" remove="o_cc2" separator=" "/>
+        <attribute name="class" add="o_cc3 o_colored_level" remove="o_cc1" separator=" "/>
     </xpath>
 </template>
 
 <template id="new_page_template_about_personal_s_numbers" inherit_id="website.new_page_template_about_s_numbers" primary="True">
     <xpath expr="//section" position="attributes">
-        <attribute name="class" add="pt0 o_cc3 o_colored_level" remove="o_cc2 pt24" separator=" "/>
+        <attribute name="class" add="pt0 o_cc3 o_colored_level" remove="o_cc1 pt80" separator=" "/>
     </xpath>
     <xpath expr="//h6" position="replace">
-        <h6 style="text-align: center;">Clients</h6>
+        <h6 class="lead" style="text-align: center;">Clients</h6>
     </xpath>
     <xpath expr="(//h6)[2]" position="replace">
-        <h6 style="text-align: center;">Amazing Pages</h6>
+        <h6 class="lead" style="text-align: center;">Amazing Pages</h6>
     </xpath>
     <xpath expr="(//h6)[3]" position="replace">
-        <h6 style="text-align: center;">Websites</h6>
+        <h6 class="lead" style="text-align: center;">Websites</h6>
     </xpath>
 </template>
 
@@ -877,7 +877,7 @@ overridden by modules), because:
         <h3>Ready to Embrace Your Fitness Journey?</h3>
     </xpath>
     <xpath expr="//p" position="replace">
-        <p>Contact us today to embark on your path to a healthier, more vibrant you. Your fitness journey begins here.</p>
+        <p class="lead">Contact us today to embark on your path to a healthier, more vibrant you. Your fitness journey begins here.</p>
     </xpath>
 </template>
 
@@ -886,7 +886,7 @@ overridden by modules), because:
         <h3>Elevate Your Audio Journey Today</h3>
     </xpath>
     <xpath expr="//p" position="replace">
-        <p>Ready to embark on your auditory adventure? Order your EchoTunes Wireless Earbuds today and let the symphony begin.</p>
+        <p class="lead">Ready to embark on your auditory adventure? Order your EchoTunes Wireless Earbuds today and let the symphony begin.</p>
     </xpath>
 </template>
 
@@ -900,7 +900,7 @@ overridden by modules), because:
         <h3>Ready to bring your digital vision to life?</h3>
     </xpath>
     <xpath expr="//p" position="replace">
-        <p>Let's collaborate to create innovative solutions that stand out in the digital landscape. Reach out today and let's build something extraordinary together.</p>
+        <p class="lead">Let's collaborate to create innovative solutions that stand out in the digital landscape. Reach out today and let's build something extraordinary together.</p>
     </xpath>
 </template>
 
@@ -914,7 +914,7 @@ overridden by modules), because:
         <h3>Ready to embark on a journey of digital transformation?</h3>
     </xpath>
     <xpath expr="//p" position="replace">
-        <p>Let's turn your vision into reality. Contact us today to set your brand on the path to digital excellence with us.</p>
+        <p class="lead">Let's turn your vision into reality. Contact us today to set your brand on the path to digital excellence with us.</p>
     </xpath>
 </template>
 
@@ -928,7 +928,7 @@ overridden by modules), because:
         <h3>Book your table today</h3>
     </xpath>
     <xpath expr="//p" position="replace">
-        <p>Join us for a remarkable dining experience that blends exquisite flavors with a warm ambiance. </p>
+        <p class="lead">Join us for a remarkable dining experience that blends exquisite flavors with a warm ambiance. </p>
     </xpath>
 </template>
 

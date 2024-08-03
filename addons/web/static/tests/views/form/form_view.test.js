@@ -3836,10 +3836,10 @@ test(`form view properly change its title`, async () => {
 
     await mountWithCleanup(WebClient);
     await getService("action").doAction(1);
-    expect(`.o_control_panel .o_breadcrumb`).toHaveText("first record");
+    expect(`.o_breadcrumb`).toHaveText("first record");
 
     await contains(`.o_form_button_create`).click();
-    expect(`.o_control_panel .o_breadcrumb`).toHaveText("New");
+    expect(`.o_breadcrumb`).toHaveText("New");
 });
 
 test(`archive/unarchive a record`, async () => {
@@ -4097,12 +4097,12 @@ test(`can duplicate a record`, async () => {
         resId: 1,
         actionMenus: {},
     });
-    expect(`.o_control_panel .o_breadcrumb`).toHaveText("first record");
+    expect(`.o_breadcrumb`).toHaveText("first record");
 
     await toggleActionMenu();
     await toggleMenuItem("Duplicate");
     expect.verifySteps(["copy"]);
-    expect(`.o_control_panel .o_breadcrumb`).toHaveText("first record (copy)");
+    expect(`.o_breadcrumb`).toHaveText("first record (copy)");
     expect(`.o_form_editable`).toHaveCount(1);
 });
 
@@ -4131,7 +4131,7 @@ test(`cannot duplicate a record`, async () => {
         resId: 1,
         actionMenus: {},
     });
-    expect(`.o_control_panel .o_breadcrumb`).toHaveText("first record");
+    expect(`.o_breadcrumb`).toHaveText("first record");
     expect(`.o_cp_action_menus`).toHaveCount(1);
 
     await toggleActionMenu();
@@ -4174,11 +4174,11 @@ test(`editing a translatable field in a duplicate record overrides translations`
         resId: 1,
         actionMenus: {},
     });
-    expect(`.o_control_panel .o_breadcrumb`).toHaveText("first record");
+    expect(`.o_breadcrumb`).toHaveText("first record");
 
     await toggleActionMenu();
     await toggleMenuItem("Duplicate");
-    expect(`.o_control_panel .o_breadcrumb`).toHaveText("first record (copy)");
+    expect(`.o_breadcrumb`).toHaveText("first record (copy)");
     expect(`.o_form_editable`).toHaveCount(1);
 
     await contains(`.o_field_char input`).edit("first record (test)");
@@ -4336,12 +4336,12 @@ test.tags("mobile")(`clicking on stat buttons save and reload in edit mode on mo
         `,
         resId: 2,
     });
-    expect(`.o_control_panel .o_breadcrumb`).toHaveText("second record");
+    expect(`.o_breadcrumb`).toHaveText("second record");
 
     await contains(`.o_field_widget[name=name] input`).edit("some other name");
     await contains(".o-form-buttonbox .o_button_more").click();
     await contains(`button.oe_stat_button`).click();
-    expect(`.o_control_panel .o_breadcrumb`).toHaveText("GOLDORAK");
+    expect(`.o_breadcrumb`).toHaveText("GOLDORAK");
 });
 
 test(`buttons with attr "special" do not trigger a save`, async () => {
@@ -4452,6 +4452,44 @@ test.tags("desktop")(`buttons with attr "special" in dialog close the dialog`, a
     expect(`.o_dialog`).toHaveCount(0);
     expect.verifySteps([]);
     expect(`.o_form_status_indicator_buttons.invisible`).toHaveCount(1);
+});
+
+test.tags("desktop")(`Add custom buttons to default buttons (replace="0")`, async () => {
+    Product._views = {
+        form: `
+            <form>
+                <sheet>
+                    <field name="name" />
+                </sheet>
+                <footer replace="0">
+                    <button class="btn btn-primary">Custom 1</button>
+                    <button class="btn btn-secondary">Custom 2</button>
+                </footer>
+            </form>
+        `,
+    };
+    await mountView({
+        resModel: "partner",
+        type: "form",
+        arch: `
+            <form>
+                <sheet>
+                    <group>
+                        <field name="product_id"/>
+                    </group>
+                </sheet>
+            </form>
+        `,
+        resId: 2,
+    });
+    await contains(`[name="product_id"] input`).edit("ABC", { confirm: false });
+    await runAllTimers(); // skip debounce
+    await contains(`.o_m2o_dropdown_option_create_edit`).click();
+
+    expect(".o_dialog .o_form_button_save").toHaveCount(1);
+    expect(".o_dialog .o_form_button_cancel").toHaveCount(1);
+    expect(".o_dialog button:contains(Custom 1)").toHaveCount(1);
+    expect(".o_dialog button:contains(Custom 2)").toHaveCount(1);
 });
 
 test(`missing widgets do not crash`, async () => {

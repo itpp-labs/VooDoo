@@ -244,6 +244,9 @@ class StockQuant(models.Model):
             domain_operator = 'in'
         return [('id', domain_operator, quant_query)]
 
+    def copy(self, default=None):
+        raise UserError(_('You cannot duplicate stock quants.'))
+
     @api.model_create_multi
     def create(self, vals_list):
         """ Override to handle the "inventory mode" and create a quant as
@@ -936,8 +939,7 @@ class StockQuant(models.Model):
             quant = self._gather(
                 self.product_id, self.location_id, lot_id=self.lot_id,
                 package_id=self.package_id, owner_id=self.owner_id, strict=True)
-            if quant:
-                self.quantity = sum(quant.filtered(lambda q: q.lot_id == self.lot_id).mapped('quantity'))
+            self.quantity = sum(quant.filtered(lambda q: q.lot_id == self.lot_id).mapped('quantity'))
 
             # Special case: directly set the quantity to one for serial numbers,
             # it'll trigger `inventory_quantity` compute.

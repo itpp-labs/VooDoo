@@ -13,6 +13,7 @@ from odoo.exceptions import UserError, ValidationError, AccessError
 from odoo.osv import expression
 from odoo.tools import format_list, SQL
 from odoo.addons.resource.models.utils import filter_domain_leaf
+from odoo.addons.project.controllers.project_sharing_chatter import ProjectSharingChatter
 
 
 PROJECT_TASK_READABLE_FIELDS = {
@@ -52,7 +53,6 @@ PROJECT_TASK_READABLE_FIELDS = {
     'recurrence_id',
     'recurring_count',
     'duration_tracking',
-    'message_is_follower',
     'display_follow_button',
 }
 
@@ -946,6 +946,8 @@ class Task(models.Model):
             project = self.env['project.project'].browse(project_id)
             if project.analytic_account_id:
                 vals['analytic_account_id'] = project.analytic_account_id.id
+            if 'company_id' in default_fields and 'default_project_id' not in self.env.context:
+                vals['company_id'] = project.sudo().company_id
         elif 'default_user_ids' not in self.env.context and 'user_ids' in default_fields:
             user_ids = vals.get('user_ids', [])
             user_ids.append(Command.link(self.env.user.id))
@@ -1988,3 +1990,12 @@ class Task(models.Model):
     def _compute_subtask_completion_percentage(self):
         for task in self:
             task.subtask_completion_percentage = task.subtask_count and task.closed_subtask_count / task.subtask_count
+
+    @api.model
+    def _get_thread_with_access(self, thread_id, mode="read", **kwargs):
+        if project_sharing_id := kwargs.get("project_sharing_id"):
+            if token := ProjectSharingChatter._check_project_access_and_get_token(
+                self, project_sharing_id, self._name, thread_id, kwargs.get("token")
+            ):
+                kwargs["token"] = token
+        return super()._get_thread_with_access(thread_id, mode, **kwargs)

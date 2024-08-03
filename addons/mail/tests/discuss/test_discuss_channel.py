@@ -59,6 +59,7 @@ class TestChannelInternals(MailCommon, HttpCase):
             member = self.env["discuss.channel.member"].search([], order="id desc", limit=1)
             return (
                 [
+                    (self.cr.dbname, "res.partner", self.test_partner.id),
                     (self.cr.dbname, "discuss.channel", channel.id),
                     (self.cr.dbname, "discuss.channel", channel.id, "members"),
                     (self.cr.dbname, "discuss.channel", channel.id),
@@ -88,7 +89,7 @@ class TestChannelInternals(MailCommon, HttpCase):
                                             "id": self.env.user.partner_id.id,
                                             "type": "partner",
                                         },
-                                        "body": f'<div class="o_mail_notification">invited <a href="#" data-oe-model="res.partner" data-oe-id="{self.test_partner.id}">Test Partner</a> to the channel</div>',
+                                        "body": f'<div class="o_mail_notification">invited <a href="#" data-oe-model="res.partner" data-oe-id="{self.test_partner.id}">@Test Partner</a> to the channel</div>',
                                         "create_date": fields.Datetime.to_string(
                                             message.create_date
                                         ),
@@ -396,9 +397,7 @@ class TestChannelInternals(MailCommon, HttpCase):
         chat = self.env['discuss.channel'].with_user(self.user_admin).channel_get((self.partner_employee | self.user_admin.partner_id).ids)
         msg_1 = self._add_messages(chat, 'Body1', author=self.user_employee.partner_id)
         member = chat.channel_member_ids.filtered(lambda m: m.partner_id == self.user_admin.partner_id)
-        last_bus_id = self.env['bus.bus'].sudo()._bus_last_id()
-
-        self.env['bus.bus'].sudo().search([]).unlink()
+        self._reset_bus()
         with self.assertBus(
             [
                 (self.env.cr.dbname, "discuss.channel", chat.id),
@@ -412,7 +411,7 @@ class TestChannelInternals(MailCommon, HttpCase):
                             {
                                 "id": member.id,
                                 "message_unread_counter": 0,
-                                "message_unread_counter_bus_id": last_bus_id + 1,
+                                "message_unread_counter_bus_id": 0,
                                 "new_message_separator": msg_1.id + 1,
                                 "persona": {"id": self.user_admin.partner_id.id, "type": "partner"},
                                 "syncUnread": False,
@@ -454,7 +453,7 @@ class TestChannelInternals(MailCommon, HttpCase):
             member._mark_as_read(msg_1.id)
         # There should be no channel member to be set as seen in the second time
         # So no notification should be sent
-        self.env['bus.bus'].sudo().search([]).unlink()
+        self._reset_bus()
         with self.assertBus([], []):
             member._mark_as_read(msg_1.id)
 
@@ -582,7 +581,7 @@ class TestChannelInternals(MailCommon, HttpCase):
 
     def test_channel_write_should_send_notification(self):
         channel = self.env['discuss.channel'].create({"name": "test", "description": "test"})
-        self.env['bus.bus'].search([]).unlink()
+        self._reset_bus()
         with self.assertBus(
             [(self.cr.dbname, "discuss.channel", channel.id)],
             [
@@ -600,7 +599,7 @@ class TestChannelInternals(MailCommon, HttpCase):
         channel.image_128 = base64.b64encode(("<svg/>").encode())
         avatar_cache_key = channel.avatar_cache_key
         channel.image_128 = False
-        self.env['bus.bus'].search([]).unlink()
+        self._reset_bus()
         with self.assertBus(
             [(self.cr.dbname, "discuss.channel", channel.id)],
             [
@@ -776,7 +775,7 @@ class TestChannelInternals(MailCommon, HttpCase):
         """Ensures the command '/help' works in a channel"""
         channel = self.env["discuss.channel"].browse(self.test_channel.ids)
         channel.name = "<strong>R&D</strong>"
-        self.env['bus.bus'].sudo().search([]).unlink()
+        self._reset_bus()
         with self.assertBus(
             [(self.env.cr.dbname, "res.partner", self.env.user.partner_id.id)],
             [
@@ -791,8 +790,8 @@ class TestChannelInternals(MailCommon, HttpCase):
                             "<br>Type <b>/command</b> to execute a command."
                             "</span>",
                         "thread": {
-                            "model": "discuss.channel",
                             "id": channel.id,
+                            "model": "discuss.channel",
                         },
                     },
                 },
@@ -814,7 +813,7 @@ class TestChannelInternals(MailCommon, HttpCase):
             'channel_partner_ids': [(6, 0, test_user.partner_id.id)]
         })
         test_group.add_members(self.partner_employee_nomail.ids)
-        self.env['bus.bus'].sudo().search([]).unlink()
+        self._reset_bus()
         with self.assertBus(
             [(self.env.cr.dbname, "res.partner", self.env.user.partner_id.id)],
             [
@@ -823,14 +822,16 @@ class TestChannelInternals(MailCommon, HttpCase):
                     "payload": {
                         "body":
                             "<span class='o_mail_notification'>"
-                            "You are in a private conversation with <b>@Mario</b> and <b>@&lt;strong&gt;Evita Employee NoEmail&lt;/strong&gt;</b>."
+                            "You are in a private conversation with "
+                            f"<a href=# data-oe-model='res.partner' data-oe-id='{test_user.partner_id.id}'>@Mario</a> "
+                            f"and <a href=# data-oe-model='res.partner' data-oe-id='{self.partner_employee_nomail.id}'>@&lt;strong&gt;Evita Employee NoEmail&lt;/strong&gt;</a>."
                             "<br><br>Type <b>@username</b> to mention someone, and grab their attention."
                             "<br>Type <b>#channel</b> to mention a channel."
                             "<br>Type <b>/command</b> to execute a command."
                             "</span>",
                         "thread": {
-                            "model": "discuss.channel",
                             "id": test_group.id,
+                            "model": "discuss.channel",
                         },
                     },
                 },

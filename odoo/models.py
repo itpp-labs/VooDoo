@@ -183,11 +183,11 @@ def check_company_domain_parent_of(self, companies):
     if not companies:
         return [('company_id', '=', False)]
 
-    return ['|', ('company_id', '=', False), ('company_id', 'in', [
+    return [('company_id', 'in', [
         int(parent)
         for rec in self.env['res.company'].sudo().browse(companies)
         for parent in rec.parent_path.split('/')[:-1]
-    ])]
+    ] + [False])]
 
 
 class MetaModel(api.Meta):
@@ -3837,7 +3837,9 @@ class BaseModel(metaclass=MetaModel):
         langs = set(langs or [l[0] for l in self.env['res.lang'].get_installed()])
         self_lang = self.with_context(check_translations=True, prefetch_langs=True)
         val_en = self_lang.with_context(lang='en_US')[field_name]
-        if not callable(field.translate):
+        if not field.translate:
+            translations = []
+        elif field.translate is True:
             translations = [{
                 'lang': lang,
                 'source': val_en,
@@ -4154,7 +4156,7 @@ class BaseModel(metaclass=MetaModel):
         """
         if not companies:
             return [('company_id', '=', False)]
-        return ['|', ('company_id', '=', False), ('company_id', 'in', to_company_ids(companies))]
+        return [('company_id', 'in', to_company_ids(companies) + [False])]
 
     def _check_company(self, fnames=None):
         """ Check the companies of the values of the given field names.

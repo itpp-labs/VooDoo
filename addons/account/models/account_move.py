@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
 from collections import defaultdict
 from contextlib import ExitStack, contextmanager
 from datetime import date, timedelta
@@ -3638,11 +3639,7 @@ class AccountMove(models.Model):
         to_process = []
         for invoice_line in invoice_lines:
             base_line = invoice_line._convert_to_tax_base_line_dict()
-            tax_details_results = self.env['account.tax']._prepare_base_line_tax_details(
-                base_line,
-                company,
-                split_repartition_lines=True,
-            )
+            tax_details_results = self.env['account.tax']._prepare_base_line_tax_details(base_line, company)
             to_process.append((base_line, tax_details_results))
 
         # Handle manually changed tax amounts (via quick-edit or journal entry manipulation):
@@ -3780,11 +3777,7 @@ class AccountMove(models.Model):
         # Prepare the tax details for each line.
         to_process = []
         for base_line in base_lines:
-            tax_details_results = self.env['account.tax']._prepare_base_line_tax_details(
-                base_line,
-                company,
-                split_repartition_lines=True,
-            )
+            tax_details_results = self.env['account.tax']._prepare_base_line_tax_details(base_line, company)
             to_process.append((base_line, tax_details_results))
 
         # Aggregate taxes.
@@ -4206,8 +4199,8 @@ class AccountMove(models.Model):
             return
         to_reverse = self.env['account.move']
         to_unlink = self.env['account.move']
-        lock_date = self.company_id._get_user_fiscal_lock_date()
         for move in self:
+            lock_date = move.company_id._get_user_fiscal_lock_date()
             if move.inalterable_hash or move.date <= lock_date:
                 to_reverse += move
             else:
@@ -4494,7 +4487,7 @@ class AccountMove(models.Model):
             raise UserError(_("You can only send sales documents"))
 
         return {
-            'name': _("Send"),
+            'name': _("Print & Send"),
             'type': 'ir.actions.act_window',
             'view_type': 'form',
             'view_mode': 'form',
@@ -4518,6 +4511,13 @@ class AccountMove(models.Model):
             report_action['context']['default_from_invoice'] = self.move_type == 'out_invoice'
 
         return report_action
+
+    def action_invoice_download_pdf(self):
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/account/download_invoice_documents/{",".join(map(str, self.ids))}/pdf',
+            'target': 'download',
+        }
 
     def preview_invoice(self):
         self.ensure_one()
@@ -4728,9 +4728,8 @@ class AccountMove(models.Model):
         """ Handle Send & Print async processing.
         :param job_count: maximum number of jobs to process if specified.
         """
-        def get_account_notification(partner, moves, is_success):
+        def get_account_notification(moves, is_success: bool):
             return [
-                partner,
                 'account_notification',
                 {
                     'type': 'success' if is_success else 'warning',
@@ -4772,18 +4771,15 @@ class AccountMove(models.Model):
 
             self.env['account.move.send']._process_send_and_print(moves)
 
-            notifications = []
             for partner_id, partner_moves in moves_by_partner.items():
                 partner = self.env['res.partner'].browse(partner_id)
                 partner_moves_error = partner_moves.filtered(lambda m: m.send_and_print_values and m.send_and_print_values.get('error'))
                 if partner_moves_error:
-                    notifications.append(get_account_notification(partner, partner_moves_error, False))
+                    partner._bus_send(*get_account_notification(partner_moves_error, False))
                 partner_moves_success = partner_moves - partner_moves_error
                 if partner_moves_success:
-                    notifications.append(get_account_notification(partner, partner_moves_success, True))
+                    partner._bus_send(*get_account_notification(partner_moves_success, True))
                 partner_moves_error.send_and_print_values = False
-
-            self.env['bus.bus']._sendmany(notifications)
 
         if need_retrigger:
             self.env.ref('account.ir_cron_account_move_send')._trigger()
@@ -4960,44 +4956,70 @@ class AccountMove(models.Model):
             **kwargs,
         }
 
-    def _generate_pdf_and_send_invoice(self, template, force_synchronous=True, allow_fallback_pdf=True, bypass_download=False, **kwargs):
+    def _generate_pdf_and_send_invoice(self, template, force_synchronous=True, allow_fallback_pdf=True, **kwargs):
         """ Generate the pdf for the current invoices and send them by mail using the send & print wizard.
         :param force_synchronous:   Flag indicating if the method should be done synchronously.
         :param allow_fallback_pdf:  In case of error when generating the documents for invoices, generate a
                                     proforma PDF report instead.
-        :param bypass_download: Don't trigger the action from action_send_and_print and get generated attachments_ids instead.
         """
         composer_vals = self._get_pdf_and_send_invoice_vals(template, **kwargs)
         composer = self.env['account.move.send'].create(composer_vals)
-        return composer.action_send_and_print(force_synchronous=force_synchronous, allow_fallback_pdf=allow_fallback_pdf, bypass_download=bypass_download)
+        return composer.action_send_and_print(force_synchronous=force_synchronous, allow_fallback_pdf=allow_fallback_pdf)
 
-    def _get_invoice_legal_documents(self):
-        """ Return existing attachments or a temporary Pro Forma pdf. """
+    def _get_invoice_pdf_proforma(self):
+        """ Generate the Proforma of the invoice.
+        :return dict: the Proforma's data such as
+        {'filename': 'INV_2024_0001_proforma.pdf', 'filetype': 'pdf', 'content': ...}
+        """
+        self.ensure_one()
+        filename = self._get_invoice_proforma_pdf_report_filename()
+        content, _ = self.env['ir.actions.report']._pre_render_qweb_pdf('account.account_invoices', self.ids, data={'proforma': True})
+        return {
+            'filename': filename,
+            'filetype': 'pdf',
+            'content': content[self.id],
+        }
+
+    def _get_invoice_legal_documents(self, filetype, allow_fallback=False):
+        """ Retrieve the invoice legal document of type filetype.
+        :param filetype: the type of legal document to retrieve. Example: 'pdf', 'all'.
+        :param bool allow_fallback: if True, returns a Proforma if the PDF invoice doesn't exist.
+        :return dict: the invoice PDF data such as
+        {'filename': 'INV_2024_0001.pdf', 'filetype': 'pdf', 'content':...}
+        To extend to add more supported filetypes.
+        """
+        self.ensure_one()
+        if filetype == 'pdf':
+            if invoice_pdf := self.invoice_pdf_report_id:
+                return {
+                    'filename': invoice_pdf.name,
+                    'filetype': invoice_pdf.mimetype,
+                    'content': invoice_pdf.raw,
+                }
+            elif allow_fallback:
+                return self._get_invoice_pdf_proforma()
+        elif filetype == 'all':
+            return self._get_invoice_legal_documents_all(allow_fallback=allow_fallback)
+
+    def _get_invoice_legal_documents_all(self, allow_fallback=False):
+        """ Retrieve the invoice legal attachments: PDF, XML, ...
+        :param bool allow_fallback: if True, returns a Proforma if the PDF invoice doesn't exist.
+        :return list: a list of the attachments data such as
+        [{'filename': 'INV_2024_0001.pdf', 'filetype': 'pdf', 'content': ...}, ...]
+        """
         self.ensure_one()
         if self.invoice_pdf_report_id:
             attachments = self.env['account.move.send']._get_invoice_extra_attachments(self)
-        else:
-            content, _ = self.env['ir.actions.report']._pre_render_qweb_pdf('account.account_invoices', self.ids, data={'proforma': True})
-            attachments = self.env['ir.attachment'].new({
-                'raw': content[self.id],
-                'name': self._get_invoice_proforma_pdf_report_filename(),
-                'mimetype': 'application/pdf',
-                'res_model': self._name,
-                'res_id': self.id,
-            })
-        return attachments
-
-    def get_invoice_pdf_report_attachment(self):
-        if len(self) < 2 and self.invoice_pdf_report_id:
-            # if the Send & Print succeeded
-            return self.invoice_pdf_report_id.raw, self.invoice_pdf_report_id.name
-        elif len(self) < 2 and self.message_main_attachment_id:
-            # if the Send & Print failed with fallback=True -> proforma PDF
-            return self.message_main_attachment_id.raw, self.message_main_attachment_id.name
-        # all other cases
-        pdf_content = self.env['ir.actions.report']._render('account.account_invoices', self.ids)[0]
-        pdf_name = self._get_invoice_report_filename() if len(self) == 1 else "Invoices.pdf"
-        return pdf_content, pdf_name
+            return [
+                {
+                    'filename': attachment.name,
+                    'filetype': attachment.mimetype,
+                    'content': attachment.raw,
+                }
+                for attachment in attachments
+            ]
+        elif allow_fallback:
+            return [self._get_invoice_pdf_proforma()]
 
     def _get_invoice_report_filename(self, extension='pdf'):
         """ Get the filename of the generated invoice report with extension file. """
@@ -5199,6 +5221,8 @@ class AccountMove(models.Model):
         # EXTENDS mail mail.thread
         # When posting a message, check the attachment to see if it's an invoice and update with the imported data.
         res = super()._message_post_after_hook(new_message, message_values)
+        if not self.env.user._is_internal():
+            return res
 
         attachments = new_message.attachment_ids
         if not attachments or self.env.context.get('no_new_invoice'):
@@ -5343,6 +5367,13 @@ class AccountMove(models.Model):
         self.ensure_one()
         return True
 
+    def _can_force_cancel(self):
+        """ Hook to indicate whether it should be possible to force-cancel this invoice,
+        that is, cancel it without waiting for the cancellation request to succeed.
+        """
+        self.ensure_one()
+        return False
+
     @contextmanager
     def _send_only_when_ready(self):
         moves_not_ready = self.filtered(lambda x: not x._is_ready_to_be_sent())
@@ -5391,3 +5422,14 @@ class AccountMove(models.Model):
         :return: an array of ir.model.fields for which the user should provide values.
         """
         return []
+
+    def get_extra_print_items(self):
+        """ Helper to dynamically add items in the 'Print' menu of list and form of account.move.
+        This is necessary to avoid the re-generation of the PDF through the action_report.
+        Indeed, once a legal PDF is generated, it should be used and not re-generated.
+        """
+        return [{
+            'key': 'download_pdf',
+            'description': _('PDF'),
+            **self.action_invoice_download_pdf()
+        }]

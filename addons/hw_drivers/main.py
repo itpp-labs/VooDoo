@@ -62,7 +62,12 @@ class Manager(Thread):
                     'connection': iot_devices[device].device_connection,
                     'subtype': iot_devices[device].device_subtype if iot_devices[device].device_type == 'printer' else '',
                 }
-            data = {'params': {'iot_box': iot_box, 'devices': devices_list,}}
+            data = {
+                'params': {
+                    'iot_box': iot_box,
+                    'devices': [d for d in devices_list if d.name != 'distant_display'],
+                }  # Don't send distant_display to the db
+            }
             # disable certifiacte verification
             urllib3.disable_warnings()
             http = urllib3.PoolManager(cert_reqs='CERT_NONE')
@@ -83,7 +88,7 @@ class Manager(Thread):
             except Exception:
                 _logger.exception('Could not reach configured server')
         else:
-            _logger.warning('Odoo server not set')
+            _logger.info('Ignoring sending the devices to the database: no associated database')
 
     def run(self):
         """
@@ -96,7 +101,7 @@ class Manager(Thread):
             helpers.check_git_branch()
             helpers.generate_password()
         is_certificate_ok, certificate_details = helpers.get_certificate_status()
-        if not is_certificate_ok:
+        if not is_certificate_ok and certificate_details != 'ERR_IOT_HTTPS_CHECK_NO_SERVER':
             _logger.warning("An error happened when trying to get the HTTPS certificate: %s",
                             certificate_details)
 

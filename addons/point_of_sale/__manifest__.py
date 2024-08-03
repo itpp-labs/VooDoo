@@ -27,7 +27,7 @@
         'views/pos_note_view.xml',
         'views/pos_order_view.xml',
         'views/pos_category_view.xml',
-        'views/pos_combo_view.xml',
+        'views/product_combo_views.xml',
         'views/product_view.xml',
         'views/account_journal_view.xml',
         'views/pos_payment_method_views.xml',
@@ -162,6 +162,7 @@
             'web/static/src/legacy/js/libs/jquery.js',
             # account
             'account/static/src/helpers/*.js',
+            'account/static/src/services/account_move_service.js',
 
             "web/static/src/core/browser/router.js",
             "web/static/src/core/debug/**/*",
@@ -169,6 +170,7 @@
             'web/static/src/views/**/*',
             'web/static/src/search/**/*',
             'web/static/src/webclient/actions/**/*',
+            'web/static/src/webclient/breadcrumbs/**/*',
             ('remove', 'web/static/src/webclient/actions/reports/layout_assets/**/*'),
             ('remove', 'web/static/src/webclient/actions/**/*css'),
             'web/static/src/webclient/company_service.js',

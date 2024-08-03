@@ -164,7 +164,7 @@ class TestGetDiscussChannel(TestImLivechatCommon, MailCommon):
                     "last_interest_dt": fields.Datetime.to_string(visitor_member.last_interest_dt),
                     "last_seen_dt": False,
                     "message_unread_counter": 0,
-                    "message_unread_counter_bus_id": self.env["bus.bus"]._bus_last_id(),
+                    "message_unread_counter_bus_id": self.env["bus.bus"]._bus_last_id() - 1,
                     "new_message_separator": 0,
                     "persona": {"id": test_user.partner_id.id, "type": "partner"},
                     "seen_message_id": False,
@@ -249,7 +249,7 @@ class TestGetDiscussChannel(TestImLivechatCommon, MailCommon):
                     "last_interest_dt": fields.Datetime.to_string(operator_member.last_interest_dt),
                     "last_seen_dt": False,
                     "message_unread_counter": 0,
-                    "message_unread_counter_bus_id": self.env["bus.bus"]._bus_last_id(),
+                    "message_unread_counter_bus_id": self.env["bus.bus"]._bus_last_id() - 1,
                     "new_message_separator": 0,
                     "persona": {"id": operator.partner_id.id, "type": "partner"},
                     "seen_message_id": False,
@@ -334,7 +334,7 @@ class TestGetDiscussChannel(TestImLivechatCommon, MailCommon):
             },
         )
         channel = self.env["discuss.channel"].browse(data["discuss.channel"][0]["id"])
-        self.env['bus.bus'].sudo().search([]).unlink()
+        self._reset_bus()
         with self.assertBus(
             [(self.env.cr.dbname, "res.partner", self.env.user.partner_id.id)],
             [
@@ -342,15 +342,17 @@ class TestGetDiscussChannel(TestImLivechatCommon, MailCommon):
                     "type": "discuss.channel/transient_message",
                     "payload": {
                         "body":
-                            "<span class='o_mail_notification'>You are in a private conversation with <b>@Paul</b> and <b>@Visitor</b>."
+                            "<span class='o_mail_notification'>You are in a private conversation with "
+                            f"<a href=# data-oe-model='res.partner' data-oe-id='{self.operators[1].partner_id.id}'>@Paul</a> "
+                            "and <strong>Visitor</strong>."
                             "<br><br>Type <b>@username</b> to mention someone, and grab their attention."
                             "<br>Type <b>#channel</b> to mention a channel."
                             "<br>Type <b>/command</b> to execute a command."
                             "<br>Type <b>:shortcut</b> to insert a canned response in your message."
                             "</span>",
                             "thread": {
-                                "model": "discuss.channel",
                                 "id": channel.id,
+                                "model": "discuss.channel",
                             },
                     },
                 },

@@ -8,7 +8,7 @@ from odoo import Command
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 from odoo.tests import loaded_demo_data, tagged
 from odoo.addons.account.tests.common import AccountTestInvoicingHttpCommon
-from odoo.addons.point_of_sale.tests.common_setup_methods import setup_pos_combo_items
+from odoo.addons.point_of_sale.tests.common_setup_methods import setup_product_combo_items
 from datetime import date, timedelta
 from odoo.addons.point_of_sale.tests.common import archive_products
 from odoo.exceptions import UserError
@@ -991,11 +991,11 @@ class TestUi(TestPointOfSaleHttpCommon):
         self.main_pos_config.with_user(self.pos_user).open_ui()
         self.start_tour("/pos/ui?config_id=%d" % self.main_pos_config.id, 'ReceiptScreenDiscountWithPricelistTour', login="pos_user")
 
-    def test_07_pos_combo(self):
-        setup_pos_combo_items(self)
+    def test_07_product_combo(self):
+        setup_product_combo_items(self)
         self.office_combo.write({'lst_price': 50})
         self.main_pos_config.with_user(self.pos_user).open_ui()
-        self.start_pos_tour('PosComboPriceTaxIncludedTour')
+        self.start_pos_tour('ProductComboPriceTaxIncludedTour')
         order = self.env['pos.order'].search([])
         self.assertEqual(len(order.lines), 4, "There should be 4 order lines - 1 combo parent and 3 combo lines")
         # check that the combo lines are correctly linked to each other
@@ -1356,16 +1356,16 @@ class TestUi(TestPointOfSaleHttpCommon):
         self.main_pos_config.with_user(self.pos_user).open_ui()
         self.start_tour("/pos/ui?config_id=%d" % self.main_pos_config.id, 'RefundFewQuantities', login="pos_user")
 
-    def test_pos_combo_price(self):
+    def test_product_combo_price(self):
         """ Check that the combo has the expected price """
         self.desk_organizer.write({"lst_price": 7})
         self.desk_pad.write({"lst_price": 2.5})
         self.whiteboard_pen.write({"lst_price": 1.5})
 
-        combo_lines = [self.env["pos.combo.line"].create({"product_id": product.id, "combo_price": 0})
+        combo_items = [self.env["product.combo.item"].create({"product_id": product.id, "extra_price": 0})
                        for product in (self.desk_organizer, self.desk_pad, self.whiteboard_pen)]
-        combos = [self.env["pos.combo"].create({"name": combo_line.product_id.name, "combo_line_ids": [(6, 0, [combo_line.id])]})
-                  for combo_line in combo_lines]
+        combos = [self.env["product.combo"].create({"name": combo_item.product_id.name, "combo_item_ids": [(6, 0, [combo_item.id])]})
+                  for combo_item in combo_items]
 
         self.env["product.product"].create(
             {
@@ -1382,7 +1382,7 @@ class TestUi(TestPointOfSaleHttpCommon):
         )
 
         self.main_pos_config.with_user(self.pos_user).open_ui()
-        self.start_tour(f"/pos/ui?config_id={self.main_pos_config.id}", 'PosComboPriceCheckTour', login="pos_user")
+        self.start_tour(f"/pos/ui?config_id={self.main_pos_config.id}", 'ProductComboPriceCheckTour', login="pos_user")
 
     def test_customer_display_as_public(self):
         self.main_pos_config.customer_display_type = 'remote'
@@ -1402,7 +1402,7 @@ class TestUi(TestPointOfSaleHttpCommon):
             "city": "Acity",
             "state_id": self.env.ref("base.state_us_30").id,  # Ohio
             "country_id": self.env.ref("base.us").id,
-            "zip": "99999",
+            "zip": "26432685463",
             "phone": "1234567890",
             "mobile": "0987654321",
             "email": "john@doe.com"
@@ -1410,6 +1410,48 @@ class TestUi(TestPointOfSaleHttpCommon):
 
         self.main_pos_config.with_user(self.pos_user).open_ui()
         self.start_tour(f"/pos/ui?config_id={self.main_pos_config.id}", 'PosCustomerAllFieldsDisplayed', login="pos_user")
+
+    def test_product_combo_change_fp(self):
+        """
+        Verify than when the fiscal position is changed,
+        the price of the combo doesn't change and taxes are well taken into account
+        """
+        tax_1 = self.env['account.tax'].create({
+            'name': 'Tax 10%',
+            'amount': 10,
+            'price_include': True,
+            'amount_type': 'percent',
+            'type_tax_use': 'sale',
+        })
+
+        tax_2 = self.env['account.tax'].create({
+            'name': 'Tax 5%',
+            'amount': 5,
+            'price_include': True,
+            'amount_type': 'percent',
+            'type_tax_use': 'sale',
+        })
+
+        setup_product_combo_items(self)
+        self.office_combo.write({'list_price': 50, 'taxes_id': [(6, 0, [tax_1.id])]})
+        for combo in self.office_combo.combo_ids:  # Set the tax to all the products of the combo
+            for item in combo.combo_item_ids:
+                item.product_id.taxes_id = [(6, 0, [tax_1.id])]
+
+        fiscal_position = self.env['account.fiscal.position'].create({
+            'name': 'test fp',
+            'tax_ids': [(0, 0, {
+                'tax_src_id': tax_1.id,
+                'tax_dest_id': tax_2.id,
+            })],
+        })
+
+        self.main_pos_config.write({
+            'tax_regime_selection': True,
+            'fiscal_position_ids': [(6, 0, [fiscal_position.id])],
+        })
+        self.main_pos_config.with_user(self.pos_user).open_ui()
+        self.start_tour(f"/pos/ui?config_id={self.main_pos_config.id}", 'ProductComboChangeFP', login="pos_user")
 
 # This class just runs the same tests as above but with mobile emulation
 class MobileTestUi(TestUi):

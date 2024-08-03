@@ -238,8 +238,8 @@ class PosConfig(models.Model):
         return encoded_images
 
     def _load_self_data_models(self):
-        return ['pos.session', 'pos.order', 'pos.order.line', 'pos.payment', 'pos.payment.method', 'res.currency', 'pos.category', 'product.product', 'pos.combo', 'pos.combo.line',
-            'res.company', 'account.tax', 'pos.printer', 'res.country', 'product.pricelist', 'product.pricelist.item', 'account.fiscal.position', 'account.fiscal.position.tax',
+        return ['pos.session', 'pos.order', 'pos.order.line', 'pos.payment', 'pos.payment.method', 'res.currency', 'pos.category', 'product.product', 'product.combo', 'product.combo.item',
+            'res.company', 'account.tax', 'account.tax.group', 'pos.printer', 'res.country', 'product.pricelist', 'product.pricelist.item', 'account.fiscal.position', 'account.fiscal.position.tax',
             'res.lang', 'product.attribute', 'product.attribute.custom.value', 'product.template.attribute.line', 'product.template.attribute.value',
             'decimal.precision', 'uom.uom', 'pos.printer', 'pos_self_order.custom_link', 'restaurant.floor', 'restaurant.table']
 
@@ -300,15 +300,6 @@ class PosConfig(models.Model):
         for record in self:
             record.status = 'active' if record.has_active_session else 'inactive'
 
-    def action_open_kiosk(self):
-        self.ensure_one()
-
-        return {
-            'name': _('Self Kiosk'),
-            'type': 'ir.actions.act_url',
-            'url': self._get_self_order_route(),
-        }
-
     def action_open_wizard(self):
         self.ensure_one()
 
@@ -316,16 +307,18 @@ class PosConfig(models.Model):
             self.env['pos.session'].create({'user_id': self.env.uid, 'config_id': self.id})
             self._notify('STATUS', {'status': 'open'})
 
+        ctx = dict(self._context, app_id='pos_self_order', footer=False)
+
         return {
-            'name': _('Self Kiosk'),
-            'type': 'ir.actions.act_window',
-            'view_type': 'form',
-            'view_mode': 'form',
             'res_model': 'pos.config',
-            'res_id': self.id,
+            'type': 'ir.actions.client',
+            'tag': 'install_kiosk_pwa',
             'target': 'new',
-            'views': [(self.env.ref('pos_self_order.pos_self_order_kiosk_read_only_form_dialog').id, 'form')],
+            'context': ctx
         }
+
+    def get_kiosk_url(self):
+        return self.self_ordering_url
 
     @api.model
     def _modify_pos_restaurant_config(self):

@@ -867,7 +867,7 @@ class Picking(models.Model):
         for picking in self:
             volume = 0
             for move in picking.move_ids:
-                volume += move.product_uom._compute_quantity(move.quantity, move.product_id.uom_id)
+                volume += move.product_uom._compute_quantity(move.quantity, move.product_id.uom_id) * move.product_id.volume
             picking.shipping_volume = volume
 
     @api.depends('move_ids.date_deadline', 'move_type')
@@ -1159,13 +1159,7 @@ class Picking(models.Model):
         )
         if not moves:
             raise UserError(_('Nothing to check the availability for.'))
-        # If a package level is done when confirmed its location can be different than where it will be reserved.
-        # So we remove the move lines created when confirmed to set quantity done to the new reserved ones.
-        package_level_done = self.mapped('package_level_ids').filtered(lambda pl: pl.is_done and pl.state == 'confirmed')
-        package_level_done.write({'is_done': False})
         moves._action_assign()
-        package_level_done.write({'is_done': True})
-
         return True
 
     def action_cancel(self):

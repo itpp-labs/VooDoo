@@ -17,7 +17,7 @@ import {
     setInputFiles,
 } from "@odoo/hoot-dom";
 import { FileInput } from "@web/core/file_input/file_input";
-import { Deferred, animationFrame, runAllTimers } from "@odoo/hoot-mock";
+import { Deferred, animationFrame, runAllTimers, tick } from "@odoo/hoot-mock";
 import { Component, onRendered, onWillRender, xml } from "@odoo/owl";
 import {
     MockServer,
@@ -7661,7 +7661,7 @@ test.tags("desktop")("kanban with sample data: do an on_create action", async ()
     await createKanbanRecord();
     expect(".modal").toHaveCount(1);
 
-    await contains(".modal .o_cp_buttons .o_form_button_save").click();
+    await contains(".modal .o_form_button_save").click();
     expect(queryFirst(".o_content")).not.toHaveClass("o_view_sample_data");
     expect(".o_kanban_record:not(.o_kanban_ghost)").toHaveCount(1);
     expect(".o_view_nocontent").toHaveCount(0);
@@ -13348,6 +13348,38 @@ test.tags("desktop")("scroll on group unfold and progressbar click", async () =>
     await contains(getKanbanColumn(1)).click();
 
     expect.verifySteps(["web_search_read", "scrolled"]);
+});
+
+test.tags("desktop")(`kanban view: press "hotkey" to execute header button action`, async () => {
+    mockService("action", {
+        doActionButton(params) {
+            const { name } = params;
+            expect.step(`execute_action: ${name}`);
+        },
+    });
+
+    await mountView({
+        type: "kanban",
+        resModel: "partner",
+        arch: `
+            <kanban class="o_kanban_test">
+                <header>
+                    <button name="display" type="object" class="display" string="display" display="always" data-hotkey="a"/>
+                </header>
+                <field name="bar" />
+                <templates>
+                    <t t-name="kanban-box">
+                        <div>
+                            <field name="foo" />
+                        </div>
+                    </t>
+                </templates>
+            </kanban>`,
+    });
+
+    press(["alt", "a"]);
+    await tick();
+    expect.verifySteps(["execute_action: display"]);
 });
 
 test.tags("desktop")("action button in controlPanel with display='always'", async () => {

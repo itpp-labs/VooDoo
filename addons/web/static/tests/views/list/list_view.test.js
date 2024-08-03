@@ -18,7 +18,14 @@ import {
     unload,
     waitFor,
 } from "@odoo/hoot-dom";
-import { animationFrame, Deferred, mockDate, mockTimeZone, runAllTimers } from "@odoo/hoot-mock";
+import {
+    animationFrame,
+    Deferred,
+    mockDate,
+    mockTimeZone,
+    runAllTimers,
+    tick,
+} from "@odoo/hoot-mock";
 import {
     clickSave,
     contains,
@@ -1015,6 +1022,31 @@ test(`list view: action button executes action on click with domain selected: co
     expect.verifySteps(["search", "doActionButton", "execute_action"]);
 });
 
+test(`list view: press "hotkey" to execute header button action`, async () => {
+    mockService("action", {
+        doActionButton(params) {
+            const { name } = params;
+            expect.step(`execute_action: ${name}`);
+        },
+    });
+
+    await mountView({
+        resModel: "foo",
+        type: "list",
+        arch: `
+            <tree>
+                <header>
+                    <button name="toDo" type="object" string="toDo" display="always" data-hotkey="a"/>
+                </header>
+                <field name="foo"/>
+            </tree>
+        `,
+    });
+    press(["alt", "a"]);
+    await tick();
+    expect.verifySteps(["execute_action: toDo"]);
+});
+
 test(`column names (noLabel, label, string and default)`, async () => {
     const charField = registry.category("fields").get("char");
 
@@ -1355,33 +1387,6 @@ test(`save a record with an required field computed by another`, async () => {
     await contains(`.o_list_view`).click();
     expect(`.o_data_row`).toHaveCount(5);
     expect(`.o_selected_row`).toHaveCount(0);
-});
-
-test(`field header cells have a tooltip`, async () => {
-    await mountView({
-        resModel: "foo",
-        type: "list",
-        arch: `<tree><field name="foo"/></tree>`,
-    });
-    expect(`thead th[data-name=foo]`).toHaveAttribute("data-tooltip", "Foo");
-});
-
-test(`boolean field has no title (data-tooltip)`, async () => {
-    await mountView({
-        resModel: "foo",
-        type: "list",
-        arch: `<tree><field name="bar"/></tree>`,
-    });
-    expect(`.o_data_cell`).not.toHaveAttribute("data-tooltip");
-});
-
-test(`text field has no title (data-tooltip)`, async () => {
-    await mountView({
-        resModel: "foo",
-        type: "list",
-        arch: `<tree><field name="text"/></tree>`,
-    });
-    expect(`.o_data_cell`).not.toHaveAttribute("data-tooltip");
 });
 
 test(`field with nolabel has no title`, async () => {
@@ -5601,6 +5606,8 @@ test(`display a tooltip on a field`, async () => {
     hover(`th[data-name="foo"]`);
     await runAllTimers();
     expect(`.o-tooltip .o-tooltip--technical`).toHaveCount(0);
+    expect(`.o-tooltip`).toHaveCount(1);
+    expect(`.o-tooltip`).toHaveText("Foo");
 
     serverState.debug = true;
 
@@ -5615,6 +5622,20 @@ test(`display a tooltip on a field`, async () => {
     );
     expect(`.o-tooltip--technical > li[data-item="label"]`).toHaveCount(1);
     expect(`.o-tooltip--technical > li[data-item="label"]`).toHaveText("Label:Bar");
+});
+
+test("field (with help) tooltip in non debug mode", async function () {
+    serverState.debug = false;
+    Foo._fields.foo.help = "This is a foo field";
+    await mountView({
+        type: "list",
+        resModel: "foo",
+        arch: `<tree><field name="foo"/></tree>`,
+    });
+    hover(`th[data-name="foo"]`);
+    await runAllTimers();
+    expect(`.o-tooltip`).toHaveCount(1);
+    expect(`.o-tooltip`).toHaveText("Foo\nThis is a foo field");
 });
 
 test(`support row decoration`, async () => {

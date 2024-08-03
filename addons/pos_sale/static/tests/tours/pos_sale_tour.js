@@ -178,3 +178,28 @@ registry.category("web_tour.tours").add("PosOrderDoesNotRemainInList", {
             PosSale.checkOrdersListEmpty(),
         ].flat(),
 });
+
+registry.category("web_tour.tours").add("PosSettleDraftOrder", {
+    test: true,
+    url: "/pos/ui",
+    steps: () =>
+        [
+            Dialog.confirm("Open session"),
+            PosSale.settleNthOrder(1),
+            ProductScreen.selectedOrderlineHas("Test service product", "1.00", "50.00"),
+        ].flat(),
+});
+
+registry.category("web_tour.tours").add("PosSettleCustomPrice", {
+    test: true,
+    url: "/pos/ui",
+    steps: () =>
+        [
+            Dialog.confirm("Open session"),
+            PosSale.settleNthOrder(1),
+            ProductScreen.selectedOrderlineHas("Product A", "1", "100"),
+            ProductScreen.clickPartnerButton(),
+            ProductScreen.clickCustomer("Test Partner AAA"),
+            ProductScreen.selectedOrderlineHas("Product A", "1", "100"),
+        ].flat(),
+});

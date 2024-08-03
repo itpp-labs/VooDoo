@@ -130,8 +130,8 @@ class PosSession(models.Model):
     @api.model
     def _load_pos_data_models(self, config_id):
         return ['pos.config', 'pos.order', 'pos.order.line', 'pos.pack.operation.lot', 'pos.payment', 'pos.payment.method', 'pos.printer',
-            'pos.category', 'pos.bill', 'res.company', 'account.tax', 'product.product', 'product.attribute', 'product.attribute.custom.value',
-            'product.template.attribute.line', 'product.template.attribute.value', 'pos.combo', 'pos.combo.line', 'product.packaging', 'res.users', 'res.partner',
+            'pos.category', 'pos.bill', 'res.company', 'account.tax', 'account.tax.group', 'product.product', 'product.attribute', 'product.attribute.custom.value',
+            'product.template.attribute.line', 'product.template.attribute.value', 'product.combo', 'product.combo.item', 'product.packaging', 'res.users', 'res.partner',
             'decimal.precision', 'uom.uom', 'uom.category', 'res.country', 'res.country.state', 'res.lang', 'product.pricelist', 'product.pricelist.item', 'product.category',
             'account.cash.rounding', 'account.fiscal.position', 'account.fiscal.position.tax', 'stock.picking.type', 'res.currency', 'pos.note', 'ir.ui.view']
 
@@ -709,7 +709,7 @@ class PosSession(models.Model):
                 'payment_amount': total_default_cash_payment_amount,
                 'moves': cash_in_out_list,
                 'id': default_cash_payment_method_id.id
-            } if default_cash_payment_method_id else None,
+            } if default_cash_payment_method_id else {},
             'non_cash_payment_methods': [{
                 'name': pm.name,
                 'amount': sum(non_cash_payments_grouped_by_method_id[pm].mapped('amount')),
@@ -1806,8 +1806,7 @@ class PosSession(models.Model):
     def get_total_discount(self):
         amount = 0
         for line in self.env['pos.order.line'].search([('order_id', 'in', self._get_closed_orders().ids), ('discount', '>', 0)]):
-            original_price = line.tax_ids.compute_all(line.price_unit, line.currency_id, line.qty, product=line.product_id, partner=line.order_id.partner_id)['total_included']
-            amount += original_price - line.price_subtotal_incl
+            amount += line._get_discount_amount()
 
         return amount
 

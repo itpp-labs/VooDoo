@@ -10,6 +10,7 @@ from odoo.exceptions import UserError, ValidationError
 from odoo.fields import Command
 from odoo.osv import expression
 from odoo.tools import float_round, lazy
+from odoo.tools import str2bool
 
 
 def _generate_random_reward_code():
@@ -772,6 +773,7 @@ class SaleOrder(models.Model):
         all_coupons = forced_coupons or (self.coupon_point_ids.coupon_id | self.order_line.coupon_id | self.applied_coupon_ids)
         has_payment_reward = any(line.reward_id.program_id.is_payment_program for line in self.order_line)
         global_discount_reward = self._get_applied_global_discount()
+        active_products_domain = self.env['loyalty.reward']._get_active_products_domain()
         discountable = lazy(lambda: self._discountable_amount(global_discount_reward))
 
         total_is_zero = self.currency_id.is_zero(discountable)
@@ -790,6 +792,13 @@ class SaleOrder(models.Model):
                 # Discounts are not allowed if the total is zero unless there is a payment reward, in which case we allow discounts.
                 # If the total is 0 again without the payment reward it will be removed.
                 if reward.reward_type == 'discount' and total_is_zero and (not has_payment_reward or reward.program_id.is_payment_program):
+                    continue
+                if reward.reward_type == 'product' and not reward.filtered_domain(
+                    active_products_domain
+                ):
+                    continue
+                # Skip discount that has already been applied
+                if reward.reward_type == 'discount' and coupon in self.order_line.coupon_id:
                     continue
                 if points >= reward.required_points:
                     result[coupon] |= reward
@@ -1239,3 +1248,20 @@ class SaleOrder(models.Model):
                 return apply_result
             coupon = apply_result.get('coupon', self.env['loyalty.card'])
         return self._get_claimable_rewards(forced_coupons=coupon)
+
+    def _validate_order(self):
+        """
+        Override of sale to create invoice for zero amount order. If the order total is zero and
+        automatic invoicing is enabled, it creates and posts an invoice.
+
+        :return: None
+        """
+        super()._validate_order()
+        if self.amount_total or not self.reward_amount:
+            return
+        auto_invoice = self.env['ir.config_parameter'].get_param('sale.automatic_invoice')
+        if str2bool(auto_invoice):
+            # create an invoice for order with zero total amount and automatic invoice enabled
+            self._force_lines_to_invoice_policy_order()
+            invoice = self._create_invoices(final=True)
+            invoice.action_post()

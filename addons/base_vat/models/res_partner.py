@@ -430,62 +430,6 @@ class ResPartner(models.Model):
         # Valid format and valid date
         return True
 
-    # Netherlands VAT verification
-    __check_vat_nl_re = re.compile("(?:NL)?[0-9A-Z+*]{10}[0-9]{2}")
-
-    def check_vat_nl(self, vat):
-        """
-        Temporary Netherlands VAT validation to support the new format introduced in January 2020,
-        until upstream is fixed.
-
-        Algorithm detail: http://kleineondernemer.nl/index.php/nieuw-btw-identificatienummer-vanaf-1-januari-2020-voor-eenmanszaken
-
-        TODO: remove when fixed upstream
-        """
-
-        try:
-            from stdnum.util import clean
-            from stdnum.nl.bsn import checksum
-        except ImportError:
-            return True
-
-        vat = clean(vat, ' -.').upper().strip()
-
-        # Remove the prefix
-        if vat.startswith("NL"):
-            vat = vat[2:]
-
-        if not len(vat) == 12:
-            return False
-
-        # Check the format
-        match = self.__check_vat_nl_re.match(vat)
-        if not match:
-            return False
-
-        # Match letters to integers
-        char_to_int = {k: str(ord(k) - 55) for k in string.ascii_uppercase}
-        char_to_int['+'] = '36'
-        char_to_int['*'] = '37'
-
-        # 2 possible checks:
-        # - For natural persons
-        # - For non-natural persons and combinations of natural persons (company)
-
-        # Natural person => mod97 full checksum
-        check_val_natural = '2321'
-        for x in vat:
-            check_val_natural += x if x.isdigit() else char_to_int[x]
-        if int(check_val_natural) % 97 == 1:
-            return True
-
-        # Company => weighted(9->2) mod11 on bsn
-        vat = vat[:-3]
-        if vat.isdigit() and checksum(vat) == 0:
-            return True
-
-        return False
-
     # Norway VAT validation, contributed by Rolv Råen (adEgo) <rora@adego.no>
     # Support for MVA suffix contributed by Bringsvor Consulting AS (bringsvor@bringsvor.com)
     def check_vat_no(self, vat):
@@ -693,16 +637,6 @@ class ResPartner(models.Model):
 
         return check_digit == checksum_digit
 
-    def check_vat_xi(self, vat):
-        """ Temporary Nothern Ireland VAT validation following Brexit
-        As of January 1st 2021, companies in Northern Ireland have a
-        new VAT number starting with XI
-        TODO: remove when stdnum is updated to 1.16 in supported distro"""
-        check_func = getattr(stdnum.util.get_cc_module('gb', 'vat'), 'is_valid', None)
-        if not check_func:
-            return len(vat) == 9
-        return check_func(vat)
-
     def check_vat_in(self, vat):
         #reference from https://www.gstzen.in/a/format-of-a-gst-number-gstin.html
         if vat and len(vat) == 15:
@@ -715,29 +649,6 @@ class ResPartner(models.Model):
             ]
             return any(re.compile(rx).match(vat) for rx in all_gstin_re)
         return False
-
-    def check_vat_au(self, vat):
-        '''
-        The Australian equivalent of a VAT number is an ABN number.
-        TFN (Australia Tax file numbers) are private and not to be
-        entered into systems or publicly displayed, so ABN numbers
-        are the public facing number that legally must be displayed
-        on all invoices
-        '''
-        check_func = getattr(stdnum.util.get_cc_module('au', 'abn'), 'is_valid', None)
-        if not check_func:
-            vat = vat.replace(" ", "")
-            return len(vat) == 11 and vat.isdigit()
-        return check_func(vat)
-
-    def check_vat_nz(self, vat):
-        '''
-        The New Zealand equivalent of a VAT number is an IRD number (GST number is another name for this).
-        IRD/GST numbers must legally must be displayed on all tax invoices.
-        https://arthurdejong.org/python-stdnum/doc/1.13/stdnum.nz.ird#module-stdnum.nz.ird
-        '''
-        check_func = stdnum.util.get_cc_module('nz', 'ird').is_valid
-        return check_func(vat)
 
     def check_vat_t(self, vat):
         if self.country_id.code == 'JP':
@@ -779,7 +690,7 @@ class ResPartner(models.Model):
         return is_valid_vat(vat) or is_valid_stnr(vat)
 
     def check_vat_il(self, vat):
-        check_func = stdnum.util.get_cc_module('il', 'hp').is_valid if self.is_company else stdnum.util.get_cc_module('il', 'idnr').is_valid
+        check_func = stdnum.util.get_cc_module('il', 'idnr').is_valid
         return check_func(vat)
 
     def format_vat_sm(self, vat):
