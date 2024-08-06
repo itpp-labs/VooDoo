@@ -5,7 +5,7 @@
 
     registry.category("web_tour.tours").add('hr_expense_test_tour', {
         test: true,
-        url: "/web",
+        url: "/odoo",
         steps: () => [stepUtils.showAppsMenuItem(),
         {
             content: "Go to Expense",
@@ -31,6 +31,31 @@
                     console.error('Missing Upload button in My Expenses to Report > List View');
                 }
             }
+        },
+        {
+            content: "Create a new expense",
+            trigger: "button.o_list_button_add",
+            run: "click",
+        },
+        {
+            content: "Enter category for new expense in Many2One field",
+            trigger: ".o_field_widget.o_field_many2one[name=product_id] input",
+            run: "edit [COMM] Communication",
+        },
+        {
+            isActive: ["auto"],
+            trigger: ".ui-autocomplete > li > a:contains('[COMM] Communication')",
+            run: "click",
+        },
+        {
+            content: "Enter a value for the total",
+            trigger: "div[name=total_amount_currency] input",
+            run: "edit 100",
+        },
+        {
+            content: "Breadcrumb back to My Expenses",
+            trigger: ".breadcrumb-item:contains('My Expenses')",
+            run: "click",
         },
         {
             content: "Check Create Report Button, but not click on it",
@@ -100,7 +125,7 @@
 
     registry.category("web_tour.tours").add('hr_expense_access_rights_test_tour', {
         test: true,
-        url: "/web",
+        url: "/odoo",
         steps: () => [stepUtils.showAppsMenuItem(),
         {
             content: "Go to Expense",

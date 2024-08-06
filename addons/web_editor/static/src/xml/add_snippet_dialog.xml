@@ -3,13 +3,13 @@
 
 <t t-name="web_editor.AddSnippetDialog">
     <Dialog
-        title="title"
+        title.translate="Insert a block"
         contentClass="'o_add_snippet_dialog h-100'"
         footer="false"
         size="'xl'">
         <div class="overflow-hidden w-100">
             <div class="d-flex w-100 h-100 vertical flex-row">
-                <div class="border-end">
+                <div class="border-end overflow-auto">
                     <div class="input-group p-2 bg-100">
                         <input type="search" class="form-control bg-white" placeholder="Search for a block"
                             aria-label="Search for a block" t-model="state.search" t-ref="search-input"/>
@@ -36,7 +36,7 @@
 </t>
 
 <t t-name="web_editor.RenameCustomSnippetDialog">
-    <Dialog title="this.title" contentClass="'o_rename_custom_snippet_dialog'" size="'md'">
+    <Dialog title.translate="Rename the block" contentClass="'o_rename_custom_snippet_dialog'" size="'md'">
         <div class="mb-3 row">
             <label class="col-form-label col-md-2" for="customSnippetName">Name</label>
             <div class="col-md-10">

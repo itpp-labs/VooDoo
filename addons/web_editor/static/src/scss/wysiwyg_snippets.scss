@@ -508,11 +508,13 @@
                 "typo typo style style colors"
                 "size align list list link"
                 "ai animate animate hilight hilight"
+                "translate translate . . ."
                 "options options options options options"
                 "options2 options2 options2 options2 options2"
                 "options3 options3 options3 options3 options3";
             grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
             grid-template-rows:
+                minmax($o-we-sidebar-content-field-height, auto)
                 minmax($o-we-sidebar-content-field-height, auto)
                 minmax($o-we-sidebar-content-field-height, auto)
                 minmax($o-we-sidebar-content-field-height, auto)
@@ -763,6 +765,9 @@
 
             #chatgpt {
                 grid-area: ai;
+            }
+            #translate {
+                grid-area: translate;
             }
             #animate {
                 grid-area: animate;
@@ -2854,8 +2859,11 @@ we-select.o_grid we-toggler {
             .o_full_screen_height {
                 aspect-ratio: 4 / 3;
             }
-            .o_half_screen_height, [data-snippet="s_map"] {
+            .o_half_screen_height {
                 aspect-ratio: 8 / 3;
+            }
+            [data-snippet="s_map"], [data-snippet="s_google_map"] {
+                padding: 0 !important;
             }
             > [data-snippet] {
                 isolation: isolate;
