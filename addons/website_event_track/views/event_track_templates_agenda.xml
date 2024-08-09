@@ -13,7 +13,7 @@
                     <p t-if="search_key">We could not find any track matching your search for: <strong t-out="search_key"/>.</p>
                     <p t-else="">We could not find any track at this moment.</p>
                     <div class="o_not_editable my-3" groups="event.group_event_user">
-                        <a class="o_wevent_cta btn" target="_blank" t-att-href="'/web?#action=website_event_track.action_event_track_from_event&amp;active_id=%s' % event.id">
+                        <a class="o_wevent_cta btn" target="_blank" t-att-href="'/odoo/%s/action-website_event_track.action_event_track_from_event' % event.id">
                             <span class="fa fa-plus me-1"/> Schedule Tracks
                         </a>
                     </div>
@@ -131,8 +131,8 @@
                                 <t t-if="tracks">
                                     <t t-foreach="tracks" t-as="track">
                                         <t t-set="_classes"
-                                            t-value="'o_event_color_light text-center %s %s %s' % (
-                                                'o_event_color_%s' % (track.color or 0),
+                                            t-value="'text-center %s %s %s' % (
+                                                'o_color_%s' % (track.color or 0),
                                                 'event_track h-100' if track else '',
                                                 'o_location_size_%d' % len(locations),
                                             )"/>
@@ -197,7 +197,7 @@
             <div>
                 <t t-foreach="track.tag_ids" t-as="tag">
                     <span t-if="tag.color" t-att-title="tag.name"
-                        t-attf-class="me-1 mt-1 badge o_badge_clickable #{'o_badge_color_'+str(tag.color)}" t-out="tag.name"
+                        t-attf-class="me-1 mt-1 badge o_badge_clickable #{'o_color_'+str(tag.color)}" t-out="tag.name"
                         t-attf-onclick="
                         var value = '#{tag.name}' ;
                         var target = $('#event_track_search');

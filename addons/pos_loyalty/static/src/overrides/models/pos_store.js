@@ -78,6 +78,9 @@ patch(PosStore.prototype, {
         }
 
         const order = this.get_order();
+        if (order.finalized) {
+            return;
+        }
         updateRewardsMutex.exec(() => {
             return this.orderUpdateLoyaltyPrograms().then(async () => {
                 // Try auto claiming rewards
@@ -602,7 +605,7 @@ patch(PosStore.prototype, {
                 ],
             });
         } catch (error) {
-            if (!(error instanceof InvalidDomainError)) {
+            if (!(error instanceof InvalidDomainError || error instanceof TypeError)) {
                 throw error;
             }
             const index = this.models["loyalty.reward"].indexOf(reward);

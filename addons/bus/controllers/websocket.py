@@ -10,12 +10,15 @@ from ..websocket import WebsocketConnectionHandler
 
 class WebsocketController(Controller):
     @route('/websocket', type="http", auth="public", cors='*', websocket=True)
-    def websocket(self):
+    def websocket(self, version=None):
         """
-        Handle the websocket handshake, upgrade the connection if
-        successfull.
+        Handle the websocket handshake, upgrade the connection if successfull.
+
+        :param version: The version of the WebSocket worker that tries to
+            connect. Connections with an outdated version will result in the
+            websocket being closed. See :attr:`WebsocketConnectionHandler._VERSION`.
         """
-        return WebsocketConnectionHandler.open_connection(request)
+        return WebsocketConnectionHandler.open_connection(request, version)
 
     @route('/websocket/health', type='http', auth='none', save_session=False)
     def health(self):
@@ -51,6 +54,10 @@ class WebsocketController(Controller):
             raise SessionExpiredException()
         request.env['ir.websocket']._update_bus_presence(int(inactivity_period), im_status_ids_by_model)
         return {}
+
+    @route("/websocket/on_closed", type="json", auth="public", cors="*")
+    def on_websocket_closed(self):
+        request.env["ir.websocket"]._on_websocket_closed(request.httprequest.cookies)
 
     @route('/bus/websocket_worker_bundle', type='http', auth='public', cors='*')
     def get_websocket_worker_bundle(self, v=None):  # pylint: disable=unused-argument

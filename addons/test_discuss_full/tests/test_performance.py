@@ -21,10 +21,10 @@ class TestDiscussFullPerformance(HttpCase):
     #     4: settings
     #     1: has_access_livechat
     _query_count_init_store = 17
-    _query_count = 49 + 1  # +1 is necessary to fix nondeterministic issue on runbot
+    _query_count = 50 + 1  # +1 is necessary to fix nondeterministic issue on runbot
     # Queries for _query_count_discuss_channels:
     #     1: bus last id
-    _query_count_discuss_channels = 69
+    _query_count_discuss_channels = 70
 
     def setUp(self):
         super().setUp()
@@ -341,6 +341,9 @@ class TestDiscussFullPerformance(HttpCase):
             ],
             "discuss.channel.rtc.session": [
                 self._expected_result_for_rtc_session(self.channel_channel_group_1, self.users[2]),
+            ],
+            "im_livechat.channel": [
+                self._expected_result_for_livechat_channel(),
             ],
             "mail.guest": [
                 self._expected_result_for_persona(guest=True),
@@ -703,7 +706,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "is_editable": False,
                 "is_pinned": True,
                 "last_interest_dt": last_interest_dt,
-                "livechatChannel": {"id": self.im_livechat_channel.id, "name": "support"},
+                "livechatChannel": {"id": self.im_livechat_channel.id},
                 "message_needaction_counter": 0,
                 "message_needaction_counter_bus_id": bus_last_id,
                 "name": "test1 Ernest Employee",
@@ -738,7 +741,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "is_editable": False,
                 "is_pinned": True,
                 "last_interest_dt": last_interest_dt,
-                "livechatChannel": {"id": self.im_livechat_channel.id, "name": "support"},
+                "livechatChannel": {"id": self.im_livechat_channel.id},
                 "message_needaction_counter": 0,
                 "message_needaction_counter_bus_id": bus_last_id,
                 "name": "anon 2 Ernest Employee",
@@ -1017,6 +1020,9 @@ class TestDiscussFullPerformance(HttpCase):
                 "thread": {"id": channel.id, "model": "discuss.channel"},
             }
         return {}
+
+    def _expected_result_for_livechat_channel(self):
+        return {"id": self.im_livechat_channel.id, "name": "support"}
 
     def _expected_result_for_message(self, channel):
         last_message = channel._get_last_messages()

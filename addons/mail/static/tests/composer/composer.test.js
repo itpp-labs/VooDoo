@@ -173,8 +173,8 @@ test("Selection is kept when changing channel and going back to original channel
     const textarea = $(".o-mail-Composer-input")[0];
     textarea.setSelectionRange(0, textarea.value.length);
     await tick();
-    await click(":nth-child(2 of .o-mail-DiscussSidebarChannel-item)");
-    await click(":nth-child(1 of .o-mail-DiscussSidebarChannel-item)");
+    await click(":nth-child(2 of .o-mail-DiscussSidebarChannel)");
+    await click(":nth-child(1 of .o-mail-DiscussSidebarChannel)");
     expect(textarea.selectionStart).toBe(0);
     expect(textarea.selectionEnd).toBe(textarea.value.length);
 });
@@ -1022,15 +1022,16 @@ test("Canned response can be deleted from the bus", async () => {
     ]);
     await start();
     await openDiscuss(channelId);
-    await contains(".o-mail-Composer-input");
     await insertText(".o-mail-Composer-input", ":");
     await contains(".o-mail-NavigableList-item", { count: 2 });
+    await contains(".o-mail-NavigableList-item", { text: "hello" });
+    await contains(".o-mail-NavigableList-item", { text: "test" });
     await insertText(".o-mail-Composer-input", "", { replace: true });
-    pyEnv["mail.canned.response"].unlink([cannedResponseId]);
     await contains(".o-mail-NavigableList-item", { count: 0 });
+    pyEnv["mail.canned.response"].unlink([cannedResponseId]);
     await insertText(".o-mail-Composer-input", ":");
-    await contains(".o-mail-Composer-input", { value: ":" });
     await contains(".o-mail-NavigableList-item", { count: 1 });
+    await contains(".o-mail-NavigableList-item", { text: "test" });
 });
 
 test("Canned response last used changes on posting", async () => {

@@ -269,3 +269,25 @@ class TestWebsocketCaryall(WebsocketCase):
             )
             serve_forever_called_event.wait(timeout=5)
             self.assertTrue(mock.called)
+
+    def test_trigger_on_websocket_closed(self):
+        with patch('odoo.addons.bus.models.ir_websocket.IrWebsocket._on_websocket_closed') as mock:
+            ws = self.websocket_connect()
+            ws.close(CloseCode.CLEAN)
+            self.wait_remaining_websocket_connections()
+            self.assertTrue(mock.called)
+
+    def test_disconnect_when_version_outdated(self):
+        # Outdated version, connection should be closed immediately
+        with patch.object(WebsocketConnectionHandler, "_VERSION", "1.0.1"), patch.object(
+            self, "_WEBSOCKET_URL", f"{self._BASE_WEBSOCKET_URL}?version=1.0.0"
+        ):
+            websocket = self.websocket_connect(ping_after_connect=False)
+            self.assert_close_with_code(websocket, CloseCode.CLEAN, "OUTDATED_VERSION")
+
+        # Version not passed, should be considered as outdated
+        with patch.object(WebsocketConnectionHandler, "_VERSION", "1.0.1"), patch.object(
+            self, "_WEBSOCKET_URL", self._BASE_WEBSOCKET_URL
+        ):
+            websocket = self.websocket_connect(ping_after_connect=False)
+            self.assert_close_with_code(websocket, CloseCode.CLEAN, "OUTDATED_VERSION")
