@@ -1879,7 +1879,7 @@ class Request:
         self._set_request_dispatcher(rule)
         readonly = rule.endpoint.routing['readonly']
         if callable(readonly):
-            readonly = readonly(rule.endpoint.func.__self__, self.registry, request)
+            readonly = readonly(rule.endpoint.func.__self__)
         return self._transactioning(
             functools.partial(self._serve_ir_http, rule, args),
             readonly=readonly,
@@ -2007,7 +2007,10 @@ class Dispatcher(ABC):
             werkzeug.exceptions.abort(Response(status=204))
 
         if 'max_content_length' in routing:
-            self.request.httprequest.max_content_length = routing['max_content_length']
+            max_content_length = routing['max_content_length']
+            if callable(max_content_length):
+                max_content_length = max_content_length(rule.endpoint.func.__self__)
+            self.request.httprequest.max_content_length = max_content_length
 
     @abstractmethod
     def dispatch(self, endpoint, args):
