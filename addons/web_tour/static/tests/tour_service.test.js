@@ -1085,6 +1085,59 @@ test("automatic tour with alternative trigger", async () => {
     expect.verifySteps(["on step", "on step", "on step", "on step", "succeeded"]);
 });
 
+test("manual tour with alternative trigger", async () => {
+    patchWithCleanup(browser.console, {
+        log: (s) => {
+            !s.includes("═") ? expect.step(s) : "";
+        },
+    });
+    registry.category("web_tour.tours").add("tour_des_flandres_2", {
+        test: false,
+        sequence: 93,
+        steps: () => [
+            {
+                trigger: ".button1, .button2",
+                run: "click",
+            },
+            {
+                trigger: "body:not(:visible), .button4, .button3",
+                run: "click",
+            },
+            {
+                trigger: ".interval1, .interval2, .button5",
+                run: "click",
+            },
+            {
+                trigger: "button:contains(0, hello):enabled, button:contains(2, youpi)",
+                run: "click",
+            },
+        ],
+    });
+    class Root extends Component {
+        static components = {};
+        static template = xml/*html*/ `
+            <t>
+                <div class="container">
+                    <button class="button0">0, hello</button>
+                    <button class="button1">Button 1</button>
+                    <button class="button2">2, youpi</button>
+                    <button class="button3">Button 3</button>
+                    <button class="button4">Button 4</button>
+                    <button class="button5">Button 5</button>
+                </div>
+            </t>
+        `;
+        static props = ["*"];
+    }
+    await mountWithCleanup(Root);
+    getService("tour_service").startTour("tour_des_flandres_2", { mode: "manual" });
+    await contains(".button2").click();
+    await contains(".button3").click();
+    await contains(".button5").click();
+    await contains(".button2").click();
+    expect.verifySteps(["click", "click", "click", "click", "tour succeeded"]);
+});
+
 test("Tour backward when the pointed element disappear", async () => {
     registry.category("web_tour.tours").add("tour1", {
         sequence: 10,
@@ -1333,4 +1386,50 @@ test("check tooltip position", async () => {
     expect(tooltip.getBoundingClientRect().bottom).toBeLessThan(
         button3.getBoundingClientRect().top
     );
+});
+
+test("check rainbowManMessage", async () => {
+    registry.category("web_tour.tours").add("rainbow_tour", {
+        sequence: 87,
+        fadeout: "no",
+        rainbowManMessage: () => {
+            return "Congratulations !";
+        },
+        steps: () => [
+            {
+                trigger: ".button0",
+                run: "click",
+            },
+            {
+                trigger: ".button1",
+                run: "click",
+            },
+            {
+                trigger: ".button2",
+                run: "click",
+            },
+        ],
+    });
+    class Root extends Component {
+        static components = {};
+        static template = xml/*html*/ `
+            <t>
+                <div class="container">
+                    <div class="p-3"><button class="button0">Button 0</button></div>
+                    <div class="p-3"><button class="button1">Button 1</button></div>
+                    <div class="p-3"><button class="button2">Button 2</button></div>
+                </div>
+            </t>
+        `;
+        static props = ["*"];
+    }
+    await mountWithCleanup(Root);
+    getService("tour_service").startTour("rainbow_tour", { mode: "manual" });
+    await contains(".button0").click();
+    await contains(".button1").click();
+    await contains(".button2").click();
+    const rainbowMan = await waitFor(".o_reward_rainbow_man");
+    expect(rainbowMan.getBoundingClientRect().width).toBe(400);
+    expect(rainbowMan.getBoundingClientRect().height).toBe(400);
+    expect(".o_reward_msg_content").toHaveText("Congratulations !");
 });

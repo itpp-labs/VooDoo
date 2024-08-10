@@ -1,9 +1,18 @@
 .o-mail-Message {
     transition: background-color .2s ease-out, opacity .5s ease-out, box-shadow .5s ease-out, transform .2s ease-out;
 
+    &.o-card {
+        outline: $border-width solid $border-color;
+        outline-offset: -$border-width;
+    }
+
     &.o-highlighted {
         transform: translateY(-#{map-get($spacers, 3)});
     }
+}
+
+.o-mail-Message-date {
+    opacity: 75%;
 }
 
 .o-mail-Message-seenContainer {
@@ -44,12 +53,32 @@
 .o-mail-Message-body {
     font-family: "text-emoji", $font-family-base;
 
+    &:not(.o-note) {
+        padding-left: (map-get($spacers, 2) + map-get($spacers, 3)) / 2;
+        padding-right: (map-get($spacers, 2) + map-get($spacers, 3)) / 2;
+    }
+
     & > p {
         margin-bottom: 0 !important;
 
         &:last-of-type:has(~ .o-mail-Message-edited) {
             display: inline-block;
         }
+    }
+}
+
+.o-mail-Message-bubble {
+    --border-opacity: 0.15;
+
+    &.o-blue {
+        background-color: mix($o-view-background-color, $info, 87.5%) !important;
+    }
+    &.o-green {
+        background-color: mix($o-view-background-color, $success, 87.5%) !important;
+    }
+    &.o-orange {
+        --border-opacity: 0.3;
+        background-color: mix($o-view-background-color, $warning, 75%) !important;
     }
 }
 
