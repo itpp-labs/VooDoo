@@ -513,6 +513,9 @@ class StockMoveLine(models.Model):
             moves.with_prefetch()._recompute_state()
         return res
 
+    def _sorting_move_lines(self):
+        return (self.id,)
+
     def _action_done(self):
         """ This method is called during a move's `action_done`. It'll actually move a quant from
         the source location to the destination location, and unreserve if needed in the source
@@ -735,8 +738,8 @@ class StockMoveLine(models.Model):
             return (
                 cand.picking_id != self.move_id.picking_id,
                 -(cand.picking_id.scheduled_date or cand.move_id.date).timestamp()
-                if cand.picking_id or cand.move_id
-                else -cand.id)
+                if cand.picking_id or cand.move_id else 0,
+                -cand.id)
 
         outdated_candidates = self.env['stock.move.line'].search(outdated_move_lines_domain).sorted(current_picking_first)
 

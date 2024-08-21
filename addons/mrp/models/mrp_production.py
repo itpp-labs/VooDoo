@@ -1896,7 +1896,7 @@ class MrpProduction(models.Model):
             ml_by_move = []
             product_uom = initial_move.product_id.uom_id
             if not initial_move.picked:
-                for move_line in initial_move.move_line_ids:
+                for move_line in initial_move.move_line_ids.sorted(key=lambda ml: ml._sorting_move_lines()):
                     available_qty = move_line.product_uom_id._compute_quantity(move_line.quantity, product_uom, rounding_method="HALF-UP")
                     if float_compare(available_qty, 0, precision_rounding=product_uom.rounding) <= 0:
                         continue
@@ -2045,6 +2045,15 @@ class MrpProduction(models.Model):
                 'is_locked': True,
                 'state': 'done',
             })
+
+        # It is prudent to reserve any quantity that has become available to the backorder
+        # production's move_raw_ids after the production which spawned them has been marked done.
+        backorders_to_assign = backorders.filtered(
+            lambda order:
+            order.picking_type_id.reservation_method == 'at_confirm'
+        )
+        for backorder in backorders_to_assign:
+            backorder.action_assign()
 
         report_actions = self._get_autoprint_done_report_actions()
         if self.env.context.get('skip_redirection'):
