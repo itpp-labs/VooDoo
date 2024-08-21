@@ -1484,7 +1484,7 @@ export class Wysiwyg extends Component {
                 ...this.options.linkOptions,
                 editable: this.odooEditor.editable,
                 link,
-                needLabel: true,
+                needLabel: true && !link.querySelector('img'),
                 focusField: link.innerHTML ? 'url' : '',
                 onSave: (data) => {
                     if (!data) {
@@ -1769,7 +1769,7 @@ export class Wysiwyg extends Component {
             this.odooEditor.unbreakableStepUnactive();
             this.odooEditor.historyStep();
             // Refocus again to save updates when calling `_onWysiwygBlur`
-            params.node.ownerDocument.defaultView.focus();
+            this.odooEditor.editable.focus();
         } else {
             return this.odooEditor.execCommand('insert', element);
         }

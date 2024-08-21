@@ -69,7 +69,7 @@ class BusPresence(models.Model):
 
     def _get_bus_target(self):
         self.ensure_one()
-        return self.env.ref("base.group_user")
+        return self.user_id.partner_id if self.user_id else None
 
     def _get_identity_field_name(self):
         self.ensure_one()
@@ -97,15 +97,18 @@ class BusPresence(models.Model):
         self.user_id.invalidate_recordset(["im_status"])
         self.user_id.partner_id.invalidate_recordset(["im_status"])
 
-    def _send_presence(self, im_status=None):
+    def _send_presence(self, im_status=None, bus_target=None):
         """Send notification related to bus presence update.
 
         :param im_status: 'online', 'away' or 'offline'
         """
         for presence in self:
-            if identity_data := presence._get_identity_data():
+            identity_data = presence._get_identity_data()
+            target = presence._get_bus_target()
+            target = bus_target or (target and (target, "presence"))
+            if identity_data and target:
                 self.env["bus.bus"]._sendone(
-                    presence._get_bus_target(),
+                    target,
                     "bus.bus/im_status_updated",
                     {"im_status": im_status or presence.status, **identity_data},
                 )

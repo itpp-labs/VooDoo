@@ -13,28 +13,27 @@
                     'o-isUiSmall': ui.isSmall,
                     'p-3': normal,
                     'o-hasSelfAvatar': !env.inChatWindow and thread,
+                    'o-focused': props.composer.isFocused
                 }" t-attf-class="{{ props.className }}">
             <div class="o-mail-Composer-sidebarMain flex-shrink-0" t-if="!compact and props.sidebar">
                 <img class="o-mail-Composer-avatar o_avatar rounded" t-att-src="store.self.avatarUrl" alt="Avatar of user"/>
             </div>
             <div class="o-mail-Composer-coreHeader text-truncate small p-2" t-if="props.composer.thread and props.messageToReplyTo?.thread?.eq(props.composer.thread)">
                 <span class="cursor-pointer" t-on-click="() => env.messageHighlight?.highlightMessage(props.messageToReplyTo.message, props.composer.thread)">
-                    Replying to <b t-esc="props.messageToReplyTo.message.author.name"/>
+                    Replying to <b t-esc="props.messageToReplyTo.message.author?.name ?? props.messageToReplyTo.message.email_from"/>
                 </span>
                 <span t-if="props.messageToReplyTo.message.thread.notEq(props.composer.thread)">
                     on: <b><t t-esc="props.messageToReplyTo.message.thread.displayName"/></b>
                 </span>
                 <i class="fa fa-lg fa-times-circle rounded-circle p-0 ms-1 cursor-pointer" title="Stop replying" t-on-click="() => props.messageToReplyTo.cancel()"/>
             </div>
-            <div class="o-mail-Composer-coreMain d-flex flex-nowrap align-items-start flex-grow-1"
-                t-att-class="{ 'flex-column' : extended }"
-            >
-                <div class="d-flex bg-view flex-grow-1"
+            <div class="o-mail-Composer-coreMain d-flex flex-nowrap align-items-start flex-grow-1" t-att-class="{ 'flex-column' : extended }">
+                <div class="d-flex bg-view flex-grow-1 border"
                     t-att-class="{
-                        'o-mail-Composer-compactContainer border-top': compact and !props.composer.message,
-                        'border': props.composer.message,
-                        'border rounded-3' : normal,
-                        'border rounded-3 align-self-stretch flex-column' : extended,
+                        'o-mail-Composer-compactContainer m-1 shadow-sm border-secondary': compact and !props.composer.message,
+                        'o-mobile rounded-3': isMobileOS,
+                        'rounded-3' : normal,
+                        'rounded-3 align-self-stretch flex-column' : extended,
                     }"
                 >
                     <div class="position-relative flex-grow-1">

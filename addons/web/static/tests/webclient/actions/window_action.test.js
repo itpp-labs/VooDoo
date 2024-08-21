@@ -25,9 +25,9 @@ import {
 import { browser } from "@web/core/browser/browser";
 import { router } from "@web/core/browser/router";
 import { redirect } from "@web/core/utils/urls";
+import { useSetupAction } from "@web/search/action_hook";
 import { listView } from "@web/views/list/list_view";
 import { FormViewDialog } from "@web/views/view_dialogs/form_view_dialog";
-import { useSetupAction } from "@web/webclient/actions/action_hook";
 import { clearUncommittedChanges } from "@web/webclient/actions/action_service";
 import { WebClient } from "@web/webclient/webclient";
 import {
@@ -93,10 +93,8 @@ class Partner extends models.Model {
         "kanban,1": `
             <kanban>
                 <templates>
-                    <t t-name="kanban-box">
-                        <div>
-                            <field name="foo"/>
-                        </div>
+                    <t t-name="kanban-card">
+                        <field name="foo"/>
                     </t>
                 </templates>
             </kanban>`,
@@ -190,6 +188,14 @@ defineActions([
             [false, "form"],
         ],
     },
+    {
+        id: 9,
+        xml_id: "action_9",
+        name: "Ponies",
+        res_model: "pony",
+        type: "ir.actions.act_window",
+        views: [[false, "list"]],
+    },
 ]);
 
 test("can execute act_window actions from db ID", async () => {
@@ -205,6 +211,40 @@ test("can execute act_window actions from db ID", async () => {
         "get_views",
         "web_search_read",
     ]);
+});
+
+test("can open default form view with selectRecord when there is none in the action", async () => {
+    stepAllNetworkCalls();
+    await mountWithCleanup(WebClient);
+    await getService("action").doAction(9);
+    expect.verifySteps([
+        "/web/webclient/translations",
+        "/web/webclient/load_menus",
+        "/web/action/load",
+        "get_views",
+        "web_search_read",
+        "has_group",
+    ]);
+    await contains(".o_data_row:eq(0) .o_data_cell").click();
+    expect(".o_form_view").toHaveCount(1, { message: "should display the form view" });
+    expect.verifySteps(["get_views", "web_read"]);
+});
+
+test("can open default form view with createRecord when there is none in the action", async () => {
+    stepAllNetworkCalls();
+    await mountWithCleanup(WebClient);
+    await getService("action").doAction(9);
+    expect.verifySteps([
+        "/web/webclient/translations",
+        "/web/webclient/load_menus",
+        "/web/action/load",
+        "get_views",
+        "web_search_read",
+        "has_group",
+    ]);
+    await contains(".o_list_button_add").click();
+    expect(".o_form_view").toHaveCount(1, { message: "should display the form view" });
+    expect.verifySteps(["get_views", "onchange"]);
 });
 
 test.tags("desktop")("sidebar is present in list view", async () => {
@@ -277,10 +317,8 @@ test.tags("desktop")("switching into a view with mode=edit lands in edit mode", 
     Partner._views["kanban,1"] = `
         <kanban on_create="quick_create" default_group_by="m2o">
             <templates>
-                <t t-name="kanban-box">
-                    <div>
-                        <field name="foo"/>
-                    </div>
+                <t t-name="kanban-card">
+                    <field name="foo"/>
                 </t>
             </templates>
         </kanban>`;
@@ -2475,8 +2513,8 @@ test.tags("desktop")("sample server: populate groups", async () => {
         "kanban,false": `
             <kanban sample="1" default_group_by="write_date:month">
                 <templates>
-                    <t t-name="kanban-box">
-                        <div><field name="display_name"/></div>
+                    <t t-name="kanban-card">
+                        <field name="display_name"/>
                     </t>
                 </templates>
             </kanban>`,

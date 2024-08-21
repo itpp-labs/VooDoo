@@ -48,6 +48,14 @@ class ResConfigSettings(models.TransientModel):
         readonly=False,
         check_company=True,
     )
+    account_price_include = fields.Selection(
+        string='Default Sales Price Include',
+        related='company_id.account_price_include',
+        readonly=False,
+        required=True,
+        help="Default on whether the sales price used on the product and invoices with this Company includes its taxes."
+    )
+
     tax_calculation_rounding_method = fields.Selection(
         related='company_id.tax_calculation_rounding_method', string='Tax calculation rounding method', readonly=False)
     account_journal_suspense_account_id = fields.Many2one(
@@ -114,7 +122,9 @@ class ResConfigSettings(models.TransientModel):
     module_account_intrastat = fields.Boolean(string='Intrastat')
     module_product_margin = fields.Boolean(string="Allow Product Margin")
     module_l10n_eu_oss = fields.Boolean(string="EU Intra-community Distance Selling")
-    module_account_invoice_extract = fields.Boolean(string="Document Digitization")
+    module_account_extract = fields.Boolean(string="Document Digitization")
+    module_account_invoice_extract = fields.Boolean("Invoice Digitization", compute='_compute_module_account_invoice_extract', readonly=False, store=True)
+    module_account_bank_statement_extract = fields.Boolean("Bank Statement Digitization", compute='_compute_module_account_bank_statement_extract', readonly=False, store=True)
     module_snailmail_account = fields.Boolean(string="Snailmail")
     module_account_peppol = fields.Boolean(string='PEPPOL Invoicing')
     tax_exigibility = fields.Boolean(string='Cash Basis', related='company_id.tax_exigibility', readonly=False)
@@ -260,6 +270,16 @@ class ResConfigSettings(models.TransientModel):
     def _compute_has_chart_of_accounts(self):
         self.has_chart_of_accounts = bool(self.company_id.chart_template)
         self.has_accounting_entries = self.company_id.root_id._existing_accounting()
+
+    @api.depends('module_account_extract')
+    def _compute_module_account_invoice_extract(self):
+        for config in self:
+            config.module_account_invoice_extract = config.module_account_extract and self.env['ir.module.module']._get('account_invoice_extract').state == 'installed'
+
+    @api.depends('module_account_extract')
+    def _compute_module_account_bank_statement_extract(self):
+        for config in self:
+            config.module_account_bank_statement_extract = config.module_account_extract and self.env['ir.module.module']._get('account_invoice_extract').state == 'installed'
 
     @api.onchange('group_analytic_accounting')
     def onchange_analytic_accounting(self):

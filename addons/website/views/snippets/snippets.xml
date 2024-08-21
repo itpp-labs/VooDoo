@@ -14,8 +14,10 @@
                     t-thumbnail="/website/static/src/img/snippets_thumbs/s_media_list.svg"/>
                 <t snippet-group="intro" t-snippet="website.s_snippet_group" string="Intro"
                     t-thumbnail="/website/static/src/img/snippets_thumbs/s_cover.svg"/>
-                <t snippet-group="content" t-snippet="website.s_snippet_group" string="Content"
+                <t snippet-group="columns" t-snippet="website.s_snippet_group" string="Columns"
                     t-thumbnail="/website/static/src/img/snippets_thumbs/s_three_columns.svg"/>
+                <t snippet-group="content" t-snippet="website.s_snippet_group" string="Content"
+                    t-thumbnail="/website/static/src/img/snippets_thumbs/s_text_image.svg"/>
                 <t snippet-group="images" t-snippet="website.s_snippet_group" string="Images"
                     t-thumbnail="/website/static/src/img/snippets_thumbs/s_picture.svg"/>
                 <t snippet-group="people" t-snippet="website.s_snippet_group" string="People"
@@ -63,6 +65,9 @@
                 <t t-snippet="website.s_call_to_action" string="Call to Action" group="content">
                     <keywords>CTA</keywords>
                 </t>
+                <t t-snippet="website.s_cta_box" string="Box Call to Action" group="content">
+                    <keywords>CTA, button, btn, action, engagement, link, offer, appeal, call to action, prompt, interact, trigger</keywords>
+                </t>
                 <t t-snippet="website.s_product_catalog" string="Pricelist" group="content">
                     <keywords>menu, pricing</keywords>
                 </t>
@@ -79,7 +84,7 @@
                 <t t-snippet="website.s_numbers" string="Numbers" group="content">
                     <keywords>statistics, stats, KPI</keywords>
                 </t>
-                <t t-snippet="website.s_three_columns" string="Columns" group="content">
+                <t t-snippet="website.s_three_columns" string="Columns" group="columns">
                     <keywords>columns, description</keywords>
                 </t>
                 <t t-snippet="website.s_features" string="Features" group="content">
@@ -95,6 +100,12 @@
                 <t t-snippet="website.s_tabs" string="Tabs" group="content"/>
                 <t t-snippet="website.s_timeline" string="Timeline" group="content"/>
                 <t t-snippet="website.s_process_steps" string="Steps" t-forbid-sanitize="true" group="content"/>
+                <t t-snippet="website.s_numbers_showcase" string="Numbers Showcase" group="content">
+                    <keywords>statistics, stats, KPI, metrics, dashboard, analytics, highlights, figures, performance, achievements, benchmarks, milestones, indicators, data, measurements, reports, trends, results, analytics, cta, call to action, button</keywords>
+                </t>
+                <t t-snippet="website.s_accordion_image" string="Accordion Image" group="content">
+                    <keywords>common answers, common questions, faq, QA, collapse, expandable, toggle, collapsible, hide-show, movement, information, image, picture, photo, illustration, media, visual</keywords>
+                </t>
 
                 <!-- Images group -->
                 <t t-snippet="website.s_picture" string="Title - Image" group="images">
@@ -108,6 +119,9 @@
                 </t>
                 <t t-snippet="website.s_images_wall" string="Images Wall" group="images"/>
                 <t t-snippet="website.s_parallax" string="Parallax" group="images"/>
+                <t t-snippet="website.s_unveil" string="Unveil" group="images">
+                    <keywords>reveal, showcase, launch, presentation, announcement, content, picture, photo, illustration, media, visual, article, combination</keywords>
+                </t>
 
                 <!-- People group -->
                 <t t-snippet="website.s_company_team" string="Team" group="people">
@@ -663,7 +677,7 @@
     </div>
 
     <!--  Vertical Alignment -->
-    <div data-js="vAlignment" id="row_valign_snippet_option" data-selector=".s_text_image, .s_image_text, .s_three_columns, .s_showcase, .s_numbers, .s_faq_collapse" data-target=".row">
+    <div data-js="vAlignment" id="row_valign_snippet_option" data-selector=".s_text_image, .s_image_text, .s_three_columns, .s_showcase, .s_numbers, .s_faq_collapse, .s_references, .s_accordion_image" data-target=".row">
         <we-button-group class="o_we_sublevel_1" string="Vert. Alignment" title="Vertical Alignment" data-dependencies="normal_mode">
             <we-button title="Align Top"
                        data-select-class="align-items-start"

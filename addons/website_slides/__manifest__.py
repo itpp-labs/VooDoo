@@ -145,7 +145,6 @@ Featuring
             'web/static/src/views/fields/translation_dialog.scss',
             'web/static/src/views/fields/signature/signature_field.scss',
             'web/static/src/legacy/scss/ui.scss',
-            'web/static/src/legacy/scss/modal.scss',
             'website/static/src/libs/zoomodoo/zoomodoo.scss',
 
             'web/static/src/module_loader.js',
@@ -183,7 +182,7 @@ Featuring
             'web/static/lib/bootstrap/js/dist/tab.js',
             'web/static/lib/bootstrap/js/dist/toast.js',
             'web/static/lib/select2/select2.js',
-            'web/static/src/legacy/js/libs/bootstrap.js',
+            'web/static/src/libs/bootstrap.js',
             'web/static/src/legacy/js/libs/jquery.js',
             'website/static/src/libs/zoomodoo/zoomodoo.js',
             'web/static/src/core/**/*.js',

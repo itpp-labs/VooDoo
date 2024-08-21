@@ -599,6 +599,8 @@ actual arch.
         Determine the views that inherit from the current recordset, and return
         them as a recordset, ordered by priority then by id.
         """
+        if not self.ids:
+            return self.browse()
         self.check_access_rights('read')
         domain = self._get_inheriting_views_domain()
         e = expression(domain, self.env['ir.ui.view'])
@@ -1897,6 +1899,8 @@ actual arch.
             elif node.tag == 'input' and node.get('type') in ('button', 'submit', 'reset'):
                 pass
             elif any(klass in classes for klass in ('btn-group', 'btn-toolbar', 'btn-addr')):
+                pass
+            elif node.tag == 'field' and node.get('widget') == 'url':
                 pass
             else:
                 msg = ("A simili button must be in tag a/button/select or tag `input` "

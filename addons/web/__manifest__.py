@@ -92,7 +92,7 @@ This module provides the core of the Odoo Web Client.
             'web/static/lib/bootstrap/js/dist/scrollspy.js',
             'web/static/lib/bootstrap/js/dist/tab.js',
             'web/static/lib/bootstrap/js/dist/toast.js',
-            'web/static/src/legacy/js/libs/bootstrap.js',
+            'web/static/src/libs/bootstrap.js',
 
             'base/static/src/css/modules.css',
 
@@ -125,7 +125,6 @@ This module provides the core of the Odoo Web Client.
             # Form style should be computed before
             'web/static/src/views/form/button_box/*.scss',
 
-            'web/static/src/legacy/xml/base.xml',
             # Don't include dark mode files in light mode
             ('remove', 'web/static/src/**/*.dark.scss'),
         ],
@@ -155,7 +154,7 @@ This module provides the core of the Odoo Web Client.
             'web/static/src/session.js',
             'web/static/src/core/browser/cookie.js',
             'web/static/src/core/utils/ui.js',
-            'web/static/src/legacy/js/core/minimal_dom.js',
+            'web/static/src/legacy/js/public/minimal_dom.js',
             'web/static/src/legacy/js/public/lazyloader.js',
         ],
         'web.assets_frontend': [
@@ -190,7 +189,6 @@ This module provides the core of the Odoo Web Client.
             'web/static/src/views/fields/signature/signature_field.scss',
 
             'web/static/src/legacy/scss/ui.scss',
-            'web/static/src/legacy/scss/modal.scss',
 
             ('include', 'web.assets_frontend_minimal'),
 
@@ -225,13 +223,12 @@ This module provides the core of the Odoo Web Client.
             'web/static/lib/bootstrap/js/dist/tab.js',
             'web/static/lib/bootstrap/js/dist/toast.js',
             'web/static/lib/select2/select2.js',
-            'web/static/src/legacy/js/libs/bootstrap.js',
+            'web/static/src/libs/bootstrap.js',
             'web/static/src/legacy/js/libs/jquery.js',
             'web/static/src/legacy/js/core/class.js',
             'web/static/src/legacy/js/core/dom.js',
             'web/static/src/legacy/js/core/mixins.js',
             'web/static/src/legacy/js/core/service_mixins.js',
-            'web/static/src/legacy/js/core/widget.js',
 
             'web/static/src/env.js',
             'web/static/src/core/utils/transitions.scss',  # included early because used by other files
@@ -260,7 +257,7 @@ This module provides the core of the Odoo Web Client.
             ('remove', 'web/static/src/session.js'),
             ('remove', 'web/static/src/core/browser/cookie.js'),
             ('remove', 'web/static/src/core/utils/ui.js'),
-            ('remove', 'web/static/src/legacy/js/core/minimal_dom.js'),
+            ('remove', 'web/static/src/legacy/js/public/minimal_dom.js'),
             ('remove', 'web/static/src/legacy/js/public/lazyloader.js'),
         ],
         'web.report_assets_common': [

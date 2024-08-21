@@ -1,12 +1,12 @@
 /** @odoo-module **/
 
-import { attachComponent } from "@web/legacy/utils";
+import { attachComponent } from "@web_editor/js/core/owl_utils";
 import { MediaDialog } from "@web_editor/components/media_dialog/media_dialog";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { throttleForAnimation, debounce } from "@web/core/utils/timing";
 import { clamp } from "@web/core/utils/numbers";
 import { scrollTo } from "@web/core/utils/scrolling";
-import Widget from "@web/legacy/js/core/widget";
+import Widget from "@web_editor/js/core/widget";
 import { ColorPalette } from "@web_editor/js/wysiwyg/widgets/color_palette";
 import weUtils from "@web_editor/js/common/utils";
 import * as gridUtils from "@web_editor/js/common/grid_layout_utils";
@@ -8306,6 +8306,7 @@ registry.BackgroundImage = SnippetOptionWidget.extend({
         this.selectStyle(false, combined, {
             cssProperty: 'background-image',
         });
+        this.options.wysiwyg.odooEditor.editable.focus();
     },
 });
 

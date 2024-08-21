@@ -59,10 +59,8 @@ class Partner extends models.Model {
         "kanban,1": `
             <kanban>
                 <templates>
-                    <t t-name="kanban-box">
-                        <div>
-                            <field name="display_name"/>
-                        </div>
+                    <t t-name="kanban-card">
+                        <field name="display_name"/>
                     </t>
                 </templates>
             </kanban>`,
@@ -622,7 +620,7 @@ test("retrieving a stored action should remove 'allowed_company_ids' from its co
     });
 });
 
-test("action is removed while waiting for another action with selectMenu", async () => {
+test.tags("desktop")("action is removed while waiting for another action with selectMenu", async () => {
     let def;
     class SlowClientAction extends Component {
         static template = xml`<div>My client action</div>`;

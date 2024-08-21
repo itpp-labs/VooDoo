@@ -2,7 +2,6 @@
 from datetime import datetime, time
 from dateutil.relativedelta import relativedelta
 from pytz import UTC
-import re
 
 from odoo import api, fields, models, _
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT, get_lang
@@ -77,10 +76,11 @@ class PurchaseOrderLine(models.Model):
     display_type = fields.Selection([
         ('line_section', "Section"),
         ('line_note', "Note")], default=False, help="Technical field for UX purpose.")
+    is_downpayment = fields.Boolean()
 
     _sql_constraints = [
         ('accountable_required_fields',
-            "CHECK(display_type IS NOT NULL OR (product_id IS NOT NULL AND product_uom IS NOT NULL AND date_planned IS NOT NULL))",
+            "CHECK(display_type IS NOT NULL OR is_downpayment OR (product_id IS NOT NULL AND product_uom IS NOT NULL AND date_planned IS NOT NULL))",
             "Missing required fields on accountable purchase order line."),
         ('non_accountable_null_fields',
             "CHECK(display_type IS NULL OR (product_id IS NULL AND price_unit = 0 AND product_uom_qty = 0 AND product_uom IS NULL AND date_planned is NULL))",
@@ -323,7 +323,7 @@ class PurchaseOrderLine(models.Model):
         for line in self:
             if not line.product_id or line.invoice_lines or not line.company_id:
                 continue
-            params = {'order_id': line.order_id}
+            params = line._get_select_sellers_params()
             seller = line.product_id._select_seller(
                 partner_id=line.partner_id,
                 quantity=line.product_qty,
@@ -562,18 +562,9 @@ class PurchaseOrderLine(models.Model):
         aml_currency = move and move.currency_id or self.currency_id
         date = move and move.date or fields.Date.today()
 
-        # Compatibility fix for creating invoices from a SO since the computation of the line name has been changed in the account module.
-        # Has to be removed as soon as the new behavior for the line name has been implemented in the sale module.
-        line_name = self.name
-        if self.product_id.display_name:
-            line_name = re.sub(re.escape(self.product_id.display_name), '', line_name)
-            line_name = re.sub(r'^\n', '', line_name)
-            line_name = re.sub(r'(?<=\n) ', '', line_name)
-            line_name = re.sub(r'P(\d+):(\s*)$', r'P\1', '%s: %s' % (self.order_id.name, line_name))
-
         res = {
             'display_type': self.display_type or 'product',
-            'name': line_name,
+            'name': self.name,
             'product_id': self.product_id.id,
             'product_uom_id': self.product_uom.id,
             'quantity': self.qty_to_invoice,
@@ -581,6 +572,7 @@ class PurchaseOrderLine(models.Model):
             'price_unit': self.currency_id._convert(self.price_unit, aml_currency, self.company_id, date, round=False),
             'tax_ids': [(6, 0, self.taxes_id.ids)],
             'purchase_line_id': self.id,
+            'is_downpayment': self.is_downpayment,
         }
         if self.analytic_distribution and not self.display_type:
             res['analytic_distribution'] = self.analytic_distribution
@@ -684,4 +676,14 @@ class PurchaseOrderLine(models.Model):
             'res_model': 'purchase.order',
             'res_id': self.order_id.id,
             'view_mode': 'form',
+        }
+
+    def _merge_po_line(self, rfq_line):
+        self.product_qty += rfq_line.product_qty
+        self.price_unit = min(self.price_unit, rfq_line.price_unit)
+
+    def _get_select_sellers_params(self):
+        self.ensure_one()
+        return {
+            "order_id": self.order_id,
         }

@@ -299,6 +299,7 @@ class Task(models.Model):
             ! Set the task a high priority\n
             Make sure to use the right format and order e.g. Improve the configuration screen #feature #v16 @Mitchell !""",
     )
+    link_preview_name = fields.Char(compute='_compute_link_preview_name', export_string_translation=False)
 
     _sql_constraints = [
         ('recurring_task_has_no_parent', 'CHECK (NOT (recurring_task IS TRUE AND parent_id IS NOT NULL))', "A subtask cannot be recurrent."),
@@ -779,6 +780,13 @@ class Task(models.Model):
                         extract_data(task)
                 task.name = task.display_name.strip()
 
+    def _compute_link_preview_name(self):
+        for task in self:
+            link_preview_name = task.display_name
+            if task.project_id:
+                link_preview_name += f' | {task.project_id.sudo().name}'
+            task.link_preview_name = link_preview_name
+
     def copy_data(self, default=None):
         default = dict(default or {})
         vals_list = super().copy_data(default=default)
@@ -926,6 +934,10 @@ class Task(models.Model):
     @api.model
     def default_get(self, default_fields):
         vals = super(Task, self).default_get(default_fields)
+
+        # prevent creating new task in the waiting state
+        if 'state' in default_fields and vals.get('state') == '04_waiting_normal':
+            vals['state'] = '01_in_progress'
 
         if 'repeat_until' in default_fields:
             vals['repeat_until'] = fields.Date.today() + timedelta(days=7)

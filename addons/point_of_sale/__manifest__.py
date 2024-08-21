@@ -127,6 +127,7 @@
             ('include', 'point_of_sale.base_app'),
 
             'web/static/src/core/colorlist/colorlist.scss',
+            'web/static/src/webclient/webclient_layout.scss',
 
             'web/static/src/webclient/icons.scss',
 
@@ -145,10 +146,6 @@
             'barcodes_gs1_nomenclature/static/src/js/barcode_parser.js',
             'barcodes_gs1_nomenclature/static/src/js/barcode_service.js',
             'web/static/src/views/fields/parsers.js',
-            'web/static/src/webclient/barcode/barcode_dialog.*',
-            'web/static/src/webclient/barcode/barcode_video_scanner.*',
-            'web/static/src/webclient/barcode/ZXingBarcodeDetector.js',
-            'web/static/src/webclient/barcode/crop_overlay.*',
             # report download utils
             'web/static/src/webclient/actions/reports/utils.js',
             # PoS files
@@ -171,7 +168,6 @@
             'web/static/src/views/**/*',
             'web/static/src/search/**/*',
             'web/static/src/webclient/actions/**/*',
-            'web/static/src/webclient/breadcrumbs/**/*',
             ('remove', 'web/static/src/webclient/actions/reports/layout_assets/**/*'),
             ('remove', 'web/static/src/webclient/actions/**/*css'),
             'web/static/src/webclient/company_service.js',
@@ -211,7 +207,6 @@
             'web/static/src/model/relational_model/utils.js',
             'web/static/src/webclient/actions/action_container.js',
             'web/static/src/webclient/actions/action_dialog.js',
-            'web/static/src/webclient/actions/action_hook.js',
             'web/static/src/webclient/actions/action_service.js',
             'web/static/src/webclient/actions/reports/report_action.js',
             'web/static/src/webclient/actions/reports/report_hook.js',

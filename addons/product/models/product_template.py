@@ -19,6 +19,7 @@ class ProductTemplate(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin', 'image.mixin']
     _description = "Product"
     _order = "is_favorite desc, name"
+    _check_company_auto = True
     _check_company_domain = models.check_company_domain_parent_of
 
     @tools.ormcache()
@@ -62,7 +63,9 @@ class ProductTemplate(models.Model):
         required=True,
         default='consu',
     )
-    combo_ids = fields.Many2many(string="Combo Choices", comodel_name='product.combo')
+    combo_ids = fields.Many2many(
+        string="Combo Choices", comodel_name='product.combo', check_company=True
+    )
     service_tracking = fields.Selection(selection=[
             ('no', 'Nothing'),
         ],
@@ -1486,3 +1489,9 @@ class ProductTemplate(models.Model):
                 'record': acoustic_bloc_screens.product_variant_ids[1],
                 'noupdate': True,
             }])
+
+    def _get_list_price(self, price):
+        """ Get the product sales price from a public price based on taxes defined on the product.
+        To be overridden in accounting module."""
+        self.ensure_one()
+        return price

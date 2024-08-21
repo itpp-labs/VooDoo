@@ -67,25 +67,23 @@ export class LinkPlugin extends Plugin {
         toolbarItems: [
             {
                 id: "link",
+                title: _t("Link"),
                 category: "link",
                 action(dispatch) {
                     dispatch("CREATE_LINK_ON_SELECTION");
                 },
                 icon: "fa-link",
-                name: "link",
-                label: _t("Link"),
                 isFormatApplied: isLinkActive,
             },
             {
                 id: "unlink",
                 category: "link",
+                title: _t("Remove Link"),
 
                 action(dispatch) {
                     dispatch("REMOVE_LINK_FROM_SELECTION");
                 },
                 icon: "fa-unlink",
-                name: "unlink",
-                label: _t("Remove Link"),
                 isAvailable: isSelectionHasLink,
             },
         ],
@@ -128,17 +126,24 @@ export class LinkPlugin extends Plugin {
                 this.handleAutomaticLinkInsertion();
             }
         });
-        this.services.command.add(
+        // link creation is added to the command service because of a shortcut conflict,
+        // as ctrl+k is used for invoking the command palette
+        this.removeLinkShortcut = this.services.command.add(
             "Create link",
             () => {
                 this.toggleLinkTools();
             },
             {
                 hotkey: "control+k",
+                category: "shortcut_conflict",
                 isAvailable: () => this.shared.getEditableSelection().inEditable,
             }
         );
         this.ignoredClasses = new Set(this.resources["link_ignore_classes"] || []);
+    }
+
+    destroy() {
+        this.removeLinkShortcut();
     }
 
     handleCommand(command, payload) {

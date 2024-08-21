@@ -882,7 +882,7 @@ class UnfollowFromInboxTest(MailCommon, HttpCase):
         self.authenticate(self.env.user.login, self.env.user.login)
         data = self.make_jsonrpc_request("/mail/inbox/messages")["data"]
         expected = {
-            "mail.message": [
+            "mail.message": self._filter_messages_fields(
                 {
                     "attachments": [],
                     "author": {"id": self.user_admin.partner_id.id, "type": "partner"},
@@ -898,8 +898,9 @@ class UnfollowFromInboxTest(MailCommon, HttpCase):
                     "message_type": "notification",
                     "model": "mail.test.simple",
                     "needaction": True,
-                    "notifications": [{"id": notif.id}],
+                    "notifications": [notif.id],
                     "pinned_at": False,
+                    "rating_id": False,
                     "reactions": [],
                     "recipients": [{"id": self.env.user.partner_id.id, "type": "partner"}],
                     "record_name": "Test",
@@ -912,18 +913,18 @@ class UnfollowFromInboxTest(MailCommon, HttpCase):
                     "trackingValues": [],
                     "write_date": fields.Datetime.to_string(message.write_date),
                 },
-            ],
+            ),
             "mail.notification": [
                 {
                     "failure_type": False,
                     "id": notif.id,
-                    "message": {"id": message.id},
+                    "message": message.id,
                     "notification_status": "sent",
                     "notification_type": "inbox",
                     "persona": {"id": self.env.user.partner_id.id, "type": "partner"},
                 },
             ],
-            "mail.thread": [
+            "mail.thread": self._filter_threads_fields(
                 {
                     "id": test_record.id,
                     "model": "mail.test.simple",
@@ -931,8 +932,8 @@ class UnfollowFromInboxTest(MailCommon, HttpCase):
                     "name": "Test",
                     "selfFollower": False,
                 },
-            ],
-            "res.partner": [
+            ),
+            "res.partner": self._filter_partners_fields(
                 {
                     "displayName": "Ernest Employee",
                     "id": self.env.user.partner_id.id,
@@ -947,7 +948,7 @@ class UnfollowFromInboxTest(MailCommon, HttpCase):
                     "userId": self.user_admin.id,
                     "write_date": fields.Datetime.to_string(self.user_admin.write_date),
                 },
-            ],
+            ),
         }
         self.assertEqual(data, expected)
 
@@ -965,7 +966,7 @@ class UnfollowFromInboxTest(MailCommon, HttpCase):
                 "partner": {"id": self.env.user.partner_id.id, "type": "partner"},
             },
         ]
-        expected_with_follower["mail.thread"][0]["selfFollower"] = {"id": follower.id}
+        expected_with_follower["mail.thread"][0]["selfFollower"] = follower.id
         self.assertEqual(data, expected_with_follower)
 
         # The user doesn't follow the record anymore

@@ -4,30 +4,145 @@ from dateutil.relativedelta import relativedelta
 from unittest.mock import patch, PropertyMock
 
 from odoo import Command, fields
+from odoo.addons.mail.tests.common import MailCommon
 from odoo.addons.mail.tools.discuss import Store
 from odoo.tests.common import users, tagged, HttpCase, warmup
 
 
 @tagged('post_install', '-at_install')
-class TestDiscussFullPerformance(HttpCase):
-    # Queries for _query_count_init_store:
-    #     1: action_discuss_id
-    #     1: hasGifPickerFeature
-    #     1: hasLinkPreviewFeature
-    #     1: hasMessageTranslationFeature
-    #     1: internalUserGroupId
-    #     1: mt_comment_id
-    #     6: odoobot format
-    #     4: settings
-    #     1: has_access_livechat
-    _query_count_init_store = 17
-    _query_count = 50 + 1  # +1 is necessary to fix nondeterministic issue on runbot
-    # Queries for _query_count_discuss_channels:
-    #     1: bus last id
-    _query_count_discuss_channels = 70
+class TestDiscussFullPerformance(HttpCase, MailCommon):
+    # Queries for _query_count_init_store (in order):
+    #   1: internalUserGroupId: ref exists
+    #   5: odoobot format:
+    #       - ref exists
+    #       - fetch res_partner (_read_format/_to_store)
+    #       - _compute_im_status (_read_format/_to_store)
+    #       - _get_on_leave_ids (_compute_im_status override)
+    #       - fetch res_users (_to_store)
+    #   5: settings:
+    #       - search (_find_or_create_for_user)
+    #       - fetch res_partner (_format_settings: display_name of user_id because classic load)
+    #       - fetch res_users_settings (_format_settings)
+    #       - search res_users_settings_volumes (_format_settings)
+    #       - search res_lang_res_users_settings_rel (_format_settings)
+    _query_count_init_store = 11
+    # Queries for _query_count_init_messaging (in order):
+    #   1: insert res_device_log
+    #   1: fetch res_company (building ir.rules)
+    #   1: fetch res_users (for current user, first occurence _init_messaging of mail_bot)
+    #   4: _get_channels_as_member
+    #       - search channel_ids of current partner (_search_is_member, building member_domain)
+    #       - fetch channel_ids of current partner (active test filtering, _search_is_member)
+    #       - search discuss_channel (member_domain)
+    #       - search discuss_channel (pinned_member_domain)
+    #   2: _init_messaging (discuss)
+    #       - fetch discuss_channel_member (is_self)
+    #       - _compute_message_unread
+    #   3: _init_messaging (mail)
+    #       - _bus_last_id
+    #       - _get_needaction_count (inbox counter)
+    #       - starred counter
+    #   29: _process_request_for_all (discuss):
+    #       - search discuss_channel (channels_domain)
+    #       28: channel _to_store:
+    #           - _bus_last_id
+    #           - manual query to search discuss_channel_member
+    #           10: channel member _to_store:
+    #               - fetch discuss_channel_member
+    #               9: partner _to_store:
+    #                   - fetch res_partner (partner _to_store)
+    #                   - fetch res_users (_compute_im_status)
+    #                   - search bus_presence (_compute_im_status)
+    #                   - fetch bus_presence (_compute_im_status)
+    #                   - _get_on_leave_ids (_compute_im_status override)
+    #                   - search hr_employee (_compute_im_status override)
+    #                   - fetch hr_employee (_compute_im_status override)
+    #                   - search hr_leave (out_of_office_date_end)
+    #                   - fetch res_users (internal user)
+    #           - fetch res_groups (authorizedGroupFullName)
+    #           - fetch ir_module_category (authorizedGroupFullName)
+    #           - search discuss_channel_member (is_member, channel ACL)
+    #           - search ir_attachment (_compute_avatar_128)
+    #           - search group_ids (group_based_subscription)
+    #           - count discuss_channel_member (member_count)
+    #           - _compute_message_needaction
+    #           - search discuss_channel_rtc_session
+    #           8: rtc session _to_store:
+    #               - fetch discuss_channel_rtc_session
+    #               7. channel member _to_store:
+    #                   - fetch discuss_channel_member
+    #                   6: partner _to_store:
+    #                       - fetch res_parter
+    #                       - fetch res_users (_compute_im_status)
+    #                       - search bus_presence (_compute_im_status)
+    #                       - _get_on_leave_ids (_compute_im_status override)
+    #                       - search hr_employee (_compute_im_status override)
+    #                       - fetch hr_employee (_compute_im_status override)
+    _query_count_init_messaging = 41
+    # Queries for _query_count_discuss_channels (in order):
+    #   1: insert res_device_log
+    #   1: fetch res_users (for current user: first occurence current persona, _search_is_member)
+    #   4: _get_channels_as_member
+    #       - search channel_ids of current partner (_search_is_member, building member_domain)
+    #       - fetch channel_ids of current partner (active test filtering, _search_is_member)
+    #       - search discuss_channel (member_domain)
+    #       - search discuss_channel (pinned_member_domain)
+    #   31: channel _to_store:
+    #       - _bus_last_id
+    #       - manual query to search discuss_channel_member
+    #       16: channel member _to_store:
+    #           - fetch discuss_channel_member
+    #           12: partner _to_store:
+    #               - fetch res_partner (partner _to_store)
+    #               - fetch res_users (_compute_im_status)
+    #               - search bus_presence (_compute_im_status)
+    #               - fetch bus_presence (_compute_im_status)
+    #               - _get_on_leave_ids (_compute_im_status override)
+    #               - search hr_employee (_compute_im_status override)
+    #               - fetch hr_employee (_compute_im_status override)
+    #               - search hr_leave (out_of_office_date_end)
+    #               - fetch res_users (internal user)
+    #               - search res_users_settings (livechat username)
+    #               - fetch res_users_settings (livechat username)
+    #               - fetch res_country (livechat override)
+    #           2: guest _to_store:
+    #               - fetch bus_presence (_compute_im_status)
+    #               - fetch mail_guest
+    #           - im_livechat_channel_rule (is_bot)
+    #       - fetch res_groups (authorizedGroupFullName)
+    #       - fetch ir_module_category (authorizedGroupFullName)
+    #       - search discuss_channel_member (is_member, channel ACL)
+    #       - search ir_attachment (_compute_avatar_128)
+    #       - search group_ids (group_based_subscription)
+    #       - count discuss_channel_member (member_count)
+    #       - _compute_message_needaction
+    #       - _compute_message_unread
+    #       - search discuss_channel_rtc_session
+    #       2: rtc session _to_store:
+    #           - fetch discuss_channel_rtc_session
+    #           - fetch discuss_channel_member
+    #       - fetch im_livechat_channel
+    #       - fetch country (anonymous_country)
+    #   - _get_last_messages
+    #   13: message _to_store:
+    #       - search mail_message_schedule
+    #       - fetch mail_message
+    #       - search mail_message_reaction
+    #       - search message_attachment_rel
+    #       - search mail_link_preview
+    #       - search mail_message_subtype
+    #       - search mail_message_res_partner_rel
+    #       - search mail_notification
+    #       - fetch mail_notification
+    #       - search mail_tracking_value
+    #       - search mail_message_res_partner_starred_rel
+    #       - search rating_rating
+    #       - _compute_rating_stats
+    _query_count_discuss_channels = 51
 
     def setUp(self):
         super().setUp()
+        self.maxDiff = None
         self.group_user = self.env.ref('base.group_user')
         self.password = 'Pl1bhD@2!kXZ'
         self.users = self.env['res.users'].create([
@@ -71,8 +186,8 @@ class TestDiscussFullPerformance(HttpCase):
             'employee_id': employee.id,
             'holiday_status_id': self.leave_type.id,
         } for employee in self.employees])
-
-    def _setup_test(self):
+        self.authenticate(self.users[0].login, self.password)
+        Channel = self.env["discuss.channel"].with_user(self.users[0])
         self.channel_general = self.env.ref('mail.channel_all_employees')  # Unfortunately #general cannot be deleted. Assertions below assume data from a fresh db with demo.
         self.channel_general.message_ids.unlink() # Remove messages to avoid depending on demo data.
         self.channel_general.last_interest_dt = False  # Reset state
@@ -80,27 +195,35 @@ class TestDiscussFullPerformance(HttpCase):
         self.env['discuss.channel'].sudo().search([('id', '!=', self.channel_general.id)]).unlink()
         self.user_root = self.env.ref('base.user_root')
         # create public channels
-        self.channel_channel_public_1 = self.env['discuss.channel'].channel_create(name='public channel 1', group_id=None)
+        self.channel_channel_public_1 = Channel.channel_create(
+            name="public channel 1", group_id=None
+        )
         self.channel_channel_public_1.add_members((self.users[0] + self.users[2] + self.users[3] + self.users[4] + self.users[8]).partner_id.ids)
-        self.channel_channel_public_2 = self.env['discuss.channel'].channel_create(name='public channel 2', group_id=None)
+        self.channel_channel_public_2 = Channel.channel_create(
+            name="public channel 2", group_id=None
+        )
         self.channel_channel_public_2.add_members((self.users[0] + self.users[2] + self.users[4] + self.users[7] + self.users[9]).partner_id.ids)
         # create group-restricted channels
-        self.channel_channel_group_1 = self.env['discuss.channel'].channel_create(name='group restricted channel 1', group_id=self.env.ref('base.group_user').id)
+        self.channel_channel_group_1 = Channel.channel_create(
+            name="group restricted channel 1", group_id=self.env.ref("base.group_user").id
+        )
         self.channel_channel_group_1.add_members((self.users[0] + self.users[2] + self.users[3] + self.users[6] + self.users[12]).partner_id.ids)
-        self.channel_channel_group_2 = self.env['discuss.channel'].channel_create(name='group restricted channel 2', group_id=self.env.ref('base.group_user').id)
+        self.channel_channel_group_2 = Channel.channel_create(
+            name="group restricted channel 2", group_id=self.env.ref("base.group_user").id
+        )
         self.channel_channel_group_2.add_members((self.users[0] + self.users[2] + self.users[6] + self.users[7] + self.users[13]).partner_id.ids)
         # create chats
-        self.channel_chat_1 = self.env['discuss.channel'].channel_get((self.users[0] + self.users[14]).partner_id.ids)
-        self.channel_chat_2 = self.env['discuss.channel'].channel_get((self.users[0] + self.users[15]).partner_id.ids)
-        self.channel_chat_3 = self.env['discuss.channel'].channel_get((self.users[0] + self.users[2]).partner_id.ids)
-        self.channel_chat_4 = self.env['discuss.channel'].channel_get((self.users[0] + self.users[3]).partner_id.ids)
+        self.channel_chat_1 = Channel.channel_get((self.users[0] + self.users[14]).partner_id.ids)
+        self.channel_chat_2 = Channel.channel_get((self.users[0] + self.users[15]).partner_id.ids)
+        self.channel_chat_3 = Channel.channel_get((self.users[0] + self.users[2]).partner_id.ids)
+        self.channel_chat_4 = Channel.channel_get((self.users[0] + self.users[3]).partner_id.ids)
         # create groups
-        self.channel_group_1 = self.env['discuss.channel'].create_group((self.users[0] + self.users[12]).partner_id.ids)
+        self.channel_group_1 = Channel.create_group((self.users[0] + self.users[12]).partner_id.ids)
         # create livechats
         self.im_livechat_channel = self.env['im_livechat.channel'].sudo().create({'name': 'support', 'user_ids': [Command.link(self.users[0].id)]})
         self.env['bus.presence'].create({'user_id': self.users[0].id, 'status': 'online'})  # make available for livechat (ignore leave)
         self.authenticate('test1', self.password)
-        self.channel_livechat_1 = self.env["discuss.channel"].browse(
+        self.channel_livechat_1 = Channel.browse(
             self.make_jsonrpc_request(
                 "/im_livechat/get_session",
                 {
@@ -116,7 +239,7 @@ class TestDiscussFullPerformance(HttpCase):
             "odoo.http.GeoIP.country_code",
             new_callable=PropertyMock(return_value=self.env.ref("base.be").code),
         ):
-            self.channel_livechat_2 = self.env["discuss.channel"].browse(
+            self.channel_livechat_2 = Channel.browse(
                 self.make_jsonrpc_request(
                     "/im_livechat/get_session",
                     {
@@ -154,19 +277,54 @@ class TestDiscussFullPerformance(HttpCase):
         data = {"channel_id": self.channel_channel_group_1.id, "channel_member_id": member_2.id}
         session = self.env["discuss.channel.rtc.session"].sudo().create(data)
         member_0.rtc_inviting_session_id = session
+        self.env.cr.precommit.run()  # trigger the creation of bus.bus records
+
+    def _run_test(self, /, *, fn, count, results):
+        self.authenticate(self.users[0].login, self.password)
+        self.env["res.lang"]._get_data(code="en_US")  # cache language for validation
+        with self.assertQueryCount(emp=count):
+            if self.warm:
+                with self.env.cr._enable_logging():
+                    res = fn()
+            else:
+                res = fn()
+        self.assertEqual(res, results)
 
     @users('emp')
     @warmup
-    def test_init_store_data(self):
-        """Test performance of `init_messaging`."""
-        self._setup_test()
-        self.maxDiff = None
-        self.env.flush_all()
-        self.env.invalidate_all()
-        store = Store()
-        with self.assertQueryCount(emp=self._query_count_init_store):
+    def test_10_init_store_data(self):
+        """Test performance of `_init_store_data`."""
+
+        def test_fn():
+            store = Store()
             self.env["res.users"].with_user(self.users[0])._init_store_data(store)
-        self.assertEqual(store.get_result(), self._get_init_store_data_result())
+            return store.get_result()
+
+        self._run_test(
+            fn=test_fn,
+            count=self._query_count_init_store,
+            results=self._get_init_store_data_result(),
+        )
+
+    @users('emp')
+    @warmup
+    def test_20_init_messaging(self):
+        """Test performance of `init_messaging`."""
+        self._run_test(
+            fn=lambda: self.make_jsonrpc_request("/mail/action", {"init_messaging": {}}),
+            count=self._query_count_init_messaging,
+            results=self._get_init_messaging_result(),
+        )
+
+    @users("emp")
+    @warmup
+    def test_30_discuss_channels(self):
+        """Test performance of `/mail/data` with `channels_as_member=True`."""
+        self._run_test(
+            fn=lambda: self.make_jsonrpc_request("/mail/data", {"channels_as_member": True}),
+            count=self._query_count_discuss_channels,
+            results=self._get_discuss_channels_result(),
+        )
 
     def _get_init_store_data_result(self):
         """Returns the result of a call to init_messaging.
@@ -174,7 +332,7 @@ class TestDiscussFullPerformance(HttpCase):
         """
         xmlid_to_res_id = self.env["ir.model.data"]._xmlid_to_res_id
         return {
-            "res.partner": [
+            "res.partner": self._filter_partners_fields(
                 {
                     "active": False,
                     "email": "odoobot@example.com",
@@ -197,7 +355,7 @@ class TestDiscussFullPerformance(HttpCase):
                     "userId": self.users[0].id,
                     "write_date": fields.Datetime.to_string(self.users[0].partner_id.write_date),
                 },
-            ],
+            ),
             "Store": {
                 "channel_types_with_seen_infos": sorted(["chat", "group", "livechat"]),
                 "action_discuss_id": xmlid_to_res_id("mail.action_discuss"),
@@ -226,20 +384,6 @@ class TestDiscussFullPerformance(HttpCase):
             },
         }
 
-    @users('emp')
-    @warmup
-    def test_init_messaging(self):
-        """Test performance of `init_messaging`."""
-        self._setup_test()
-        self.maxDiff = None
-        self.env.flush_all()
-        self.env.invalidate_all()
-        self.authenticate(self.users[0].login, self.password)
-        self.env['res.lang']._get_data(code='en_US')  # cache language for validation
-        with self.assertQueryCount(emp=self._query_count):
-            init_messaging = self.make_jsonrpc_request("/mail/action", {"init_messaging": {}})
-        self.assertEqual(init_messaging, self._get_init_messaging_result())
-
     def _get_init_messaging_result(self):
         """Returns the result of a call to init_messaging.
         The point of having a separate getter is to allow it to be overriden.
@@ -260,11 +404,11 @@ class TestDiscussFullPerformance(HttpCase):
             "discuss.channel.rtc.session": [
                 self._expected_result_for_rtc_session(self.channel_channel_group_1, self.users[2]),
             ],
-            "res.partner": [
+            "res.partner": self._filter_partners_fields(
                 self._expected_result_for_persona(self.users[0]),
                 self._expected_result_for_persona(self.users[2], only_inviting=True),
                 self._expected_result_for_persona(self.users[14]),
-            ],
+            ),
             "Store": {
                 "inbox": {
                     "counter": 1,
@@ -283,20 +427,6 @@ class TestDiscussFullPerformance(HttpCase):
                 "odoobotOnboarding": False,
             },
         }
-
-    @users("emp")
-    @warmup
-    def test_discuss_channels(self):
-        """Test performance of `/mail/data` with `channels_as_member=True`."""
-        self._setup_test()
-        self.maxDiff = None
-        self.env.flush_all()
-        self.env.invalidate_all()
-        self.authenticate(self.users[0].login, self.password)
-        self.env['res.lang']._get_data(code='en_US')  # cache language for validation
-        with self.assertQueryCount(emp=self._query_count_discuss_channels):
-            discuss_channels = self.make_jsonrpc_request("/mail/data", {"channels_as_member": True})
-        self.assertEqual(discuss_channels, self._get_discuss_channels_result())
 
     def _get_discuss_channels_result(self):
         """Returns the result of a call to `/mail/data` with `channels_as_member=True`.
@@ -348,26 +478,26 @@ class TestDiscussFullPerformance(HttpCase):
             "mail.guest": [
                 self._expected_result_for_persona(guest=True),
             ],
-            "mail.message": [
+            "mail.message": self._filter_messages_fields(
                 self._expected_result_for_message(self.channel_channel_public_1),
                 self._expected_result_for_message(self.channel_channel_public_2),
                 self._expected_result_for_message(self.channel_channel_group_1),
                 self._expected_result_for_message(self.channel_channel_group_2),
                 self._expected_result_for_message(self.channel_livechat_1),
                 self._expected_result_for_message(self.channel_livechat_2),
-            ],
+            ),
             "mail.notification": [
                 self._expected_result_for_notification(self.channel_channel_public_1),
             ],
-            "mail.thread": [
+            "mail.thread": self._filter_threads_fields(
                 self._expected_result_for_thread(self.channel_channel_public_1),
                 self._expected_result_for_thread(self.channel_channel_public_2),
                 self._expected_result_for_thread(self.channel_channel_group_1),
                 self._expected_result_for_thread(self.channel_channel_group_2),
                 self._expected_result_for_thread(self.channel_livechat_1),
                 self._expected_result_for_thread(self.channel_livechat_2),
-            ],
-            "res.partner": [
+            ),
+            "res.partner": self._filter_partners_fields(
                 self._expected_result_for_persona(
                     self.users[0],
                     also_livechat=True,
@@ -379,7 +509,7 @@ class TestDiscussFullPerformance(HttpCase):
                 self._expected_result_for_persona(self.users[15]),
                 self._expected_result_for_persona(self.users[3]),
                 self._expected_result_for_persona(self.users[1], also_livechat=True),
-            ],
+            ),
         }
 
     def _expected_result_for_channel(self, channel):
@@ -406,7 +536,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "description": "General announcements for all employees.",
                 "group_based_subscription": True,
                 "invitedMembers": [["ADD", []]],
-                "is_editable": False,
+                "is_editable": True,
                 "is_pinned": True,
                 "last_interest_dt": False,
                 "message_needaction_counter": 0,
@@ -492,7 +622,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "defaultDisplayMode": False,
                 "description": False,
                 "group_based_subscription": False,
-                "invitedMembers": [["ADD", [{"id": member_0.id}]]],
+                "invitedMembers": [["ADD", [member_0.id]]],
                 "is_editable": True,
                 "is_pinned": True,
                 "last_interest_dt": last_interest_dt,
@@ -500,9 +630,9 @@ class TestDiscussFullPerformance(HttpCase):
                 "message_needaction_counter_bus_id": bus_last_id,
                 "name": "group restricted channel 1",
                 # sudo: discuss.channel.rtc.session - reading a session in a test file
-                "rtcInvitingSession": {"id": member_2.sudo().rtc_session_ids.id},
+                "rtcInvitingSession": member_2.sudo().rtc_session_ids.id,
                 # sudo: discuss.channel.rtc.session - reading a session in a test file
-                "rtcSessions": [["ADD", [{"id": member_2.sudo().rtc_session_ids.id}]]],
+                "rtcSessions": [["ADD", [member_2.sudo().rtc_session_ids.id]]],
                 "custom_notifications": False,
                 "mute_until_dt": False,
                 "state": "closed",
@@ -583,7 +713,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "description": False,
                 "group_based_subscription": False,
                 "invitedMembers": [["ADD", []]],
-                "is_editable": False,
+                "is_editable": True,
                 "is_pinned": True,
                 "last_interest_dt": False,
                 "message_needaction_counter": 0,
@@ -612,7 +742,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "description": False,
                 "group_based_subscription": False,
                 "invitedMembers": [["ADD", []]],
-                "is_editable": False,
+                "is_editable": True,
                 "is_pinned": True,
                 "last_interest_dt": False,
                 "message_needaction_counter": 0,
@@ -641,7 +771,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "description": False,
                 "group_based_subscription": False,
                 "invitedMembers": [["ADD", []]],
-                "is_editable": False,
+                "is_editable": True,
                 "is_pinned": True,
                 "last_interest_dt": False,
                 "message_needaction_counter": 0,
@@ -670,7 +800,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "description": False,
                 "group_based_subscription": False,
                 "invitedMembers": [["ADD", []]],
-                "is_editable": False,
+                "is_editable": True,
                 "is_pinned": True,
                 "last_interest_dt": False,
                 "message_needaction_counter": 0,
@@ -703,10 +833,10 @@ class TestDiscussFullPerformance(HttpCase):
                 "description": False,
                 "group_based_subscription": False,
                 "invitedMembers": [["ADD", []]],
-                "is_editable": False,
+                "is_editable": True,
                 "is_pinned": True,
                 "last_interest_dt": last_interest_dt,
-                "livechatChannel": {"id": self.im_livechat_channel.id},
+                "livechatChannel": self.im_livechat_channel.id,
                 "message_needaction_counter": 0,
                 "message_needaction_counter_bus_id": bus_last_id,
                 "name": "test1 Ernest Employee",
@@ -738,10 +868,10 @@ class TestDiscussFullPerformance(HttpCase):
                 "description": False,
                 "group_based_subscription": False,
                 "invitedMembers": [["ADD", []]],
-                "is_editable": False,
+                "is_editable": True,
                 "is_pinned": True,
                 "last_interest_dt": last_interest_dt,
-                "livechatChannel": {"id": self.im_livechat_channel.id},
+                "livechatChannel": self.im_livechat_channel.id,
                 "message_needaction_counter": 0,
                 "message_needaction_counter_bus_id": bus_last_id,
                 "name": "anon 2 Ernest Employee",
@@ -788,7 +918,7 @@ class TestDiscussFullPerformance(HttpCase):
         if channel == self.channel_channel_public_1 and partner == self.users[0].partner_id:
             return {
                 "create_date": member_0_create_date,
-                "fetched_message_id": {"id": last_message.id},
+                "fetched_message_id": last_message.id,
                 "id": member_0.id,
                 "last_interest_dt": member_0_last_interest_dt,
                 "message_unread_counter": 0,
@@ -796,13 +926,13 @@ class TestDiscussFullPerformance(HttpCase):
                 "last_seen_dt": member_0_last_seen_dt,
                 "new_message_separator": last_message.id + 1,
                 "persona": {"id": self.users[0].partner_id.id, "type": "partner"},
-                "seen_message_id": {"id": last_message.id},
+                "seen_message_id": last_message.id,
                 "thread": {"id": channel.id, "model": "discuss.channel"},
             }
         if channel == self.channel_channel_public_2 and partner == self.users[0].partner_id:
             return {
                 "create_date": member_0_create_date,
-                "fetched_message_id": {"id": last_message.id},
+                "fetched_message_id": last_message.id,
                 "id": member_0.id,
                 "last_interest_dt": member_0_last_interest_dt,
                 "message_unread_counter": 0,
@@ -810,13 +940,13 @@ class TestDiscussFullPerformance(HttpCase):
                 "last_seen_dt": member_0_last_seen_dt,
                 "new_message_separator": last_message.id + 1,
                 "persona": {"id": self.users[0].partner_id.id, "type": "partner"},
-                "seen_message_id": {"id": last_message.id},
+                "seen_message_id": last_message.id,
                 "thread": {"id": channel.id, "model": "discuss.channel"},
             }
         if channel == self.channel_channel_group_1 and partner == self.users[0].partner_id:
             return {
                 "create_date": member_0_create_date,
-                "fetched_message_id": {"id": last_message.id},
+                "fetched_message_id": last_message.id,
                 "id": member_0.id,
                 "last_interest_dt": member_0_last_interest_dt,
                 "message_unread_counter": 0,
@@ -824,7 +954,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "last_seen_dt": member_0_last_seen_dt,
                 "new_message_separator": last_message.id + 1,
                 "persona": {"id": self.users[0].partner_id.id, "type": "partner"},
-                "seen_message_id": {"id": last_message.id},
+                "seen_message_id": last_message.id,
                 "thread": {"id": channel.id, "model": "discuss.channel"},
             }
         if channel == self.channel_channel_group_1 and partner == self.users[2].partner_id:
@@ -836,7 +966,7 @@ class TestDiscussFullPerformance(HttpCase):
         if channel == self.channel_channel_group_2 and partner == self.users[0].partner_id:
             return {
                 "create_date": member_0_create_date,
-                "fetched_message_id": {"id": last_message.id},
+                "fetched_message_id": last_message.id,
                 "id": member_0.id,
                 "last_interest_dt": member_0_last_interest_dt,
                 "message_unread_counter": 0,
@@ -844,7 +974,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "last_seen_dt": member_0_last_seen_dt,
                 "new_message_separator": last_message.id + 1,
                 "persona": {"id": self.users[0].partner_id.id, "type": "partner"},
-                "seen_message_id": {"id": last_message.id},
+                "seen_message_id": last_message.id,
                 "thread": {"id": channel.id, "model": "discuss.channel"},
             }
         if channel == self.channel_group_1 and partner == self.users[0].partner_id:
@@ -986,11 +1116,11 @@ class TestDiscussFullPerformance(HttpCase):
             return {
                 "create_date": fields.Datetime.to_string(member_1.create_date),
                 "last_seen_dt": fields.Datetime.to_string(member_1.last_seen_dt),
-                "fetched_message_id": {"id": last_message.id},
+                "fetched_message_id": last_message.id,
                 "id": member_1.id,
                 "is_bot": False,
                 "persona": {"id": self.users[1].partner_id.id, "type": "partner"},
-                "seen_message_id": {"id": last_message.id},
+                "seen_message_id": last_message.id,
                 "thread": {"id": channel.id, "model": "discuss.channel"},
             }
         if channel == self.channel_livechat_2 and partner == self.users[0].partner_id:
@@ -1012,11 +1142,11 @@ class TestDiscussFullPerformance(HttpCase):
             return {
                 "create_date": fields.Datetime.to_string(member_g.create_date),
                 "last_seen_dt": fields.Datetime.to_string(member_g.last_seen_dt),
-                "fetched_message_id": {"id": last_message.id},
+                "fetched_message_id": last_message.id,
                 "id": member_g.id,
                 "is_bot": False,
                 "persona": {"id": guest.id, "type": "guest"},
-                "seen_message_id": {"id": last_message.id},
+                "seen_message_id": last_message.id,
                 "thread": {"id": channel.id, "model": "discuss.channel"},
             }
         return {}
@@ -1054,10 +1184,11 @@ class TestDiscussFullPerformance(HttpCase):
                 "message_type": "comment",
                 "model": "discuss.channel",
                 "needaction": True,
-                "notifications": [{"id": last_message.notification_ids.id}],
+                "notifications": [last_message.notification_ids.id],
                 "thread": {"id": channel.id, "model": "discuss.channel"},
                 "parentMessage": False,
                 "pinned_at": False,
+                "rating_id": False,
                 "reactions": [],
                 "recipients": [{"id": self.users[0].partner_id.id, "type": "partner"}],
                 "record_name": "public channel 1",
@@ -1089,6 +1220,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "thread": {"id": channel.id, "model": "discuss.channel"},
                 "parentMessage": False,
                 "pinned_at": False,
+                "rating_id": False,
                 "reactions": [],
                 "recipients": [],
                 "record_name": "public channel 2",
@@ -1120,6 +1252,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "thread": {"id": channel.id, "model": "discuss.channel"},
                 "parentMessage": False,
                 "pinned_at": False,
+                "rating_id": False,
                 "reactions": [],
                 "recipients": [],
                 "record_name": "group restricted channel 1",
@@ -1151,6 +1284,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "thread": {"id": channel.id, "model": "discuss.channel"},
                 "parentMessage": False,
                 "pinned_at": False,
+                "rating_id": False,
                 "reactions": [],
                 "recipients": [],
                 "record_name": "group restricted channel 2",
@@ -1181,6 +1315,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "thread": {"id": channel.id, "model": "discuss.channel"},
                 "parentMessage": False,
                 "pinned_at": False,
+                "rating_id": False,
                 "reactions": [],
                 "recipients": [],
                 "record_name": "test1 Ernest Employee",
@@ -1212,6 +1347,7 @@ class TestDiscussFullPerformance(HttpCase):
                 "thread": {"id": channel.id, "model": "discuss.channel"},
                 "parentMessage": False,
                 "pinned_at": False,
+                "rating_id": False,
                 "reactions": [],
                 "recipients": [],
                 "record_name": "anon 2 Ernest Employee",
@@ -1231,7 +1367,7 @@ class TestDiscussFullPerformance(HttpCase):
             return {
                 "failure_type": False,
                 "id": last_message.notification_ids.id,
-                "message": {"id": last_message.id},
+                "message": last_message.id,
                 "notification_status": "sent",
                 "notification_type": "inbox",
                 "persona": {"id": self.users[0].partner_id.id, "type": "partner"},
@@ -1375,7 +1511,7 @@ class TestDiscussFullPerformance(HttpCase):
         if channel == self.channel_channel_group_1 and user == self.users[2]:
             return {
                 # sudo: discuss.channel.rtc.session - reading a session in a test file
-                "channelMember": {"id": member_2.id},
+                "channelMember": member_2.id,
                 "id": member_2.sudo().rtc_session_ids.id,
                 "isCameraOn": False,
                 "isDeaf": False,
@@ -1389,4 +1525,6 @@ class TestDiscussFullPerformance(HttpCase):
             "id": channel.id,
             "model": "discuss.channel",
             "module_icon": "/mail/static/description/icon.png",
+            "rating_avg": 0.0,
+            "rating_count": 0,
         }

@@ -4,7 +4,7 @@ import { registry } from "@web/core/registry";
 import { ControlPanel } from "@web/search/control_panel/control_panel";
 import { DashboardLoader, Status } from "./dashboard_loader";
 import { SpreadsheetComponent } from "@spreadsheet/actions/spreadsheet_component";
-import { useSetupAction } from "@web/webclient/actions/action_hook";
+import { useSetupAction } from "@web/search/action_hook";
 import { DashboardMobileSearchPanel } from "./mobile_search_panel/mobile_search_panel";
 import { MobileFigureContainer } from "./mobile_figure_container/mobile_figure_container";
 import { FilterValue } from "@spreadsheet/global_filters/components/filter_value/filter_value";
@@ -32,6 +32,7 @@ export class SpreadsheetDashboardAction extends Component {
         this.Status = Status;
         this.controlPanelDisplay = {};
         this.orm = useService("orm");
+        this.actionService = useService("action");
         // Use the non-protected orm service (`this.env.services.orm` instead of `useService("orm")`)
         // because spreadsheets models are preserved across multiple components when navigating
         // with the breadcrumb
@@ -126,6 +127,19 @@ export class SpreadsheetDashboardAction extends Component {
      */
     openDashboard(dashboardId) {
         this.state.activeDashboard = this.loader.getDashboard(dashboardId);
+    }
+
+    /**
+     * @param {number} id - The ID of the dashboard to be edited.
+     * @returns {Promise<void>}
+     */
+    async editDashboard(id) {
+        const action = await this.env.services.orm.call(
+            "spreadsheet.dashboard",
+            "action_edit_dashboard",
+            [id]
+        );
+        this.actionService.doAction(action);
     }
 
     async shareSpreadsheet(data, excelExport) {

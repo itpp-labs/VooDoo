@@ -956,7 +956,7 @@ async function processRequest(request) {
         const domain = [
             "|",
             ["create_uid", "=", this.env.user.id],
-            ["group_ids", "in", this.env.user.groups_id.map((group) => group.id)],
+            ["group_ids", "in", this.env.user.groups_id],
         ];
         store.add(this.env["mail.canned.response"].search(domain));
     }
@@ -1259,7 +1259,7 @@ class Store {
         if (records._name === "res.partner") {
             return { id: record.id, type: "partner" };
         }
-        return { id: record.id };
+        return record.id;
     }
 }
 

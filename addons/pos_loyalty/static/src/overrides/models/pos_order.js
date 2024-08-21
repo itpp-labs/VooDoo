@@ -3,7 +3,7 @@ import { patch } from "@web/core/utils/patch";
 import { roundDecimals, roundPrecision } from "@web/core/utils/numbers";
 import { _t } from "@web/core/l10n/translation";
 import { loyaltyIdsGenerator } from "./pos_store";
-import { getTaxesValues } from "@point_of_sale/app/models/utils/tax_utils";
+import { compute_price_force_price_include } from "@point_of_sale/app/models/utils/tax_utils";
 const { DateTime } = luxon;
 
 function _newRandomRewardCode() {
@@ -76,7 +76,6 @@ patch(PosOrder.prototype, {
             codeActivatedProgramRules: [],
             couponPointChanges: {},
         };
-
         const oldCouponMapping = {};
         if (this.uiState.couponPointChanges) {
             for (const [key, pe] of Object.entries(this.uiState.couponPointChanges)) {
@@ -697,7 +696,13 @@ patch(PosOrder.prototype, {
      * @returns {Array} List of {Object} containing the coupon_id and reward keys
      */
     getClaimableRewards(coupon_id = false, program_id = false, auto = false) {
+        const couponPointChanges = this.uiState.couponPointChanges;
+        const excludedCouponIds = Object.keys(couponPointChanges)
+            .filter((id) => couponPointChanges[id].manual && couponPointChanges[id].existing_code)
+            .map((id) => couponPointChanges[id].coupon_id);
+
         const allCouponPrograms = Object.values(this.uiState.couponPointChanges)
+            .filter((pe) => !excludedCouponIds.includes(pe.coupon_id))
             .map((pe) => {
                 return {
                     program_id: pe.program_id,
@@ -840,7 +845,57 @@ patch(PosOrder.prototype, {
         }
         return true;
     },
+    /**
+     * Checks if there are any existing manual changes or new coupon additions for the given coupon code
+     */
+    duplicateCouponChanges(code) {
+        return Object.keys(this.uiState.couponPointChanges).some((key) => {
+            const change = this.uiState.couponPointChanges[key];
+            return (
+                (change.existing_code === code && change.manual) ||
+                (change.code === code && change.coupon_id < 0)
+            );
+        });
+    },
+    /**
+     * Processes a gift card by creating a new gift card.
+     *
+     * @param {String} newGiftCardCode gift card code as a string if new gift card to be created.
+     * @param {number} points number of points to assign to the gift card.
+     */
+    processGiftCard(newGiftCardCode, points) {
+        const partner_id = this.partner_id?.id || false;
+        const product_id = this.get_selected_orderline().product_id.id;
+        const program = this.models["loyalty.program"].find((p) => p.program_type === "gift_card");
 
+        let couponId;
+        const couponData = {
+            program_id: program?.id,
+            points: points,
+            manual: true,
+            product_id: product_id,
+        };
+
+        // Fetch all coupon_ids for the specified points and not manually created, that are associated with the gift card program
+        const applicableCouponIds = Object.keys(this.uiState.couponPointChanges).filter((key) => {
+            const change = this.uiState.couponPointChanges[key];
+            return (
+                change.points === points &&
+                change.program_id === program.id &&
+                change.product_id === product_id &&
+                !change.manual
+            );
+        });
+
+        if (newGiftCardCode) {
+            couponId = applicableCouponIds.shift() || loyaltyIdsGenerator();
+            couponData.coupon_id = couponId;
+            couponData.code = newGiftCardCode;
+            couponData.partner_id = partner_id;
+        }
+
+        this.uiState.couponPointChanges[couponId] = couponData;
+    },
     /**
      * @param {loyalty.reward} reward
      * @returns the discountable and discountable per tax for this discount on order reward.
@@ -1073,20 +1128,15 @@ patch(PosOrder.prototype, {
         // These are considered payments and do not require to be either taxed or split by tax
         const discountProduct = reward.discount_line_product_id;
         if (["ewallet", "gift_card"].includes(reward.program_id.program_type)) {
-            const tax_res = getTaxesValues(
+            const new_price = compute_price_force_price_include(
                 discountProduct.taxes_id,
                 -Math.min(maxDiscount, discountable),
-                1,
                 discountProduct,
                 this.config._product_default_values,
                 this.company,
                 this.currency,
-                "total_included"
+                this.models
             );
-            let new_price = tax_res.total_excluded;
-            new_price += tax_res.taxes_data
-                .filter((tax) => this.models["account.tax"].get(tax.id).price_include)
-                .reduce((sum, tax) => (sum += tax.tax_amount), 0);
 
             return [
                 {

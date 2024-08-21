@@ -113,9 +113,9 @@ class AccountChartTemplate(models.AbstractModel):
             ],
             limit=1,
         )
-        default_receivable = self.env.ref('base.res_partner_3').with_company(company).property_account_receivable_id
-        income_account = self.env['account.account'].search([
-            ('company_id', '=', cid),
+        default_receivable = self.env.ref('base.res_partner_3').with_company(company or self.env.company).property_account_receivable_id
+        income_account = self.env['account.account'].with_company(company or self.env.company).search([
+            ('company_ids', '=', cid),
             ('account_type', '=', 'income'),
             ('id', '!=', (company or self.env.company).account_journal_early_pay_discount_gain_account_id.id)
         ], limit=1)
@@ -295,6 +295,13 @@ class AccountChartTemplate(models.AbstractModel):
             ],
             limit=1,
         )
+        ccd_journal = self.env['account.journal'].search(
+            domain=[
+                *self.env['account.journal']._check_company_domain(cid),
+                ('type', '=', 'credit'),
+            ],
+            limit=1,
+        )
         return {
             'demo_bank_statement_1': {
                 'name': f'{bnk_journal.name} - {time.strftime("%Y")}-01-01/1',
@@ -313,6 +320,19 @@ class AccountChartTemplate(models.AbstractModel):
                         'amount': 1275.0,
                         'date': time.strftime('%Y-01-01'),
                         'partner_id': 'base.res_partner_12',
+                    }),
+                ]
+            },
+            'demo_credit_statement_1': {
+                'name': f'{ccd_journal.name} - {time.strftime("%Y")}-01-01/1',
+                'balance_end_real': -1055.0,
+                'balance_start': 0.0,
+                'line_ids': [
+                    Command.create({
+                        'journal_id': ccd_journal.id,
+                        'payment_ref': 'Initial balance',
+                        'amount': -1055.0,
+                        'date': time.strftime('%Y-01-01'),
                     }),
                 ]
             },
@@ -500,11 +520,11 @@ class AccountChartTemplate(models.AbstractModel):
                 ('model', '=', 'account.account'),
                 ('module', '=like', 'l10n%')
             ], limit=1).res_id)
-            or self.env['account.account'].search([
+            or self.env['account.account'].with_company(company).search([
                 *self.env['account.account']._check_company_domain(company),
                 ('account_type', '=', account_type),
             ], limit=1)
-            or self.env['account.account'].search([
+            or self.env['account.account'].with_company(company).search([
                 *self.env['account.account']._check_company_domain(company),
             ], limit=1)
         )

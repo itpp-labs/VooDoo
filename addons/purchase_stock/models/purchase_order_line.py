@@ -93,7 +93,8 @@ class PurchaseOrderLine(models.Model):
         if values.get('date_planned'):
             new_date = fields.Datetime.to_datetime(values['date_planned'])
             self.filtered(lambda l: not l.display_type)._update_move_date_deadline(new_date)
-        lines = self.filtered(lambda l: l.order_id.state == 'purchase')
+        lines = self.filtered(lambda l: l.order_id.state == 'purchase'
+                                        and not l.display_type)
 
         if 'product_packaging_id' in values:
             self.move_ids.filtered(
@@ -392,3 +393,7 @@ class PurchaseOrderLine(models.Model):
     def _update_qty_received_method(self):
         """Update qty_received_method for old PO before install this module."""
         self.search(['!', ('state', 'in', ['purchase', 'done'])])._compute_qty_received_method()
+
+    def _merge_po_line(self, rfq_line):
+        super()._merge_po_line(rfq_line)
+        self.move_dest_ids += rfq_line.move_dest_ids

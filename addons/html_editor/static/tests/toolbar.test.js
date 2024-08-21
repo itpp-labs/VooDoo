@@ -9,7 +9,7 @@ import {
     waitUntil,
 } from "@odoo/hoot-dom";
 import { animationFrame } from "@odoo/hoot-mock";
-import { contains } from "@web/../tests/web_test_helpers";
+import { contains, patchTranslations } from "@web/../tests/web_test_helpers";
 import { Plugin } from "../src/plugin";
 import { MAIN_PLUGINS } from "../src/plugin_sets";
 import { setupEditor } from "./_helpers/editor";
@@ -317,8 +317,9 @@ test("toolbar correctly show namespace button group and stop showing when namesp
                     {
                         id: "test_btn",
                         category: "test_group",
-                        name: "Test Button",
+                        title: "Test Button",
                         icon: "fa-square",
+                        action: () => null,
                     },
                 ],
             };
@@ -339,19 +340,20 @@ test("toolbar correctly process inheritance buttons chain", async () => {
         static name = "TestPlugin";
         static resources(p) {
             return {
-                toolbarCategory: { id: "test_group" },
+                toolbarCategory: { id: "test_group", sequence: 24 },
                 toolbarItems: [
                     {
                         id: "test_btn",
                         category: "test_group",
-                        name: "Test Button",
+                        title: "Test Button",
                         icon: "fa-square",
+                        action: () => null,
                     },
                     {
                         id: "test_btn2",
                         category: "test_group",
                         inherit: "test_btn",
-                        name: "Test Button 2",
+                        title: "Test Button 2",
                     },
                 ],
             };
@@ -363,11 +365,11 @@ test("toolbar correctly process inheritance buttons chain", async () => {
     await waitFor(".o-we-toolbar");
     expect(".btn-group[name='test_group']").toHaveCount(1);
     expect("button[name='test_btn']").toHaveCount(1);
-    expect("button[name='test_btn']").toHaveClass("fa-square");
+    expect("button[name='test_btn'] span.fa").toHaveClass("fa-square");
     expect("button[name='test_btn']").toHaveAttribute("title", "Test Button");
 
     expect("button[name='test_btn2']").toHaveCount(1);
-    expect("button[name='test_btn2']").toHaveClass("fa-square");
+    expect("button[name='test_btn2'] span.fa").toHaveClass("fa-square");
     expect("button[name='test_btn2']").toHaveAttribute("title", "Test Button 2");
 });
 
@@ -384,7 +386,7 @@ test("toolbar does not evaluate isFormatApplied when namespace does not match", 
                         action(dispatch) {
                             dispatch("test_cmd");
                         },
-                        name: "Test Button",
+                        title: "Test Button",
                         icon: "fa-square",
                         isFormatApplied: () => expect.step("image format evaluated"),
                     },
@@ -423,7 +425,7 @@ test("plugins can create buttons with text in toolbar", async () => {
                         action(dispatch) {
                             dispatch("test_cmd");
                         },
-                        name: "Test Button",
+                        title: "Test Button",
                         text: "Text button",
                     },
                 ],
@@ -435,4 +437,71 @@ test("plugins can create buttons with text in toolbar", async () => {
     });
     await waitFor(".o-we-toolbar");
     expect("button[name='test_btn']").toHaveText("Text button");
+});
+
+test("toolbar buttons should have rounded corners at the edges of a group", async () => {
+    await setupEditor("<p>[test]</p>");
+    await waitFor(".o-we-toolbar");
+    const buttonGroups = queryAll(".o-we-toolbar .btn-group");
+    for (const group of buttonGroups) {
+        for (let i = 0; i < group.children.length; i++) {
+            const button = group.children[i];
+            const computedStyle = getComputedStyle(button);
+            const borderRadius = Object.fromEntries(
+                ["top-left", "top-right", "bottom-left", "bottom-right"].map((corner) => [
+                    corner,
+                    Number.parseInt(computedStyle[`border-${corner}-radius`]),
+                ])
+            );
+            // Should have rounded corners on the left only if first button
+            if (i === 0) {
+                expect(borderRadius["top-left"]).toBeGreaterThan(0);
+                expect(borderRadius["bottom-left"]).toBeGreaterThan(0);
+            } else {
+                expect(borderRadius["top-left"]).toBe(0);
+                expect(borderRadius["bottom-left"]).toBe(0);
+            }
+            // Should have rounded corners on the right only if last button
+            if (i === group.children.length - 1) {
+                expect(borderRadius["top-right"]).toBeGreaterThan(0);
+                expect(borderRadius["bottom-right"]).toBeGreaterThan(0);
+            } else {
+                expect(borderRadius["top-right"]).toBe(0);
+                expect(borderRadius["bottom-right"]).toBe(0);
+            }
+        }
+    }
+});
+
+test("toolbar buttons should have title attribute", async () => {
+    await setupEditor("<ul><li>[abc]</li></ul>");
+    const toolbar = await waitFor(".o-we-toolbar");
+    for (const button of toolbar.querySelectorAll("button")) {
+        expect(button).toHaveAttribute("title");
+    }
+});
+
+test("toolbar buttons should have title attribute with translated text", async () => {
+    // Retrieve toolbar buttons descriptions in English
+    const { editor } = await setupEditor("");
+    const titles = editor.resources.toolbarItems.map((item) => item.title);
+    editor.destroy();
+
+    // Patch translations to return "Translated" for these terms
+    patchTranslations(Object.fromEntries(titles.map((title) => [title, "Translated"])));
+
+    // Instantiate a new editor.
+    const { editor: postPatchEditor } = await setupEditor("<p>[abc]</p>");
+
+    // Check that every registered button has the result of the call to _t
+    postPatchEditor.resources.toolbarItems.forEach((item) => {
+        expect(item.title).toBe("Translated");
+    });
+
+    await waitFor(".o-we-toolbar");
+
+    // Check that every button has a title attribute with the translated description
+    for (const button of queryAll(".o-we-toolbar button")) {
+        expect(button).toHaveAttribute("title", "Translated");
+    }
 });

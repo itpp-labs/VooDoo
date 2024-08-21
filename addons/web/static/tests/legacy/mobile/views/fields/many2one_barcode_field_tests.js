@@ -5,7 +5,7 @@ import { browser } from "@web/core/browser/browser";
 import { click, clickSave, getFixture, patchWithCleanup } from "@web/../tests/helpers/utils";
 import { makeView, setupViewRegistries } from "@web/../tests/views/helpers";
 
-import * as BarcodeScanner from "@web/webclient/barcode/barcode_dialog";
+import * as BarcodeScanner from "@web/core/barcode/barcode_dialog";
 
 let serverData;
 let target;
@@ -68,12 +68,10 @@ QUnit.module("Fields", (hooks) => {
             },
             views: {
                 "product.product,false,kanban": `
-                    <kanban><templates><t t-name="kanban-box">
-                        <div>
-                            <field name="id"/>
-                            <field name="name"/>
-                            <field name="barcode"/>
-                        </div>
+                    <kanban><templates><t t-name="kanban-card">
+                        <field name="id"/>
+                        <field name="name"/>
+                        <field name="barcode"/>
                     </t></templates></kanban>
                 `,
                 "product.product,false,search": "<search></search>",

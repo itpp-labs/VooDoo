@@ -26,10 +26,6 @@
                     <i class="fa fa-undo me-1" role="img" aria-label="Refund" title="Refund" />
                     Refund
                 </button>
-                <button class="btn btn-secondary btn-lg py-5" t-on-click="onClickSave">
-                    <i class="fa fa-upload" role="img" aria-label="Save" title="Save" />
-                    Park Order
-                </button>
                 <button t-if="pos.models['account.fiscal.position'].length"
                     class="control-button o_fiscal_position_button"
                     t-att-class="buttonClass"
@@ -38,6 +34,9 @@
                     title="Set fiscal position" />
                     <t t-if="currentOrder?.fiscal_position_id" t-esc="currentOrder.fiscal_position_id.display_name" />
                     <t t-else="">Tax</t>
+                </button>
+                <button class="btn btn-secondary btn-lg py-5" t-on-click="() => this.pos.onDeleteOrder(this.pos.get_order())">
+                    <i class="fa fa-trash me-1" role="img" /> Cancel Order 
                 </button>
             </div>
         </t>

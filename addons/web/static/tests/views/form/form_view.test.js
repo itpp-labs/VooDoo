@@ -904,7 +904,7 @@ test(`Form and subview with _view_ref contexts`, async () => {
         kanban: `
             <kanban>
                 <templates>
-                    <t t-name="kanban-box">
+                    <t t-name="kanban-card">
                         <field name="color"/>
                     </t>
                 </templates>
@@ -969,7 +969,7 @@ test(`Form and subsubview with only _view_ref contexts`, async () => {
         kanban: `
             <kanban>
                 <templates>
-                    <t t-name="kanban-box">
+                    <t t-name="kanban-card">
                         <field name="name"/>
                     </t>
                 </templates>
@@ -983,7 +983,7 @@ test(`Form and subsubview with only _view_ref contexts`, async () => {
         kanban: `
             <kanban>
                 <templates>
-                    <t t-name="kanban-box">
+                    <t t-name="kanban-card">
                         <field name="name"/>
                     </t>
                 </templates>
@@ -6966,8 +6966,8 @@ test(`non inline subview and create=0 in action context`, async () => {
     Product._views = {
         kanban: `
             <kanban>
-                <templates><t t-name="kanban-box">
-                    <div><field name="name"/></div>
+                <templates><t t-name="kanban-card">
+                    <field name="name"/>
                 </t></templates>
             </kanban>
         `,
@@ -9493,10 +9493,8 @@ test.tags("desktop")(`discard after a failed save (and close notifications)`, as
         kanban: `
             <kanban>
                 <templates>
-                    <t t-name="kanban-box">
-                        <div>
-                            <field name="foo" />
-                        </div>
+                    <t t-name="kanban-card">
+                        <field name="foo" />
                     </t>
                 </templates>
             </kanban>
@@ -9540,7 +9538,7 @@ test(`one2many create record dialog shouldn't have a 'remove' button`, async () 
                 <field name="child_ids">
                     <kanban>
                         <templates>
-                            <t t-name="kanban-box">
+                            <t t-name="kanban-card">
                                 <field name="foo"/>
                             </t>
                         </templates>
@@ -9625,8 +9623,12 @@ test(`form view with inline tree view with optional fields and local storage moc
         `,
     });
 
-    const localStorageKey = "optional_fields,partner,form,123456789,child_ids,list,bar,foo";
-    expect.verifySteps(["getItem pwa.installationState", `getItem ${localStorageKey}`]);
+    const localStorageKey = "partner,form,123456789,child_ids,list,bar,foo";
+    expect.verifySteps([
+        "getItem pwa.installationState",
+        `getItem optional_fields,${localStorageKey}`,
+        `getItem debug_open_view,${localStorageKey}`,
+    ]);
     expect(`.o_list_table th`).toHaveCount(2);
     expect(`th[data-name="foo"]`).toBeVisible();
     expect(`th[data-name="bar"]`).not.toBeVisible();
@@ -9637,7 +9639,11 @@ test(`form view with inline tree view with optional fields and local storage moc
 
     // enable optional field
     await contains(`.o-dropdown--menu input[name="bar"]`).click();
-    expect.verifySteps([`setItem ${localStorageKey} to bar`, `getItem ${localStorageKey}`]);
+    expect.verifySteps([
+        `setItem optional_fields,${localStorageKey} to bar`,
+        `getItem optional_fields,${localStorageKey}`,
+        `getItem debug_open_view,${localStorageKey}`,
+    ]);
 
     expect(`.o_list_table th`).toHaveCount(3);
     expect(`th[data-name="foo"]`).toBeVisible();
@@ -9682,8 +9688,12 @@ test.tags("desktop")(
         `,
         });
 
-        const localStorageKey = "optional_fields,partner,form,123456789,child_ids,list,bar,foo";
-        expect.verifySteps(["getItem pwa.installationState", `getItem ${localStorageKey}`]);
+        const localStorageKey = "partner,form,123456789,child_ids,list,bar,foo";
+        expect.verifySteps([
+            "getItem pwa.installationState",
+            `getItem optional_fields,${localStorageKey}`,
+            `getItem debug_open_view,${localStorageKey}`,
+        ]);
         expect(`.o_list_table th`).toHaveCount(2);
         expect(`th[data-name="foo"]`).not.toBeVisible();
         expect(`th[data-name="bar"]`).toBeVisible();
@@ -9694,7 +9704,11 @@ test.tags("desktop")(
 
         // enable optional field
         await contains(`.o-dropdown--menu input[name="foo"]`).click();
-        expect.verifySteps([`setItem ${localStorageKey} to foo`, `getItem ${localStorageKey}`]);
+        expect.verifySteps([
+            `setItem optional_fields,${localStorageKey} to foo`,
+            `getItem optional_fields,${localStorageKey}`,
+            `getItem debug_open_view,${localStorageKey}`,
+        ]);
 
         expect(`.o_list_table th`).toHaveCount(3);
         expect(`th[data-name="foo"]`).toBeVisible();
@@ -10313,8 +10327,8 @@ test.tags("desktop")(`empty x2manys when coming form a list with sample data`, a
                 <field name="child_ids">
                     <kanban>
                         <templates>
-                            <t t-name="kanban-box">
-                                <div><field name="name"/></div>
+                            <t t-name="kanban-card">
+                                <field name="name"/>
                             </t>
                         </templates>
                     </kanban>

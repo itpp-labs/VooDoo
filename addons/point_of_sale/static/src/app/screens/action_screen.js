@@ -4,10 +4,14 @@ import { ActionContainer } from "@web/webclient/actions/action_container";
 
 export class ActionScreen extends Component {
     static components = { ActionContainer };
-    static props = {};
+    static props = {
+        actionName: String,
+    };
     static storeOnOrder = false;
     static template = xml`
-        <ActionContainer/>
+        <div class="o_web_client">
+            <ActionContainer/>
+        </div>
     `;
 }
 registry.category("pos_screens").add("ActionScreen", ActionScreen);

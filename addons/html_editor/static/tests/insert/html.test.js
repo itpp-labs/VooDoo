@@ -150,6 +150,17 @@ describe("collapsed selection", () => {
         });
     });
 
+    test('should insert an "empty" block', async () => {
+        await testEditor({
+            contentBefore: "<p>abcd[]</p>",
+            stepFunction: async (editor) => {
+                editor.shared.domInsert(parseHTML(editor.document, "<p>efgh</p><p></p>"));
+                editor.dispatch("ADD_STEP");
+            },
+            contentAfter: "<p>abcdefgh</p><p>[]<br></p>",
+        });
+    });
+
     test("never unwrap tables in breakable paragrap", async () => {
         // P elements' content can only be "phrasing" content
         // Adding a table within p is not possible
@@ -176,7 +187,7 @@ describe("collapsed selection", () => {
             parseHTML(editor.document, "<table><tbody><tr><td/></tr></tbody></table>")
         );
         expect(getContent(editor.editable)).toBe(
-            `<p class="oe_unbreakable">content</p><table><tbody><tr><td></td></tr></tbody></table>[]`
+            `<p class="oe_unbreakable">content[]</p><table><tbody><tr><td></td></tr></tbody></table>`
         );
     });
 
@@ -479,7 +490,7 @@ describe("not collapsed selection", () => {
                 );
                 editor.dispatch("ADD_STEP");
             },
-            contentAfter: '<p><a href="#">link</a></p><p><a href="#">link</a>[]<br></p>',
+            contentAfter: '<p><a href="#">link</a></p><p><a href="#">link</a>[]</p>',
         });
     });
 });

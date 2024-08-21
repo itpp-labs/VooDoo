@@ -5,6 +5,7 @@ import { _t } from "@web/core/l10n/translation";
 import { rpc } from "@web/core/network/rpc";
 import { user } from "@web/core/user";
 import { useService, useBus } from "@web/core/utils/hooks";
+import { redirect } from "@web/core/utils/urls";
 import { useHotkey } from '@web/core/hotkeys/hotkey_hook';
 import { Wysiwyg } from "@web_editor/js/wysiwyg/wysiwyg";
 import weUtils from '@web_editor/js/common/utils';
@@ -370,7 +371,8 @@ export class WysiwygAdapterComponent extends Wysiwyg {
      * @returns {HTMLElement}
      */
     get editable() {
-        return this.websiteService.pageDocument.getElementById('wrapwrap');
+        // Page document might become unavailable when leaving the page.
+        return this.websiteService.pageDocument?.getElementById('wrapwrap');
     }
     /**
      * @see {editable} jQuery wrapped editable.
@@ -436,7 +438,8 @@ export class WysiwygAdapterComponent extends Wysiwyg {
         const formOptionsMod = await odoo.loader.modules.get('@website/snippets/s_website_form/options')[Symbol.for('default')];
         formOptionsMod.clearAllFormsInfo();
 
-        this.$editable[0].removeEventListener("click", this.__onPageClick, { capture: true });
+        // Editable might become unavailable when leaving the page.
+        this.editable?.removeEventListener("click", this.__onPageClick, { capture: true });
         return super.destroy(...arguments);
     }
 
@@ -1184,7 +1187,7 @@ export class WysiwygAdapterComponent extends Wysiwyg {
         } else if (event.data.reloadWebClient) {
             const currentPath = encodeURIComponent(window.location.pathname);
             const websiteId = this.websiteService.currentWebsite.id;
-            callback = () => window.location = `/web#action=website.website_preview&website_id=${encodeURIComponent(websiteId)}&path=${currentPath}&enable_editor=1`;
+            callback = () => redirect(`/odoo/action-website.website_preview?website_id=${encodeURIComponent(websiteId)}&path=${currentPath}&enable_editor=1`);
         } else if (event.data.action) {
             callback = () => {
                 this.leaveEditMode({

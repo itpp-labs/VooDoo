@@ -10,9 +10,9 @@ import { Deferred, KeepLast } from "@web/core/utils/concurrency";
 import { useBus, useService } from "@web/core/utils/hooks";
 import { View, ViewNotFoundError } from "@web/views/view";
 import { ActionDialog } from "./action_dialog";
-import { CallbackRecorder } from "./action_hook";
 import { ReportAction } from "./reports/report_action";
 import { UPDATE_METHODS } from "@web/core/orm_service";
+import { CallbackRecorder } from "@web/search/action_hook";
 import { ControlPanel } from "@web/search/control_panel/control_panel";
 import { PATH_KEYS, router as _router, stateToUrl } from "@web/core/browser/router";
 
@@ -447,6 +447,9 @@ export function makeActionManager(env, router = _router) {
                     get url() {
                         return stateToUrl(controller.state);
                     },
+                    onSelected() {
+                        restore(controller.jsId);
+                    },
                 };
             });
     }
@@ -631,6 +634,22 @@ export function makeActionManager(env, router = _router) {
         if (typeof groupBy === "string") {
             groupBy = [groupBy];
         }
+        const openFormView = (resId, { activeIds, mode } = {}) => {
+            if (target !== "new") {
+                if (_getView("form")) {
+                    return switchView("form", { mode, resId, resIds: activeIds });
+                } else {
+                    return doAction(
+                        {
+                            type: "ir.actions.act_window",
+                            res_model: action.res_model,
+                            views: [[false, "form"]],
+                        },
+                        { props: { mode, resId, resIds: activeIds } }
+                    );
+                }
+            }
+        };
         const viewProps = Object.assign({}, props, {
             context,
             display: { mode: target === "new" ? "inDialog" : target },
@@ -640,16 +659,8 @@ export function makeActionManager(env, router = _router) {
             loadIrFilters: action.views.some((v) => v[1] === "search"),
             resModel: action.res_model,
             type: view.type,
-            selectRecord: async (resId, { activeIds, mode }) => {
-                if (target !== "new" && _getView("form")) {
-                    await switchView("form", { mode, resId, resIds: activeIds });
-                }
-            },
-            createRecord: async () => {
-                if (target !== "new" && _getView("form")) {
-                    await switchView("form", { resId: false });
-                }
-            },
+            selectRecord: openFormView,
+            createRecord: () => openFormView(false),
         });
         const currentState = {
             resId: viewProps.resId,

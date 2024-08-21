@@ -34,9 +34,16 @@
 
 .o-mail-Composer-actions button {
     opacity: 75%;
-    &:hover {
-        background-color: $gray-200;
-        opacity: 100%;
+    @media (hover: hover) {
+        &:hover {
+            background-color: $gray-200;
+            opacity: 100%;
+        }
+    }
+    &:disabled {
+        --btn-active-color: var(--btn-disabled-color);
+        --btn-hover-color: var(--btn-disabled-color);
+        opacity: var(--btn-disabled-opacity);
     }
 }
 
@@ -74,5 +81,14 @@
 }
 
 .o-mail-Composer-compactContainer {
-    box-shadow: 0px -3px 25px 3px rgba(50, 50, 50, 0.1);
+    --border-opacity: 0.75;
+
+    &.o-mobile:not(:focus-within) {
+        margin-bottom: map-get($spacers, 5) !important;
+    }
+
+    &:has(textarea:focus) {
+        --border-opacity: 0.35;
+        border-color: rgba($o-action, var(--border-opacity)) !important;
+    }
 }

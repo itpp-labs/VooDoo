@@ -96,7 +96,7 @@
             'web/static/lib/bootstrap/js/dist/tab.js',
             'web/static/lib/bootstrap/js/dist/toast.js',
             'web/static/lib/select2/select2.js',
-            'web/static/src/legacy/js/libs/bootstrap.js',
+            'web/static/src/libs/bootstrap.js',
             'web/static/src/legacy/js/libs/jquery.js',
 
             ('include', 'web._assets_bootstrap'),
@@ -122,6 +122,7 @@
             'web/static/src/webclient/**/*',
             ('remove', 'web/static/src/webclient/clickbot/clickbot.js'),  # lazy loaded
             ('remove', 'web/static/src/views/form/button_box/*.scss'),
+            ('remove', 'web/static/src/webclient/share_target/*'),
 
             # remove the report code and whitelist only what's needed
             ('remove', 'web/static/src/webclient/actions/reports/**/*'),

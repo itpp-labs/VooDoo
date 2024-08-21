@@ -68,7 +68,7 @@ class account_journal(models.Model):
 
     @api.depends('current_statement_balance')
     def _kanban_dashboard_graph(self):
-        bank_cash_journals = self.filtered(lambda journal: journal.type in ('bank', 'cash'))
+        bank_cash_journals = self.filtered(lambda journal: journal.type in ('bank', 'cash', 'credit'))
         bank_cash_graph_datas = bank_cash_journals._get_bank_cash_graph_data()
         for journal in bank_cash_journals:
             journal.kanban_dashboard_graph = json.dumps(bank_cash_graph_datas[journal.id])
@@ -84,8 +84,7 @@ class account_journal(models.Model):
         today = fields.Date.context_today(self)
         activities = defaultdict(list)
         # search activity on move on the journal
-        lang = self.env.user.lang or get_lang(self.env).code
-        act_type_name = self.with_context(lang=lang).env['mail.activity.type']._field_to_sql('act_type', 'name')
+        act_type_name = self.env['mail.activity.type']._field_to_sql('act_type', 'name')
         sql_query = SQL(
             """
             SELECT activity.id,
@@ -233,6 +232,8 @@ class account_journal(models.Model):
             return ['', _('Cash: Balance')]
         elif self.type == 'bank':
             return ['', _('Bank: Balance')]
+        elif self.type == 'credit':
+            return ['', _('Credit Card: Balance')]
 
     def _get_bank_cash_graph_data(self):
         """Computes the data used to display the graph for bank and cash journals in the accounting dashboard"""
@@ -415,7 +416,7 @@ class account_journal(models.Model):
 
     def _fill_bank_cash_dashboard_data(self, dashboard_data):
         """Populate all bank and cash journal's data dict with relevant information for the kanban card."""
-        bank_cash_journals = self.filtered(lambda journal: journal.type in ('bank', 'cash'))
+        bank_cash_journals = self.filtered(lambda journal: journal.type in ('bank', 'cash', 'credit'))
         if not bank_cash_journals:
             return
 
@@ -428,7 +429,7 @@ class account_journal(models.Model):
              WHERE st_line.journal_id IN %s
                AND st_line.company_id IN %s
                AND NOT st_line.is_reconciled
-               AND st_line_move.to_check IS NOT TRUE
+               AND st_line_move.checked IS TRUE
                AND st_line_move.state = 'posted'
           GROUP BY st_line.journal_id
         """, [tuple(bank_cash_journals.ids), tuple(self.env.companies.ids)])
@@ -476,7 +477,7 @@ class account_journal(models.Model):
                 domain=[
                     ('journal_id', 'in', bank_cash_journals.ids),
                     ('move_id.company_id', 'in', self.env.companies.ids),
-                    ('move_id.to_check', '=', True),
+                    ('move_id.checked', '=', False),
                     ('move_id.state', '=', 'posted'),
                 ],
                 groupby=['journal_id'],
@@ -494,7 +495,7 @@ class account_journal(models.Model):
             accessible = journal.company_id.id in journal.company_id._accessible_branches().ids
             nb_direct_payments, direct_payments_balance = direct_payment_balances[journal.id]
             drag_drop_settings = {
-                'image': '/account/static/src/img/bank.svg' if journal.type == 'bank' else '/web/static/img/rfq.svg',
+                'image': '/account/static/src/img/bank.svg' if journal.type in ('bank', 'credit') else '/web/static/img/rfq.svg',
                 'text': _('Drop to import transactions'),
             }
 
@@ -566,7 +567,8 @@ class account_journal(models.Model):
                 domain=[
                     *self.env['account.move']._check_company_domain(self.env.companies),
                     ('journal_id', 'in', sale_purchase_journals.ids),
-                    ('to_check', '=', True),
+                    ('checked', '=', False),
+                    ('state', '=', 'posted'),
                 ],
                 groupby=['journal_id'],
                 aggregates=['amount_total_signed:sum', '__count'],
@@ -639,7 +641,8 @@ class account_journal(models.Model):
                 domain=[
                     *self.env['account.move']._check_company_domain(self.env.companies),
                     ('journal_id', 'in', general_journals.ids),
-                    ('to_check', '=', True),
+                    ('checked', '=', False),
+                    ('state', '=', 'posted'),
                 ],
                 groupby=['journal_id'],
                 aggregates=['amount_total_signed:sum', '__count'],
@@ -935,7 +938,7 @@ class account_journal(models.Model):
         return self.env['account.bank.statement.line'].search([
             ('journal_id', '=', self.id),
             ('move_id.company_id', 'in', self.env.companies.ids),
-            ('move_id.to_check', '=', True),
+            ('move_id.checked', '=', False),
             ('move_id.state', '=', 'posted'),
         ])
 
@@ -945,6 +948,8 @@ class account_journal(models.Model):
             return self._context.get('action_name')
         elif self.type == 'bank':
             return 'action_bank_statement_tree'
+        elif self.type == 'credit':
+            return 'action_credit_statement_tree'
         elif self.type == 'cash':
             return 'action_view_bank_statement_tree'
         elif self.type == 'sale':

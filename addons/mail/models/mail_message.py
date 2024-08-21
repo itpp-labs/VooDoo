@@ -10,6 +10,7 @@ from odoo import _, api, fields, models, modules, tools
 from odoo.exceptions import AccessError
 from odoo.osv import expression
 from odoo.tools import clean_context, groupby, SQL
+from odoo.tools.misc import OrderedSet
 from odoo.addons.mail.tools.discuss import Store
 
 _logger = logging.getLogger(__name__)
@@ -876,22 +877,35 @@ class Message(models.Model):
     # MESSAGE READ / FETCH / FAILURE API
     # ------------------------------------------------------
 
+    def _records_by_model_name(self):
+        ids_by_model = defaultdict(OrderedSet)
+        prefetch_ids_by_model = defaultdict(OrderedSet)
+        prefetch_messages = self | self.browse(self._prefetch_ids)
+        for message in prefetch_messages.filtered(lambda m: m.model and m.res_id):
+            target = ids_by_model if message in self else prefetch_ids_by_model
+            target[message.model].add(message.res_id)
+        return {
+            model_name: self.env[model_name]
+            .browse(ids)
+            .with_prefetch(tuple(ids_by_model[model_name] | prefetch_ids_by_model[model_name]))
+            for model_name, ids in ids_by_model.items()
+        }
+
     def _record_by_message(self):
-        record_ids_by_model_name = defaultdict(set)
-        for message in self:
-            if message.model and message.res_id:
-                record_ids_by_model_name[message.model].add(message.res_id)
-        record_by_message = {}
-        for message in self:
-            if message.model and message.res_id:
-                record_by_message[message] = self.env[message.model].browse(message.res_id).with_prefetch(record_ids_by_model_name[message.model])
-        return record_by_message
+        records_by_model_name = self._records_by_model_name()
+        return {
+            message: self.env[message.model]
+            .browse(message.res_id)
+            .with_prefetch(records_by_model_name[message.model]._prefetch_ids)
+            for message in self.filtered(lambda m: m.model and m.res_id)
+        }
 
     def _to_store(
         self,
         store: Store,
         /,
         *,
+        fields=None,
         format_reply=True,
         msg_vals=None,
         for_current_user=False,
@@ -918,6 +932,18 @@ class Message(models.Model):
             them. It lessen query count in some optimized use cases.
             Only applicable if ``add_followers`` is True.
         """
+        if fields is None:
+            fields = [
+                "body",
+                "create_date",
+                "date",
+                "message_type",
+                "model",  # keep for iOS app
+                "pinned_at",
+                "res_id",  # keep for iOS app
+                "subject",
+                "write_date",
+            ]
         com_id = self.env["ir.model.data"]._xmlid_to_res_id("mail.mt_comment")
         note_id = self.env["ir.model.data"]._xmlid_to_res_id("mail.mt_note")
         # fetch scheduled notifications once, only if msg_vals is not given to
@@ -971,20 +997,7 @@ class Message(models.Model):
             store.add(record, thread_data, as_thread=True)
         for message in self:
             # model, res_id, record_name need to be kept for mobile app as iOS app cannot be updated
-            data = message._read_format(
-                [
-                    "body",
-                    "create_date",
-                    "date",
-                    "message_type",
-                    "model",  # keep for iOS app
-                    "pinned_at",
-                    "res_id",  # keep for iOS app
-                    "subject",
-                    "write_date",
-                ],
-                load=False,
-            )[0]
+            data = message._read_format(fields, load=False)[0]
             record = record_by_message.get(message)
             if record:
                 # sudo: if mentionned in a non accessible thread, user should be able to see the name

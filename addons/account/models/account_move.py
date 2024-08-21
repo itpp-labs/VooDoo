@@ -1,5 +1,6 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+import calendar
 from collections import defaultdict
 from contextlib import ExitStack, contextmanager
 from datetime import date, timedelta
@@ -88,6 +89,9 @@ class AccountMove(models.Model):
     def _sequence_fixed_regex(self):
         return self.journal_id.sequence_override_regex or super()._sequence_fixed_regex
 
+    @property
+    def _sequence_year_range_monthly_regex(self):
+        return self.journal_id.sequence_override_regex or super()._sequence_year_range_monthly_regex
 
     # ==============================================================================================
     #                                          JOURNAL ENTRY
@@ -242,10 +246,10 @@ class AccountMove(models.Model):
         index='btree_not_null',
     )
     hide_post_button = fields.Boolean(compute='_compute_hide_post_button', readonly=True)
-    to_check = fields.Boolean(
-        string='To Check',
+    checked = fields.Boolean(
+        string='Checked',
         tracking=True,
-        help="If this checkbox is ticked, it means that the user was not sure of all the related "
+        help="If this checkbox is not ticked, it means that the user was not sure of all the related "
              "information at the time of the creation of the move and that the move needs to be "
              "checked again.",
     )
@@ -259,6 +263,7 @@ class AccountMove(models.Model):
     show_name_warning = fields.Boolean(store=False)
     type_name = fields.Char('Type Name', compute='_compute_type_name')
     country_code = fields.Char(related='company_id.account_fiscal_country_id.code', readonly=True)
+    company_price_include = fields.Selection(related='company_id.account_price_include', readonly=True)
     attachment_ids = fields.One2many('ir.attachment', 'res_id', domain=[('res_model', '=', 'account.move')], string='Attachments')
 
     # === Hash Fields === #
@@ -449,6 +454,11 @@ class AccountMove(models.Model):
         compute='_compute_amount', store=True, readonly=True,
         currency_field='company_currency_id',
     )
+    amount_untaxed_in_currency_signed = fields.Monetary(
+        string="Untaxed Amount Signed Currency",
+        compute='_compute_amount', store=True, readonly=True,
+        currency_field='currency_id',
+    )
     amount_tax_signed = fields.Monetary(
         string='Tax Signed',
         compute='_compute_amount', store=True, readonly=True,
@@ -482,6 +492,14 @@ class AccountMove(models.Model):
         compute='_compute_payment_state', store=True, readonly=True,
         copy=False,
         tracking=True,
+    )
+    status_in_payment = fields.Selection(
+        selection=PAYMENT_STATE_SELECTION + [
+            ('draft', "Draft"),
+            ('cancel', "Cancelled"),
+        ],
+        compute='_compute_status_in_payment',
+        copy=False,
     )
     amount_total_words = fields.Char(
         string="Amount total in words",
@@ -637,11 +655,11 @@ class AccountMove(models.Model):
 
     def _auto_init(self):
         super()._auto_init()
-        if not index_exists(self.env.cr, 'account_move_to_check_idx'):
+        if not index_exists(self.env.cr, 'account_move_checked_idx'):
             self.env.cr.execute("""
-                CREATE INDEX account_move_to_check_idx
+                CREATE INDEX account_move_checked_idx
                           ON account_move(journal_id)
-                       WHERE to_check = true
+                       WHERE checked = false
             """)
         if not index_exists(self.env.cr, 'account_move_payment_idx'):
             self.env.cr.execute("""
@@ -750,7 +768,7 @@ class AccountMove(models.Model):
         elif self.is_purchase_document(include_receipts=True):
             return ['purchase']
         elif self.payment_id or self.statement_line_id or self.env.context.get('is_payment') or self.env.context.get('is_statement_line'):
-            return ['bank', 'cash']
+            return ['bank', 'cash', 'credit']
         return ['general']
 
     def _search_default_journal(self):
@@ -1015,6 +1033,7 @@ class AccountMove(models.Model):
             move.amount_total = sign * total_currency
             move.amount_residual = -sign * total_residual_currency
             move.amount_untaxed_signed = -total_untaxed
+            move.amount_untaxed_in_currency_signed = -total_untaxed_currency
             move.amount_tax_signed = -total_tax
             move.amount_total_signed = abs(total) if move.move_type == 'entry' else -total
             move.amount_residual_signed = total_residual
@@ -1111,6 +1130,11 @@ class AccountMove(models.Model):
                         new_pmt_state = 'partial'
 
             invoice.payment_state = new_pmt_state
+
+    @api.depends('payment_state', 'state')
+    def _compute_status_in_payment(self):
+        for move in self:
+            move.status_in_payment = move.state if move.state in ('draft', 'cancel') else move.payment_state
 
     @api.depends('invoice_payment_term_id', 'invoice_date', 'currency_id', 'amount_total_in_currency_signed', 'invoice_date_due')
     def _compute_needed_terms(self):
@@ -2038,6 +2062,14 @@ class AccountMove(models.Model):
                         "The sequence will restart at 1 at the start of every financial year.\n"
                         "The financial start year detected here is '%(year)s'.\n"
                         "The financial end year detected here is '%(year_end)s'.\n"
+                        "The incrementing number in this case is '%(formatted_seq)s'."
+                    )
+                elif reset == 'year_range_month':
+                    detected = _(
+                        "The sequence will restart at 1 at the start of every month.\n"
+                        "The financial start year detected here is '%(year)s'.\n"
+                        "The financial end year detected here is '%(year_end)s'.\n"
+                        "The month detected here is '%(month)s'.\n"
                         "The incrementing number in this case is '%(formatted_seq)s'."
                     )
                 else:
@@ -3064,14 +3096,28 @@ class AccountMove(models.Model):
             if not reference_move_name:
                 reference_move_name = self.sudo().search(domain, order='date asc', limit=1).name
             sequence_number_reset = self._deduce_sequence_number_reset(reference_move_name)
-            date_start, date_end = self._get_sequence_date_range(sequence_number_reset)
+            date_start, date_end, *_ = self._get_sequence_date_range(sequence_number_reset)
             where_string += """ AND date BETWEEN %(date_start)s AND %(date_end)s"""
             param['date_start'] = date_start
             param['date_end'] = date_end
+
+            # Some regex are catching more sequence formats than we want, so we
+            # need to exclude them:
+            #
+            #                    |                 Regex type                                 |
+            # Move Name Format   | Fixed | Yearly | Monthly | Year Range | Year range Monthly |
+            # ------------------ | ----- | ------ | ------- | ---------- | ------------------ |
+            # Fixed              |   X   |        |         |            |                    |
+            # Yearly             |   X   |   X    |         |            |                    |
+            # Monthly            |   X   |   X    |    X    |     X      |                    |
+            # Year Range         |   X   |   X    |         |     X      |                    |
+            # Year range Monthly |   X   |   X    |    X    |     X      |          X         |
             if sequence_number_reset in ('year', 'year_range'):
-                param['anti_regex'] = re.sub(r"\?P<\w+>", "?:", self._sequence_monthly_regex.split('(?P<seq>')[0]) + '$'
+                param['anti_regex'] = self._make_regex_non_capturing(self._sequence_monthly_regex.split('(?P<seq>')[0]) + '$'
             elif sequence_number_reset == 'never':
-                param['anti_regex'] = re.sub(r"\?P<\w+>", "?:", self._sequence_yearly_regex.split('(?P<seq>')[0]) + '$'
+                # Excluding yearly will also exclude "monthly", "year range" and
+                # "year range monthly"
+                param['anti_regex'] = self._make_regex_non_capturing(self._sequence_yearly_regex.split('(?P<seq>')[0]) + '$'
 
             if param.get('anti_regex') and not self.journal_id.sequence_override_regex:
                 where_string += " AND sequence_prefix !~ %(anti_regex)s "
@@ -3092,10 +3138,24 @@ class AccountMove(models.Model):
     def _get_starting_sequence(self):
         # EXTENDS account sequence.mixin
         self.ensure_one()
-        if self.journal_id.type in ['sale', 'bank', 'cash']:
-            starting_sequence = "%s/%04d/00000" % (self.journal_id.code, self.date.year)
+        year_part = "%04d" % self.date.year
+        last_day = int(self.company_id.fiscalyear_last_day)
+        last_month = int(self.company_id.fiscalyear_last_month)
+        is_staggered_year = last_month != 12 or last_day != 31
+        if is_staggered_year:
+            if self.date > date(self.date.year, last_month, last_day):
+                year_part = "%s-%s" % (self.date.strftime('%y'), (self.date + relativedelta(years=1)).strftime('%y'))
+            else:
+                year_part = "%s-%s" % ((self.date + relativedelta(years=-1)).strftime('%y'), self.date.strftime('%y'))
+        # Arbitrarily use annual sequence for sales documents, but monthly
+        # sequence for other documents
+        if self.journal_id.type in ['sale', 'bank', 'cash', 'credit']:
+            # We reduce short code to 4 characters (0000) in case of staggered
+            # year to avoid too long sequences (see Indian GST rule 46(b) for
+            # example). Note that it's already the case for monthly sequences.
+            starting_sequence = "%s/%s/%s" % (self.journal_id.code, year_part, '0000' if is_staggered_year else '00000')
         else:
-            starting_sequence = "%s/%04d/%02d/0000" % (self.journal_id.code, self.date.year, self.date.month)
+            starting_sequence = "%s/%s/%02d/0000" % (self.journal_id.code, year_part, self.date.month)
         if self.journal_id.refund_sequence and self.move_type in ('out_refund', 'in_refund'):
             starting_sequence = "R" + starting_sequence
         if self.journal_id.payment_sequence and self.payment_id or self.env.context.get('is_payment'):
@@ -3103,10 +3163,32 @@ class AccountMove(models.Model):
         return starting_sequence
 
     def _get_sequence_date_range(self, reset):
+        if reset not in ('year_range', 'year_range_month'):
+            return super()._get_sequence_date_range(reset)
+
+        fiscalyear_last_day = self.company_id.fiscalyear_last_day
+        fiscalyear_last_month = int(self.company_id.fiscalyear_last_month)
+        date_start, date_end = date_utils.get_fiscal_year(self.date, day=fiscalyear_last_day, month=fiscalyear_last_month)
+
         if reset == 'year_range':
-            company = self.company_id
-            return date_utils.get_fiscal_year(self.date, day=company.fiscalyear_last_day, month=int(company.fiscalyear_last_month))
-        return super()._get_sequence_date_range(reset)
+            return (date_start, date_end) + (None, None)
+
+        forced_year_range = (date_start.year, date_end.year)
+        month_range = date_utils.get_month(self.date)
+        fiscalyear_last_month_max_day = calendar.monthrange(self.date.year, fiscalyear_last_month)[1]
+        # We need to truncate the month if:
+        # - the fiscal year does not end on the last day of the month
+        # - and the move date is part of that month
+        # The sequence date range will be something like 2020-11-01 to
+        # 2020-11-30. But the sequence should be 2019-2020/11/0001 (or
+        # 2020-2021/11/0001), not 2020-2020/11/0001.
+        if fiscalyear_last_day < fiscalyear_last_month_max_day and fiscalyear_last_month == self.date.month:
+            if self.date.day <= fiscalyear_last_day:
+                return (month_range[0], month_range[1].replace(day=fiscalyear_last_day)) + forced_year_range
+            else:
+                return (month_range[0].replace(day=fiscalyear_last_day + 1), month_range[1]) + forced_year_range
+        else:
+            return month_range + forced_year_range
 
     # -------------------------------------------------------------------------
     # PAYMENT REFERENCE
@@ -3188,23 +3270,29 @@ class AccountMove(models.Model):
             domain.append(('account_id.internal_group', '=', 'expense'))
 
         query = self.env['account.move.line']._where_calc(domain)
+        account_code = self.env['account.account']._field_to_sql('account_move_line__account_id', 'code', query)
         rows = self.env.execute_query(SQL("""
             SELECT COUNT(foo.id), foo.account_id, foo.taxes
               FROM (
                          SELECT account_move_line__account_id.id AS account_id,
-                                account_move_line__account_id.code,
+                                %(account_code)s AS code,
                                 account_move_line.id,
                                 ARRAY_AGG(tax_rel.account_tax_id) FILTER (WHERE tax_rel.account_tax_id IS NOT NULL) AS taxes
-                           FROM %s
+                           FROM %(from_clause)s
                       LEFT JOIN account_move_line_account_tax_rel tax_rel ON account_move_line.id = tax_rel.account_move_line_id
-                          WHERE %s
+                          WHERE %(where_clause)s
                        GROUP BY account_move_line__account_id.id,
+                                %(account_code)s,
                                 account_move_line.id
                    ) AS foo
-          GROUP BY foo.account_id, foo.code, foo.taxes
-          ORDER BY COUNT(foo.id) DESC, foo.code, taxes ASC NULLS LAST
+          GROUP BY foo.account_id, foo.taxes
+          ORDER BY COUNT(foo.id) DESC, taxes ASC NULLS LAST
              LIMIT 1
-        """, query.from_clause, query.where_clause or SQL("TRUE")))
+            """,
+            account_code=account_code,
+            from_clause=query.from_clause,
+            where_clause=query.where_clause or SQL("TRUE"),
+        ))
         return rows[0] if rows else (0, False, False)
 
     def _get_quick_edit_suggestions(self):
@@ -3550,9 +3638,7 @@ class AccountMove(models.Model):
                    - new: whether the invoice is newly created
                    returns True if was able to process the invoice
         """
-        if file_data['type'] in ('pdf', 'binary'):
-            return lambda *args: False
-        return
+        return None
 
     def _extend_with_attachments(self, attachments, new=False):
         """Main entry point to extend/enhance invoices with attachments.
@@ -3624,12 +3710,15 @@ class AccountMove(models.Model):
                 continue
 
             decoder = (current_invoice or current_invoice.new(self.default_get(['move_type', 'journal_id'])))._get_edi_decoder(file_data, new=new)
-            if decoder:
+            if decoder or file_data['type'] in ('pdf', 'binary'):
                 try:
                     with self.env.cr.savepoint():
                         invoice = current_invoice or self.create({})
                         existing_lines = invoice.invoice_line_ids
-                        success = decoder(invoice, file_data, new)
+                        if not decoder and file_data['type'] in ('pdf', 'binary'):
+                            success = False
+                        else:
+                            success = decoder(invoice, file_data, new)
 
                         if success or file_data['type'] == 'pdf':
                             (invoice.invoice_line_ids - existing_lines).is_imported = True
@@ -4321,6 +4410,9 @@ class AccountMove(models.Model):
             if move.line_ids.account_id.filtered(lambda account: account.deprecated) and not self._context.get('skip_account_deprecation_check'):
                 validation_msgs.add(_("A line of this move is using a deprecated account, you cannot post it."))
 
+            # If the field autocheck_on_post is set, we want the checked field on the move to be checked
+            move.checked = move.journal_id.autocheck_on_post
+
         if validation_msgs:
             msg = "\n".join([line for line in validation_msgs])
             raise UserError(msg)
@@ -4665,7 +4757,7 @@ class AccountMove(models.Model):
 
     def button_set_checked(self):
         for move in self:
-            move.to_check = False
+            move.checked = True
 
     def button_draft(self):
         if any(move.state not in ('cancel', 'posted') for move in self):
@@ -4790,7 +4882,7 @@ class AccountMove(models.Model):
             ('state', '=', 'draft'),
             ('date', '<=', fields.Date.context_today(self)),
             ('auto_post', '!=', 'no'),
-            ('to_check', '=', False),
+            '|', ('checked', '=', True), ('journal_id.autocheck_on_post', '=', True)
         ], limit=100)
 
         try:  # try posting in batch
@@ -4802,7 +4894,7 @@ class AccountMove(models.Model):
                     with self.env.cr.savepoint():
                         move._post()
                 except UserError as e:
-                    move.to_check = True
+                    move.checked = False
                     msg = _('The move could not be posted for the following reason: %(error_message)s', error_message=e)
                     move.message_post(body=msg, message_type='comment')
 
@@ -4912,6 +5004,49 @@ class AccountMove(models.Model):
     def is_outbound(self, include_receipts=True):
         return self.move_type in self.get_outbound_types(include_receipts)
 
+    def _get_installments_data(self):
+        self.ensure_one()
+        term_lines = self.line_ids.filtered(lambda l: l.display_type == 'payment_term')
+        return term_lines._get_installments_data()
+
+    def get_next_installment_due(self):
+        self.ensure_one()
+        return next((x for x in self._get_installments_data() if not x['reconciled']), None)
+
+    def get_amount_overdue(self):
+        self.ensure_one()
+        return sum(
+            x['amount_residual_currency_unsigned']
+            for x in self._get_installments_data()
+            if x['type'] == 'overdue'
+        )
+
+    def _get_invoice_portal_extra_values(self):
+        self.ensure_one()
+        installment = self.get_next_installment_due()
+        amount_overdue = self.get_amount_overdue()
+        show_payment_info = (
+            self.payment_state not in ('paid', 'in_payment', 'reversed') and self.move_type == 'out_invoice'
+        )
+        show_amount_overdue = show_payment_info and amount_overdue and amount_overdue != self.amount_residual
+        show_installment = (
+            show_payment_info
+            and installment
+            and installment['type'] != 'early_payment_discount'
+            and installment['amount_residual_currency_unsigned'] != self.amount_residual
+        )
+        return {
+            'invoice': self,
+            'amount_paid': self.amount_total - self.amount_residual,
+            'amount_due': self.amount_residual,
+            'show_installment': show_installment or show_amount_overdue,
+            'show_payment_info': show_payment_info,
+            'amount_next_installment': installment['amount_residual_currency_unsigned'] if show_installment else 0.0,
+            'date_next_installment': installment['date_maturity'] if show_installment else None,
+            'name_next_installment': f"{self.name}-{installment['number']}" if show_installment else "",
+            'amount_overdue': amount_overdue if show_amount_overdue else 0.0,
+        }
+
     def _get_accounting_date(self, invoice_date, has_tax, lock_dates=None):
         """Get correct accounting date for previous periods, taking tax lock date and affected journal into account.
         When registering an invoice in the past, we still want the sequence to be increasing.
@@ -4939,7 +5074,7 @@ class AccountMove(models.Model):
                 elif number_reset == 'year':
                     return min(today, date_utils.end_of(invoice_date, 'year'))
         else:
-            if not highest_name or number_reset == 'month':
+            if not highest_name or number_reset in ('month', 'year_range_month'):
                 if (today.year, today.month) > (invoice_date.year, invoice_date.month):
                     return date_utils.get_month(invoice_date)[1]
                 else:

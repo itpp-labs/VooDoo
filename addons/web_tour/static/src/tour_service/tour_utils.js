@@ -1,6 +1,5 @@
 /** @odoo-module **/
 import * as hoot from "@odoo/hoot-dom";
-import { markup } from "@odoo/owl";
 import { _t } from "@web/core/l10n/translation";
 
 /**
@@ -55,19 +54,9 @@ export const stepUtils = {
         return step;
     },
 
-    editionEnterpriseModifier(step) {
-        step.edition = "enterprise";
-        return step;
-    },
-
-    mobileModifier(step) {
-        step.isActive = ["mobile"];
-        return step;
-    },
-
     showAppsMenuItem() {
         return {
-            isActive: ["auto", "community"],
+            isActive: ["auto", "community", "desktop"],
             trigger: ".o_navbar_apps_menu button:enabled",
             tooltipPosition: "bottom",
             run: "click",
@@ -75,18 +64,30 @@ export const stepUtils = {
     },
 
     toggleHomeMenu() {
-        return {
-            isActive: ["enterprise"],
-            trigger: ".o_main_navbar .o_menu_toggle",
-            content: markup(_t("Click on the <i>Home icon</i> to navigate across apps.")),
-            tooltipPosition: "bottom",
-            run: "click",
-        };
+        return [
+            {
+                isActive: [".o_main_navbar .o_menu_toggle"],
+                trigger: ".o_main_navbar .o_menu_toggle",
+                content: _t("Click the top left corner to navigate across apps."),
+                tooltipPosition: "bottom",
+                run: "click",
+            },
+            {
+                isActive: ["mobile"],
+                trigger: ".o_sidebar_topbar a.btn-primary",
+                tooltipPosition: "right",
+                run: "click",
+            },
+        ];
     },
 
-    autoExpandMoreButtons() {
+    autoExpandMoreButtons(isActiveMobile = false) {
+        const isActive = ["auto"];
+        if (isActiveMobile) {
+            isActive.push("mobile");
+        }
         return {
-            isActive: ["auto"],
+            isActive,
             content: `autoExpandMoreButtons`,
             trigger: ".o-form-buttonbox",
             run() {
@@ -96,18 +97,6 @@ export const stepUtils = {
                 }
             },
         };
-    },
-
-    goBackBreadcrumbsMobile(description) {
-        return [
-            {
-                isActive: ["mobile"],
-                trigger: ".o_back_button",
-                content: description,
-                tooltipPosition: "bottom",
-                run: "click",
-            },
-        ];
     },
 
     goToAppSteps(dataMenuXmlid, description) {

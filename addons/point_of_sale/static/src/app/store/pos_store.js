@@ -243,6 +243,30 @@ export class PosStore extends Reactive {
         }
     }
 
+    async onDeleteOrder(order) {
+        if (order.get_orderlines().length > 0) {
+            const confirmed = await ask(this.dialog, {
+                title: _t("Existing orderlines"),
+                body: _t(
+                    "%s has a total amount of %s, are you sure you want to delete this order?",
+                    order.name,
+                    this.env.utils.formatCurrency(order.get_total_with_tax())
+                ),
+            });
+            if (!confirmed) {
+                return false;
+            }
+        }
+        const orderIsDeleted = await this.deleteOrders([order]);
+        if (orderIsDeleted) {
+            order.uiState.displayed = false;
+            this.afterOrderDeletion();
+        }
+    }
+    afterOrderDeletion() {
+        this.set_order(this.get_open_orders().at(-1) || this.createNewOrder());
+    }
+
     async deleteOrders(orders, serverIds = []) {
         const ids = new Set();
         for (const order of orders) {
@@ -286,6 +310,9 @@ export class PosStore extends Reactive {
         return true;
     }
     computeProductPricelistCache(data) {
+        if (data) {
+            data = this.models[data.model].readMany(data.ids);
+        }
         // This function is called via the addEventListener callback initiated in the
         // processServerData function when new products or pricelists are loaded into the PoS.
         // It caches the heavy pricelist calculation when there are many products and pricelists.
@@ -705,7 +732,7 @@ export class PosStore extends Reactive {
         }
 
         // Handle price unit
-        if (!values.product_id.isCombo() && !vals.price_unit) {
+        if (!values.product_id.isCombo() && vals.price_unit === undefined) {
             values.price_unit = values.product_id.get_price(order.pricelist_id, values.qty);
         }
 
@@ -967,6 +994,9 @@ export class PosStore extends Reactive {
             this.preSyncAllOrders(orders);
             const context = this.getSyncAllOrdersContext(orders);
 
+            if (this.pendingOrder.delete.size) {
+                await this.deleteOrders([], Array.from(this.pendingOrder.delete));
+            }
             // Allow us to force the sync of the orders In the case of
             // pos_restaurant is usefull to get unsynced orders
             // for a specific table
@@ -979,7 +1009,9 @@ export class PosStore extends Reactive {
                 order.recomputeOrderData();
             }
 
-            const serializedOrder = orders.map((order) => order.serialize({ orm: true }));
+            const serializedOrder = orders.map((order) =>
+                order.serialize({ orm: true, clear: true })
+            );
             const data = await this.data.call("pos.order", "sync_from_ui", [serializedOrder], {
                 context,
             });

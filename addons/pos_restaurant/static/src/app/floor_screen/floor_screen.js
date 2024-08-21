@@ -181,7 +181,7 @@ export class FloorScreen extends Component {
                         time: Date.now(),
                     };
                     this.alert.add(
-                        `Link Table ${table.name} with ${this.state.potentialLink.parent.name}`
+                        `Link Table ${table.table_number} with ${this.state.potentialLink.parent.table_number}`
                     );
                     return;
                 }
@@ -249,11 +249,11 @@ export class FloorScreen extends Component {
             (tableL) => {
                 if (hasTouch()) {
                     if (tableL) {
-                        this.floorScrollBox.el.classList.remove("overflow-scroll");
+                        this.floorScrollBox.el.classList.remove("overflow-auto");
                         this.floorScrollBox.el.classList.add("overflow-hidden");
                     } else {
                         this.floorScrollBox.el.classList.remove("overflow-hidden");
-                        this.floorScrollBox.el.classList.add("overflow-scroll");
+                        this.floorScrollBox.el.classList.add("overflow-auto");
                     }
                 }
             },
@@ -731,6 +731,7 @@ export class FloorScreen extends Component {
                 title: _t("Change table number?"),
                 placeholder: _t("Enter a table number"),
                 buttons: getButtons([{ ...DECIMAL, disabled: true }, ZERO, BACKSPACE]),
+                isValid: (x) => x,
                 getPayload: (newNumber) => {
                     if (parseInt(newNumber) !== this.selectedTables[0].table_number) {
                         this.pos.data.write("restaurant.table", [this.selectedTables[0].id], {
