@@ -2,6 +2,7 @@ import { Plugin } from "../plugin";
 import { closestBlock, isBlock } from "../utils/blocks";
 import {
     isAllowedContent,
+    isContentEditable,
     isEditorTab,
     isEmpty,
     isInPre,
@@ -9,6 +10,7 @@ import {
     isSelfClosingElement,
     isShrunkBlock,
     isTangible,
+    isTextNode,
     isWhitespace,
     isZWS,
     nextLeaf,
@@ -875,10 +877,7 @@ export class DeletePlugin extends Plugin {
      */
     includeNextZWS(range) {
         const { endContainer, endOffset } = range;
-        if (
-            endContainer.nodeType === Node.TEXT_NODE &&
-            endContainer.textContent[endOffset] === "\u200B"
-        ) {
+        if (isTextNode(endContainer) && endContainer.textContent[endOffset] === "\u200B") {
             range.setEnd(endContainer, endOffset + 1);
         }
         return range;
@@ -891,7 +890,7 @@ export class DeletePlugin extends Plugin {
     includePreviousZWS(range) {
         const { startContainer, startOffset } = range;
         if (
-            startContainer.nodeType === Node.TEXT_NODE &&
+            isTextNode(startContainer) &&
             startContainer.textContent[startOffset - 1] === "\u200B"
         ) {
             range.setStart(startContainer, startOffset - 1);
@@ -906,7 +905,7 @@ export class DeletePlugin extends Plugin {
      */
     expandRangeToIncludeNonEditables(range) {
         const { startContainer, endContainer, commonAncestorContainer: commonAncestor } = range;
-        const isNonEditable = (node) => !closestElement(node).isContentEditable;
+        const isNonEditable = (node) => !isContentEditable(node);
         const startUneditable = findFurthest(startContainer, commonAncestor, isNonEditable);
         if (startUneditable) {
             // @todo @phoenix: Review this spec. I suggest this instead (no block merge after removing):
@@ -1135,7 +1134,7 @@ export class DeletePlugin extends Plugin {
     // If leaf is part of a contenteditable=false tree, consider its root as the
     // leaf instead.
     adjustedLeaf(leaf, refEditableRoot) {
-        const isNonEditable = (node) => !closestElement(node).isContentEditable;
+        const isNonEditable = (node) => !isContentEditable(node);
         const nonEditableRoot = leaf && findFurthest(leaf, refEditableRoot, isNonEditable);
         return nonEditableRoot || leaf;
     }

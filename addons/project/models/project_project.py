@@ -502,7 +502,7 @@ class Project(models.Model):
                 # This does not benefit from multi create, this is to allow the default description from being built.
                 # This does seem ok since last_update_status should only be updated on one record at once.
                 self.env['project.update'].with_context(default_project_id=project.id).create({
-                    'name': _('Status Update - ') + fields.Date.today().strftime(get_lang(self.env).date_format),
+                    'name': _('Status Update - %(date)s', date=fields.Date.today().strftime(get_lang(self.env).date_format)),
                     'status': vals.get('last_update_status'),
                 })
             vals.pop('last_update_status')
@@ -712,7 +712,7 @@ class Project(models.Model):
         action['display_name'] = _("%(name)s's Rating", name=self.name)
         action_context = ast.literal_eval(action['context']) if action['context'] else {}
         action_context.update(self._context)
-        action_context['search_default_filter_write_date'] = 'custom_create_date_last_30_days'
+        action_context['search_default_filter_write_date'] = 'custom_write_date_last_30_days'
         action_context.pop('group_by', None)
         action['domain'] = [('consumed', '=', True), ('parent_res_model', '=', 'project.project'), ('parent_res_id', '=', self.id)]
         if self.rating_count == 1:

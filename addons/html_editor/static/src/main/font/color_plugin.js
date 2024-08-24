@@ -8,7 +8,13 @@ import {
     BG_CLASSES_REGEX,
 } from "@html_editor/utils/color";
 import { fillEmpty } from "@html_editor/utils/dom";
-import { isEmptyBlock, isWhitespace, isZwnbsp } from "@html_editor/utils/dom_info";
+import {
+    isContentEditable,
+    isEmptyBlock,
+    isTextNode,
+    isWhitespace,
+    isZwnbsp,
+} from "@html_editor/utils/dom_info";
 import { closestElement, descendants } from "@html_editor/utils/dom_traversal";
 import { isCSSColor } from "@web/core/utils/colors";
 import { ColorSelector } from "./color_selector";
@@ -63,7 +69,7 @@ export class ColorPlugin extends Plugin {
     }
 
     updateSelectedColor() {
-        const nodes = this.shared.getTraversedNodes().filter((n) => n.nodeType === Node.TEXT_NODE);
+        const nodes = this.shared.getTraversedNodes().filter(isTextNode);
         if (nodes.length === 0) {
             return;
         }
@@ -109,9 +115,7 @@ export class ColorPlugin extends Plugin {
             for (const mode of colorModes) {
                 let max = 40;
                 const hasAnySelectedNodeColor = (mode) => {
-                    const nodes = this.shared
-                        .getTraversedNodes()
-                        .filter((n) => n.nodeType === Node.TEXT_NODE);
+                    const nodes = this.shared.getTraversedNodes().filter(isTextNode);
                     return hasAnyNodesColor(nodes, mode);
                 };
                 while (hasAnySelectedNodeColor(mode) && max > 0) {
@@ -164,7 +168,7 @@ export class ColorPlugin extends Plugin {
             selection = this.shared.splitSelection();
             selectionNodes = this.shared
                 .getSelectedNodes()
-                .filter((node) => closestElement(node).isContentEditable && node.nodeName !== "T");
+                .filter((node) => isContentEditable(node) && node.nodeName !== "T");
             if (isEmptyBlock(selection.endContainer)) {
                 selectionNodes.push(selection.endContainer, ...descendants(selection.endContainer));
             }

@@ -25,7 +25,6 @@ from __future__ import annotations
 import collections
 import contextlib
 import datetime
-import fnmatch
 import functools
 import inspect
 import itertools
@@ -1328,7 +1327,7 @@ class BaseModel(metaclass=MetaModel):
                 except Exception as e:
                     _logger.debug("Error while loading record", exc_info=True)
                     info = rec_data['info']
-                    message = (_(u'Unknown error during import:') + u' %s: %s' % (type(e), e))
+                    message = _('Unknown error during import: %(error_type)s: %(error_message)s', error_type=type(e), error_message=e)
                     moreinfo = _('Resolve other errors first')
                     messages.append(dict(info, type='error', message=message, moreinfo=moreinfo))
                     # Failed for some reason, perhaps due to invalid data supplied,
@@ -4325,10 +4324,13 @@ class BaseModel(metaclass=MetaModel):
             return
         _logger.info('Failed operation on deleted record(s): %s, uid: %s, model: %s', operation, self._uid, self._name)
         raise MissingError(
-            _('One of the documents you are trying to access has been deleted, please try again after refreshing.')
-            + '\n\n({} {}, {} {}, {} {}, {} {})'.format(
-                _('Document type:'), self._name, _('Operation:'), operation,
-                _('Records:'), invalid.ids[:6], _('User:'), self._uid,
+            _(
+                'One of the documents you are trying to access has been deleted, please try again after refreshing.\n\n'
+                'Document type: %(document_type)s, Operation: %(operation)s, Records: %(records)s, User: %(user)s',
+                document_type=self._name,
+                operation=operation,
+                records=invalid.ids[:6],
+                user=self._uid,
             )
         )
 
@@ -6365,9 +6367,29 @@ class BaseModel(metaclass=MetaModel):
                     else:
                         def unaccent(x):
                             return str(x) if x else ''
-                    value_esc = unaccent(value).replace('_', '?').replace('%', '*').replace('[', '?')
-                    if not comparator.startswith('='):
-                        value_esc = f'*{value_esc}*'
+
+                    # build a regex that matches the SQL-like expression
+                    # note that '\' is used for escaping in SQL
+                    def build_like_regex(value: str, exact: bool):
+                        yield '^' if exact else '.*'
+                        escaped = False
+                        for char in value:
+                            if escaped:
+                                escaped = False
+                                yield re.escape(char)
+                            elif char == '\\':
+                                escaped = True
+                            elif char == '%':
+                                yield '.*'
+                            elif char == '_':
+                                yield '.'
+                            else:
+                                yield re.escape(char)
+                        if exact:
+                            yield '$'
+                        # no need to match r'.*' in else because we only use .match()
+
+                    like_regex = re.compile("".join(build_like_regex(unaccent(value), comparator.startswith("="))))
                 if comparator in ('=', '!=') and field.type in ('char', 'text', 'html') and not value:
                     # use the comparator 'in' for falsy comparison of strings
                     comparator = 'in' if comparator == '=' else 'not in'
@@ -6422,8 +6444,7 @@ class BaseModel(metaclass=MetaModel):
                     elif comparator == '>=':
                         ok = any(x is not None and x >= value for x in data)
                     elif comparator in ('like', 'ilike', '=like', '=ilike', 'not ilike', 'not like'):
-                        # use fnmatchcase to avoid relying on file path case normalization
-                        ok = any(fnmatch.fnmatchcase(unaccent(x), value_esc) for x in data)
+                        ok = any(like_regex.match(unaccent(x)) for x in data)
                         if comparator.startswith('not'):
                             ok = not ok
                     elif comparator == 'any':

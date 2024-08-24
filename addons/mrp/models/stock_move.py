@@ -297,7 +297,7 @@ class StockMove(models.Model):
         super()._compute_show_info()
         byproduct_moves = self.filtered(lambda m: m.byproduct_id or m in self.production_id.move_finished_ids)
         byproduct_moves.show_quant = False
-        byproduct_moves.show_lots_text = True
+        byproduct_moves.show_lots_m2o = True
 
     @api.depends('picking_type_id.use_create_components_lots')
     def _compute_display_assign_serial(self):
@@ -451,6 +451,9 @@ class StockMove(models.Model):
         merge_into = merge_into and merge_into.action_explode()
         # we go further with the list of ids potentially changed by action_explode
         return super(StockMove, moves)._action_confirm(merge=merge, merge_into=merge_into)
+
+    def _should_bypass_reservation(self, forced_location=False):
+        return super()._should_bypass_reservation(forced_location) or self.product_id.is_kits
 
     def action_explode(self):
         """ Explodes pickings """
