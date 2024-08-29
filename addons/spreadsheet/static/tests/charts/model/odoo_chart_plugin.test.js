@@ -92,7 +92,8 @@ test("Odoo bar chart runtime loads the data", async () => {
         datasets: [
             {
                 backgroundColor: "#4EA7F2",
-                borderColor: "#4EA7F2",
+                borderColor: "#FFFFFF",
+                borderWidth: 1,
                 data: [1, 3],
                 label: "Count",
             },
@@ -124,9 +125,10 @@ test("Odoo pie chart runtime loads the data", async () => {
     expect(model.getters.getChartRuntime(chartId).chartJsConfig.data).toEqual({
         datasets: [
             {
-                backgroundColor: ["#4EA7F2", "#3188E6", "#056BD9"],
+                backgroundColor: ["#4EA7F2", "#EA6175", "#43C5B1"],
                 borderColor: "#FFFFFF",
                 data: [1, 3],
+                hoverOffset: 30,
                 label: "",
             },
         ],
@@ -615,6 +617,27 @@ test("Can insert odoo chart from a different model", async () => {
     expect(model.getters.getChartIds(sheetId).length).toBe(0);
     insertChartInSpreadsheet(model);
     expect(model.getters.getChartIds(sheetId).length).toBe(1);
+});
+
+test("Odoo chart legend color changes with background color update", async () => {
+    const { model } = await createSpreadsheetWithChart({ type: "odoo_bar" });
+    const sheetId = model.getters.getActiveSheetId();
+    const chartId = model.getters.getChartIds(sheetId)[0];
+    const definition = model.getters.getChartDefinition(chartId);
+    expect(
+        model.getters.getChartRuntime(chartId).chartJsConfig.options.plugins.legend.labels.color
+    ).toBe("#000000");
+    model.dispatch("UPDATE_CHART", {
+        definition: {
+            ...definition,
+            background: "#000000",
+        },
+        id: chartId,
+        sheetId,
+    });
+    expect(
+        model.getters.getChartRuntime(chartId).chartJsConfig.options.plugins.legend.labels.color
+    ).toBe("#FFFFFF");
 });
 
 test("Remove odoo chart when sheet is deleted", async () => {

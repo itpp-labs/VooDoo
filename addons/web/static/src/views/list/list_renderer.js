@@ -828,7 +828,7 @@ export class ListRenderer extends Component {
         if (column.options.enable_formatting === false) {
             return record.data[fieldName];
         }
-        return getFormattedValue(record, fieldName, column.attrs);
+        return getFormattedValue(record, fieldName, column);
     }
 
     evalInvisible(invisible, record) {
@@ -1035,6 +1035,16 @@ export class ListRenderer extends Component {
         } else if (!this.props.archInfo.noOpen) {
             this.props.openRecord(record);
         }
+    }
+
+    onRemoveCellClicked(record, ev) {
+        const element = ev.target.closest(".o_list_record_remove");
+        if (element.dataset.clicked) {
+            return;
+        }
+        element.dataset.clicked = true;
+
+        this.onDeleteRecord(record, ev);
     }
 
     async onDeleteRecord(record) {

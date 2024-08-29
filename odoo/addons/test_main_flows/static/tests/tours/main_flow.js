@@ -927,7 +927,7 @@ stepUtils.autoExpandMoreButtons(),
     run: "click",
 }, {
     isActive: ["mobile"],
-    trigger: '.o_kanban_record .o_kanban_record_title:contains("the_flow.vendor")',
+    trigger: '.o_kanban_record:contains("the_flow.vendor")',
     content: _t('Select the generated request for quotation'),
     tooltipPosition: 'bottom',
     run: "click",
@@ -1233,11 +1233,11 @@ stepUtils.autoExpandMoreButtons(true),
     run: "click",
 }, {
     isActive: ["enterprise", "desktop"],
-    trigger: "div.o_bank_rec_st_line_kanban_card span:contains('the_flow.customer')",
+    trigger: ".o_kanban_record span:contains('the_flow.customer')",
 },
 {
     isActive: ["enterprise", "desktop"],
-    trigger: "div.o_bank_rec_st_line_kanban_card span:contains('the_flow.customer')",
+    trigger: ".o_kanban_record span:contains('the_flow.customer')",
     content: _t("Select the newly created bank transaction"),
     run: "click",
 }, {

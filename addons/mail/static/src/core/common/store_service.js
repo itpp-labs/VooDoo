@@ -381,7 +381,7 @@ export class Store extends BaseStore {
             partners_to: [this.self.id],
         });
         this.ChatWindow.get(thread)?.update({ autofocus: 0 });
-        this.env.services["discuss.rtc"].toggleCall(thread, { video: true });
+        this.env.services["discuss.rtc"].toggleCall(thread, { camera: true });
         this.openInviteThread = thread;
     }
 
@@ -417,15 +417,13 @@ export class Store extends BaseStore {
                     views: [[false, "form"]],
                     res_id: id,
                 })
-            ).then(() => {
-                if (!this.env.isSmall) {
-                    thread.open(true, { autofocus: false });
-                }
-            });
+            ).then(() => this.onLinkFollowed(thread));
             return true;
         }
         return false;
     }
+
+    onLinkFollowed(fromThread) {}
 
     setup() {
         super.setup();

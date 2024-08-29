@@ -9,6 +9,7 @@ import {
 } from "@odoo/owl";
 
 import { browser } from "@web/core/browser/browser";
+import { Deferred } from "@web/core/utils/concurrency";
 import { makeDraggableHook } from "@web/core/utils/draggable_hook_builder_owl";
 import { useService } from "@web/core/utils/hooks";
 
@@ -67,69 +68,6 @@ export function onExternalClick(refName, cb) {
         document.body.removeEventListener("mouseup", onMouseup, true);
         document.body.removeEventListener("click", onClick, true);
     });
-}
-
-const LONG_TOUCH_PRESS_STATE = {
-    NEUTRAL: 0, // no prior touch start
-    ONGOING: 1, // ongoing, non-reached touch start long-press
-    REACHED: 2, // long touchstart that has reached trigger time but hasn't touchend yet
-};
-
-/**
- * @param {string} refName
- * @param {() => {}} fn
- */
-export function useLongTouchPress(refName, fn, delay = 500) {
-    const ref = useRef(refName);
-    let timeoutId;
-    let current = LONG_TOUCH_PRESS_STATE.NEUTRAL;
-    function onTouchend() {
-        if (current === LONG_TOUCH_PRESS_STATE.REACHED) {
-            return;
-        }
-        if (current === LONG_TOUCH_PRESS_STATE.ONGOING) {
-            clearTimeout(timeoutId);
-            current = LONG_TOUCH_PRESS_STATE.NEUTRAL;
-        }
-    }
-    // prevent iOS text-selection from long press
-    useLazyExternalListener(
-        () => ref.el,
-        "webkitmouseforcewillbegin",
-        (ev) => ev.preventDefault()
-    );
-    useLazyExternalListener(
-        () => ref.el,
-        "webkitmouseforcedown",
-        (ev) => ev.preventDefault()
-    );
-    useLazyExternalListener(
-        () => ref.el,
-        "webkitmouseforcechanged",
-        (ev) => ev.preventDefault()
-    );
-    onMounted(() => {
-        document.body.addEventListener("touchend", onTouchend, true);
-    });
-    onWillUnmount(() => {
-        document.body.removeEventListener("touchend", onTouchend, true);
-        clearTimeout(timeoutId);
-    });
-    useLazyExternalListener(
-        () => ref.el,
-        "touchstart",
-        () => {
-            if (current !== LONG_TOUCH_PRESS_STATE.NEUTRAL) {
-                return;
-            }
-            current = LONG_TOUCH_PRESS_STATE.ONGOING;
-            timeoutId = setTimeout(() => {
-                current = LONG_TOUCH_PRESS_STATE.REACHED;
-                fn();
-                current = LONG_TOUCH_PRESS_STATE.NEUTRAL;
-            }, delay);
-        }
-    );
 }
 
 /**
@@ -322,16 +260,20 @@ export function useMessageHighlight(duration = 2000) {
          * @param {Element} el
          */
         scrollTo(el) {
+            state.scrollPromise?.resolve();
+            const scrollPromise = new Deferred();
+            state.scrollPromise = scrollPromise;
+            if ("onscrollend" in window) {
+                document.addEventListener("scrollend", scrollPromise.resolve, {
+                    capture: true,
+                    once: true,
+                });
+            } else {
+                // To remove when safari will support the "scrollend" event.
+                setTimeout(scrollPromise.resolve, 250);
+            }
             el.scrollIntoView({ behavior: "smooth", block: "center" });
-            state.scrollPromise = new Promise((resolve) => {
-                if ("scrollend" in window) {
-                    document.addEventListener("scrollend", resolve, { once: true, capture: true });
-                } else {
-                    // To remove when safari will support the "scrollend" event.
-                    setTimeout(resolve, 250);
-                }
-            });
-            return state.scrollPromise;
+            return scrollPromise;
         },
         highlightedMessageId: null,
     });

@@ -376,6 +376,21 @@ test(`list with class and style attributes`, async () => {
     });
 });
 
+test(`list with integer field with human_readable option`, async () => {
+    Foo._records[0].int_field = 5 * 1000 * 1000;
+    await mountView({
+        type: "list",
+        resModel: "foo",
+        arch: `
+            <list>
+                <field name="int_field" options="{'human_readable': true}"/>
+            </list>`,
+    });
+
+    expect(queryAllTexts(".o_data_cell")).toEqual(["5M", "9", "17", "-4"]);
+    expect(".o_field_widget").toHaveCount(0);
+});
+
 test(`list with create="0"`, async () => {
     await mountView({
         resModel: "foo",
@@ -14007,21 +14022,6 @@ test(`editable list group header click should unselect record`, async () => {
     await contains(`.o_data_cell input`).edit("someInput", { confirm: false });
     await contains(`.o_group_header:eq(1)`).click();
     expect(`.o_selected_row`).toHaveCount(0);
-});
-
-test(`renders banner_route`, async () => {
-    onRpc("/mybody/isacage", () => {
-        expect.step("/mybody/isacage");
-        return { html: `<div class="setmybodyfree">myBanner</div>` };
-    });
-
-    await mountView({
-        resModel: "foo",
-        type: "list",
-        arch: `<tree banner_route="/mybody/isacage"><field name="foo"/></tree>`,
-    });
-    expect.verifySteps(["/mybody/isacage"]);
-    expect(`.setmybodyfree`).toHaveCount(1);
 });
 
 test(`fieldDependencies support for fields`, async () => {

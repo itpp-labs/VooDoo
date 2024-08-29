@@ -10,7 +10,7 @@ from ast import literal_eval
 from collections import defaultdict
 from dateutil.relativedelta import relativedelta
 
-from odoo import api, fields, models, _, Command
+from odoo import api, fields, models, _, Command, SUPERUSER_ID
 from odoo.addons.web.controllers.utils import clean_action
 from odoo.exceptions import UserError, ValidationError
 from odoo.osv import expression
@@ -1999,7 +1999,7 @@ class MrpProduction(models.Model):
         else:
             productions_not_to_backorder = self
             productions_to_backorder = self.env['mrp.production']
-
+        productions_not_to_backorder = productions_not_to_backorder.with_context(no_procurement=True)
         self.workorder_ids.button_finish()
 
         backorders = productions_to_backorder and productions_to_backorder._split_productions()
@@ -2122,21 +2122,19 @@ class MrpProduction(models.Model):
 
         quantity_issues = self._get_quantity_produced_issues()
         if quantity_issues:
-            prods_auto_backorder = [prod for prod in quantity_issues if prod.picking_type_id.create_backorder == "always"]
-            if prods_auto_backorder:
-                auto_backorders = self.env['mrp.production.backorder'].create({
-                    "mrp_production_backorder_line_ids": [Command.create({
-                            'mrp_production_id': prod.id,
-                            'to_backorder': True,
-                        }) for prod in prods_auto_backorder
-                    ],
-                })
-                return auto_backorders.action_backorder()
-            ask_backorder = [prod for prod in quantity_issues if prod.picking_type_id.create_backorder == "ask"]
-            if ask_backorder:
-                return self._action_generate_backorder_wizard(ask_backorder)
-            else:
-                return True
+            mo_ids_always = []  # we need to pass the mo.ids in a context, so collect them to avoid looping through the list twice
+            mos_ask = []  # we need to pass a list of mo records to the backorder wizard, so collect records
+            for mo in quantity_issues:
+                if mo.picking_type_id.create_backorder == "always":
+                    mo_ids_always.append(mo.id)
+                elif mo.picking_type_id.create_backorder == "ask":
+                    mos_ask.append(mo)
+            if mos_ask:
+                # any "never" MOs will be passed to the wizard, but not considered for being backorder-able, always backorder mos are hack forced via context
+                return self.with_context(always_backorder_mo_ids=mo_ids_always)._action_generate_backorder_wizard(mos_ask)
+            elif mo_ids_always:
+                # we have to pass all the MOs that the nevers/no issue MOs are also passed to be "mark done" without a backorder
+                return self.with_context(skip_backorder=True, mo_ids_to_backorder=mo_ids_always).button_mark_done()
         return True
 
     def _button_mark_done_sanity_checks(self):
@@ -2868,3 +2866,28 @@ class MrpProduction(models.Model):
 
     def _get_product_catalog_domain(self):
         return expression.AND([super()._get_product_catalog_domain(), [('id', '!=', self.product_id.id)]])
+
+    def _post_run_manufacture(self, post_production_values):
+        note_subtype_id = self.env['ir.model.data']._xmlid_to_res_id('mail.mt_note')
+        for production in self:
+            orderpoint = production.orderpoint_id
+            origin_production = production.move_dest_ids.raw_material_production_id
+            if orderpoint and orderpoint.create_uid.id == SUPERUSER_ID and orderpoint.trigger == 'manual':
+                production.message_post(
+                    body=_('This production order has been created from Replenishment Report.'),
+                    message_type='comment',
+                    subtype_id=note_subtype_id
+                )
+            elif orderpoint:
+                production.message_post_with_source(
+                    'mail.message_origin_link',
+                    render_values={'self': production, 'origin': orderpoint},
+                    subtype_id=note_subtype_id,
+                )
+            elif origin_production:
+                production.message_post_with_source(
+                    'mail.message_origin_link',
+                    render_values={'self': production, 'origin': origin_production},
+                    subtype_id=note_subtype_id,
+                )
+        return True

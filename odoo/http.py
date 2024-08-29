@@ -1557,6 +1557,13 @@ class Request:
         except (ValueError, KeyError):
             return None
 
+    @lazy_property
+    def cookies(self):
+        cookies = werkzeug.datastructures.MultiDict(self.httprequest.cookies)
+        if self.registry:
+            self.registry['ir.http']._sanitize_cookies(cookies)
+        return werkzeug.datastructures.ImmutableMultiDict(cookies)
+
     # =====================================================
     # Helpers
     # =====================================================
@@ -1797,7 +1804,7 @@ class Request:
         elif sess.is_dirty:
             root.session_store.save(sess)
 
-        cookie_sid = self.httprequest.cookies.get('session_id')
+        cookie_sid = self.cookies.get('session_id')
         if sess.is_dirty or cookie_sid != sess.sid:
             self.future_response.set_cookie('session_id', sess.sid, max_age=get_session_max_inactivity(self.env), httponly=True)
 

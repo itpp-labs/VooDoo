@@ -3129,7 +3129,7 @@ test.tags("desktop")(`buttons classes in form view`, async () => {
     expect(`button[name="15"]`).toHaveClass("btn o_this_is_a_button");
 });
 
-test.tags("desktop")(`nested buttons in form view header`, async () => {
+test.tags("desktop")(`buttons should be in .o_statusbar_buttons in form view header on desktop`, async () => {
     await mountView({
         resModel: "partner",
         type: "form",
@@ -3137,20 +3137,34 @@ test.tags("desktop")(`nested buttons in form view header`, async () => {
             <form>
                 <header>
                     <button name="0"/>
-                    <button name="1"/>
-                    <div>
-                        <button name="2"/>
-                        <button name="3"/>
-                    </div>
+                    <field name="foo" widget="url" class="btn btn-secondary" text="My Button" readonly="1"/>
                 </header>
             </form>
         `,
         resId: 2,
     });
-    expect(`.o_form_statusbar button:eq(0)`).toHaveAttribute("name", "0");
-    expect(`.o_form_statusbar button:eq(1)`).toHaveAttribute("name", "1");
-    expect(`.o_form_statusbar button:eq(2)`).toHaveAttribute("name", "2");
-    expect(`.o_form_statusbar button:eq(3)`).toHaveAttribute("name", "3");
+    expect(`.o_statusbar_buttons > button:eq(0)`).toHaveAttribute("name", "0");
+    expect(`.o_statusbar_buttons > div:eq(0)`).toHaveAttribute("name", "foo");
+});
+
+test.tags("mobile")(`buttons should be in .o_statusbar_buttons in form view header on mobile`, async () => {
+    await mountView({
+        resModel: "partner",
+        type: "form",
+        arch: `
+            <form>
+                <header>
+                    <button name="0"/>
+                    <field name="foo" widget="url" class="btn btn-secondary" text="My Button" readonly="1"/>
+                </header>
+            </form>
+        `,
+        resId: 2,
+    });
+
+    await contains(`.o_statusbar_buttons .dropdown-toggle`).click();
+    expect(`.o_statusbar_button_dropdown_item > button`).toHaveAttribute("name", "0");
+    expect(`.o_statusbar_button_dropdown_item > div`).toHaveAttribute("name", "foo");
 });
 
 test(`button in form view and long willStart`, async () => {

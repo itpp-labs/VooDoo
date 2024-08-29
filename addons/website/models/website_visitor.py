@@ -339,19 +339,19 @@ class WebsiteVisitor(models.Model):
         reason. """
         auto_commit = not getattr(threading.current_thread(), 'testing', False)
         visitor_model = self.env['website.visitor']
-        visitor_count = visitor_model.sudo().search_count(self._inactive_visitors_domain(), limit=50000)
+        visitor_ids = visitor_model.sudo().search(self._inactive_visitors_domain(), limit=limit).ids
         visitor_done = 0
         for inactive_visitors_batch in split_every(
             batch_size,
-            visitor_model.sudo().search(self._inactive_visitors_domain(), limit=limit).ids,
+            visitor_ids,
             visitor_model.browse,
         ):
             inactive_visitors_batch.unlink()
             visitor_done += len(inactive_visitors_batch)
             if auto_commit:
-                self.env['ir.cron']._notify_progress(done=visitor_done, remaining=visitor_count - visitor_done)
+                self.env['ir.cron']._notify_progress(done=visitor_done, remaining=len(visitor_ids) - visitor_done)
                 self.env.cr.commit()
-        self.env['ir.cron']._notify_progress(done=visitor_done, remaining=visitor_count - visitor_done)
+        self.env['ir.cron']._notify_progress(done=visitor_done, remaining=len(visitor_ids) - visitor_done)
 
     def _inactive_visitors_domain(self):
         """ This method defines the domain of visitors that can be cleaned. By
@@ -393,7 +393,7 @@ class WebsiteVisitor(models.Model):
         self.env.cr.execute(query, (date_now, self.id), log_exceptions=False)
 
     def _get_visitor_timezone(self):
-        tz = request.httprequest.cookies.get('tz') if request else None
+        tz = request.cookies.get('tz') if request else None
         if tz in pytz.all_timezones:
             return tz
         elif not self.env.user._is_public():
