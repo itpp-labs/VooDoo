@@ -32,7 +32,6 @@ from odoo.tools import (
     is_html_empty,
     create_index,
 )
-from odoo.addons.base_import.models.base_import import FILE_TYPE_DICT
 
 _logger = logging.getLogger(__name__)
 
@@ -56,6 +55,17 @@ TYPE_REVERSE_MAP = {
     'in_refund': 'entry',
     'out_receipt': 'out_refund',
     'in_receipt': 'in_refund',
+}
+
+ALLOWED_MIMETYPES = {
+    'text/plain',
+    'text/csv',
+    'application/pdf',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.oasis.opendocument.spreadsheet',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 }
 
 EMPTY = object()
@@ -3153,7 +3163,7 @@ class AccountMove(models.Model):
                 file_data['type'] == 'binary'
                 and self._context.get('from_alias')
                 and not attachments_by_invoice.get(file_data['attachment'])
-                and file_data['attachment'].mimetype not in FILE_TYPE_DICT
+                and file_data['attachment'].mimetype not in ALLOWED_MIMETYPES
             ):
                 close_file(file_data)
                 continue
@@ -3191,7 +3201,7 @@ class AccountMove(models.Model):
                         invoice = current_invoice or self.create({})
                         success = decoder(invoice, file_data, new)
 
-                        if success or file_data['type'] == 'pdf' or file_data['attachment'].mimetype in FILE_TYPE_DICT:
+                        if success or file_data['attachment'].mimetype in ALLOWED_MIMETYPES:
                             invoice._link_bill_origin_to_purchase_orders(timeout=4)
                             invoices |= invoice
                             current_invoice = self.env['account.move']
@@ -3771,17 +3781,21 @@ class AccountMove(models.Model):
 
         return reverse_moves
 
+    def _can_be_unlinked(self):
+        self.ensure_one()
+        lock_date = self.company_id._get_user_fiscal_lock_date()
+        return not self.inalterable_hash and self.date > lock_date
+
     def _unlink_or_reverse(self):
         if not self:
             return
         to_reverse = self.env['account.move']
         to_unlink = self.env['account.move']
         for move in self:
-            lock_date = move.company_id._get_user_fiscal_lock_date()
-            if move.inalterable_hash or move.date <= lock_date:
-                to_reverse += move
-            else:
+            if move._can_be_unlinked():
                 to_unlink += move
+            else:
+                to_reverse += move
         to_unlink.filtered(lambda m: m.state in ('posted', 'cancel')).button_draft()
         to_unlink.filtered(lambda m: m.state == 'draft').unlink()
         return to_reverse._reverse_moves(cancel=True)
