@@ -2,15 +2,15 @@
     <t t-name="html_editor.ColorSelector">
         <Dropdown state="dropdown">
             <button class="btn btn-light" t-attf-class="o-select-color-{{props.type}} {{dropdown.isOpen ? 'active' : ''}}" t-att-title="props.title">
-                <t t-if="props.type === 'foreground'">
-                    <i class="fa fa-fw fa-font py-1" t-att-style="this.getSelectedColorStyle('color')"/>
+                <t t-if="mode === 'color'">
+                    <i class="fa fa-fw fa-font py-1" t-att-style="this.getSelectedColorStyle()"/>
                 </t>
                 <t t-else="">
-                    <i class="fa fa-fw fa-paint-brush py-1" t-att-style="this.getSelectedColorStyle('background')"/>
+                    <i class="fa fa-fw fa-paint-brush py-1" t-att-style="this.getSelectedColorStyle()"/>
                 </t>
             </button>
             <t t-set-slot="content">
-                <div class="o_font_color_selector user-select-none">
+                <div class="o_font_color_selector user-select-none" data-prevent-closing-overlay="true">
                     <div class="mb-1 d-flex">
                         <button class="btn btn-sm btn-light ms-1"
                             t-att-class="{active: state.activeTab === 'solid'}"
@@ -59,9 +59,10 @@
                         <t t-if="state.activeTab==='custom'">
                             <div class="p-1">
                                 <div class="o_colorpicker_section" t-on-click="onColorApply" t-on-mouseover="onColorHover" t-on-mouseout="onColorHoverOut">
-                                    <t t-foreach="this.props.getUsedCustomColors()" t-as="color" t-key="color_index">
+                                    <t t-foreach="this.usedCustomColors" t-as="color" t-key="color_index">
                                         <button class="o_color_button btn" t-att-data-color="color" t-attf-style="background-color: {{color}}"/>
                                     </t>
+                                    <button class="o_color_button btn selected" t-att-data-color="this.currentCustomColor.color" t-attf-style="background-color: {{this.currentCustomColor.color}}"/>
                                 </div>
                                 <div class="o_colorpicker_section" t-on-click="onColorApply" t-on-mouseover="onColorHover" t-on-mouseout="onColorHoverOut">
                                     <button data-color="black" class="btn o_color_button bg-black"></button>
@@ -74,6 +75,7 @@
                                     <button data-color="white" class="o_color_button btn bg-white"></button>
                                 </div>
                                 <Colorpicker
+                                    defaultColor="this.defaultColor"
                                     onColorSelect.bind="(color) => this.applyColor(color.hex)"
                                     onColorPreview.bind="onColorPreview" />
                             </div>

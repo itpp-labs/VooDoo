@@ -29,7 +29,6 @@ const makeSteps = (steps = []) => [
         // this tour makes sense.
         content: "Confirm we are in edit mode",
         trigger: 'body.editor_has_snippets',
-        run: () => null,
     },
     ...steps,
     {
@@ -58,7 +57,6 @@ const makeSteps = (steps = []) => [
     }, {
         content: "Confirm we are not in edit mode anymore",
         trigger: 'body:not(.editor_has_snippets)',
-        run: () => null,
     },
 ];
 
@@ -87,9 +85,9 @@ registerWebsitePreviewTour('website_no_dirty_page', {
         // TODO this should be done in a dedicated test which would be testing
         // all default snippet texts behaviors. Will be done in master where a
         // task will review this feature.
+        // TODO also test that applying an editor command removes that class.
         content: "Make sure the paragraph still acts as a default paragraph",
         trigger: ':iframe .s_text_image h2 + p.o_default_snippet_text',
-        run: () => null,
     }, {
         content: "Click on button",
         trigger: ':iframe .s_text_image .btn',
@@ -148,6 +146,5 @@ registerWebsitePreviewTour('website_no_dirty_lazy_image', {
     }, {
         content: "Check previous step went through correctly about dirty flags",
         trigger: ':iframe #wrap.o_dirty_as_expected',
-        run: () => null, // it's a check
     }
 ]);

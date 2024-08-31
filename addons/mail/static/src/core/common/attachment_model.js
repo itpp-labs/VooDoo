@@ -16,9 +16,9 @@ export class Attachment extends FileModelMixin(Record) {
     static insert(data) {
         return super.insert(...arguments);
     }
-    static new(data) {
+    static new() {
         /** @type {import("models").Attachment} */
-        const attachment = super.new(data);
+        const attachment = super.new(...arguments);
         Record.onChange(attachment, ["extension", "filename"], () => {
             if (!attachment.extension && attachment.filename) {
                 attachment.extension = attachment.filename.split(".").pop();
@@ -64,7 +64,7 @@ export class Attachment extends FileModelMixin(Record) {
         if (this.id > 0) {
             await rpc(
                 "/mail/attachment/delete",
-                assignDefined({ attachment_id: this.id }, { access_token: this.accessToken })
+                assignDefined({ attachment_id: this.id }, { access_token: this.access_token })
             );
         }
         this.delete();

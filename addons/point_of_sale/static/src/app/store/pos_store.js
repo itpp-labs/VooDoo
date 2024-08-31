@@ -349,8 +349,8 @@ export class PosStore extends Reactive {
 
         for (const item of pricelistItems) {
             if (
-                (item.date_start && deserializeDate(item.date_start) > date) ||
-                (item.date_end && deserializeDate(item.date_end) < date)
+                (item.date_start && deserializeDate(item.date_start, { zone: "utc" }) > date) ||
+                (item.date_end && deserializeDate(item.date_end, { zone: "utc" }) < date)
             ) {
                 continue;
             }
@@ -1628,7 +1628,7 @@ export class PosStore extends Reactive {
     getReceiptHeaderData(order) {
         return {
             company: this.company,
-            cashier: this.get_cashier()?.name,
+            cashier: _t("Served by %s", this.get_cashier()?.name),
             header: this.config.receipt_header,
         };
     }

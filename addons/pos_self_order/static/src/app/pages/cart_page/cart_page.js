@@ -57,10 +57,14 @@ export class CartPage extends Component {
             type === "mobile" &&
             orderingMode === "table" &&
             !takeAway &&
-            !this.selfOrder.currentOrder.table_id
+            !this.selfOrder.currentTable
         ) {
             this.state.selectTable = true;
             return;
+        } else {
+            this.selfOrder.currentOrder.update({
+                table_id: this.selfOrder.currentTable,
+            });
         }
 
         this.selfOrder.rpcLoading = true;
@@ -70,10 +74,10 @@ export class CartPage extends Component {
 
     selectTable(table) {
         if (table) {
-            this.selfOrder.table = table;
             this.selfOrder.currentOrder.update({
                 table_id: table,
             });
+            this.selfOrder.currentTable = table;
             this.router.addTableIdentifier(table);
             this.pay();
         }
@@ -96,7 +100,7 @@ export class CartPage extends Component {
 
     canChangeQuantity(line) {
         const order = this.selfOrder.currentOrder;
-        const lastChange = order.lineChanges[line.uuid];
+        const lastChange = order.uiState.lineChanges[line.uuid];
 
         if (!lastChange) {
             return true;
@@ -119,6 +123,7 @@ export class CartPage extends Component {
 
         if (lastChange) {
             line.qty = lastChange.qty;
+            line.setDirty();
         } else {
             this.selfOrder.removeLine(line);
         }
@@ -137,8 +142,11 @@ export class CartPage extends Component {
         for (const cline of this.selfOrder.currentOrder.lines) {
             if (cline.combo_parent_uuid === line.uuid) {
                 this._changeQuantity(cline, increase);
+                cline.setDirty();
             }
         }
+
+        line.setDirty();
     }
 
     async changeQuantity(line, increase) {

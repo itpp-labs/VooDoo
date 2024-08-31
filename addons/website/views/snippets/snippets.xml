@@ -65,6 +65,9 @@
                 <t t-snippet="website.s_key_benefits" string="Key benefits" group="columns">
                     <keywords>promotion, characteristic, quality, highlights, specs, advantages, functionalities, features, exhibit, details, capabilities, attributes, promotion, headline, content, overiew, spotlight</keywords>
                 </t>
+                <t t-snippet="website.s_freegrid" string="Free grid" group="columns">
+                    <keywords>description, containers, layouts, structures, multi-columns, modules, boxes, content, picture, photo, illustration, media, visual, article, story, combination, showcase, announcement, reveal, trendy, design, shape, geometric, engage, call to action, cta, button</keywords>
+                </t>
 
                 <!-- Content group -->
                 <t t-snippet="website.s_text_image" string="Text - Image" group="content">
@@ -75,6 +78,9 @@
                 </t>
                 <t t-snippet="website.s_mockup_image" string="Mockup Image" group="content">
                     <keywords>CTA, button, btn, action, engagement, link, offer, appeal, call to action, prompt, interact, trigger, mockup</keywords>
+                </t>
+                <t t-snippet="website.s_image_hexagonal" string="Image Hexagonal" group="content">
+                    <keywords>content, picture, photo, illustration, media, visual, article, story, combination, more, hexagon, geometric</keywords>
                 </t>
                 <t t-snippet="website.s_call_to_action" string="Call to Action" group="content">
                     <keywords>CTA</keywords>
@@ -140,6 +146,9 @@
                 <!-- People group -->
                 <t t-snippet="website.s_company_team" string="Team" group="people">
                     <keywords>organization, structure</keywords>
+                </t>
+                <t t-snippet="website.s_company_team_shapes" string="Team Shapes" group="people">
+                    <keywords>organization, structure, people, team, name, role, position, image, portrait, photo, employees, shapes</keywords>
                 </t>
                 <t t-snippet="website.s_references" string="References" group="people">
                     <keywords>customers, clients</keywords>
@@ -574,7 +583,7 @@
         </we-select>
     </div>
 
-    <div id="so_block_align" data-selector=".s_alert, .s_card, .s_blockquote, .s_text_highlight">
+    <div id="so_block_align" data-selector=".s_alert, .s_blockquote, .s_text_highlight">
         <we-button-group string="Alignment" data-dependencies="!so_width_100">
             <we-button class="fa fa-fw fa-align-left" title="Left" data-select-class="me-auto"/>
             <we-button class="fa fa-fw fa-align-center" title="Center" data-select-class="mx-auto"/>

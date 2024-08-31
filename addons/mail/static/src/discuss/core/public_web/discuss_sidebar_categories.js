@@ -28,8 +28,9 @@ export class DiscussSidebarChannel extends Component {
         super.setup();
         this.store = useState(useService("mail.store"));
         this.dialogService = useService("dialog");
-        this.hover = useHover(["root", "floating*"], () => {
-            this.floating.isOpen = this.hover.isHover;
+        this.hover = useHover(["root", "floating*"], {
+            onHover: () => (this.floating.isOpen = true),
+            onAway: () => (this.floating.isOpen = false),
         });
         this.floating = useDropdownState();
     }
@@ -39,7 +40,7 @@ export class DiscussSidebarChannel extends Component {
             "bg-inherit": this.thread.notEq(this.store.discuss.thread),
             "o-active": this.thread.eq(this.store.discuss.thread),
             "o-unread":
-                this.thread.selfMember?.message_unread_counter > 0 && !this.thread.mute_until_dt,
+                this.thread.selfMember?.message_unread_counter > 0 && !this.thread.isMuted,
             "opacity-50": this.thread.mute_until_dt,
             "position-relative justify-content-center mx-2 o-compact":
                 this.store.discuss.isSidebarCompact,
@@ -127,12 +128,15 @@ export class DiscussSidebarCategory extends Component {
         super.setup();
         this.store = useState(useService("mail.store"));
         this.discusscorePublicWebService = useState(useService("discuss.core.public.web"));
-        this.hover = useHover(["root", "floating*"], () => this.onUseHoverCb());
+        this.hover = useHover(["root", "floating*"], {
+            onHover: () => this.onHover(true),
+            onAway: () => this.onHover(false),
+        });
         this.floating = useDropdownState();
     }
 
-    onUseHoverCb() {
-        this.floating.isOpen = this.hover.isHover;
+    onHover(hovering) {
+        this.floating.isOpen = hovering;
     }
 
     /** @returns {import("models").DiscussAppCategory} */
@@ -190,11 +194,13 @@ export class DiscussSidebarCategories extends Component {
         this.discusscorePublicWebService = useState(useService("discuss.core.public.web"));
         this.state = useState({ quickSearchVal: "", floatingQuickSearchOpen: false });
         this.orm = useService("orm");
-        this.quickSearchHover = useHover(["quick-search-btn", "quick-search-floating*"], () => {
-            this.quickSearchFloating.isOpen = this.quickSearchHover.isHover;
-            if (!this.quickSearchHover.isHover && !this.state.quickSearchVal.length) {
-                this.state.floatingQuickSearchOpen = false;
-            }
+        this.quickSearchHover = useHover(["quick-search-btn", "quick-search-floating*"], {
+            onHover: () => (this.quickSearchFloating.isOpen = true),
+            onAway: () => {
+                if (!this.quickSearchHover.isHover && !this.state.quickSearchVal.length) {
+                    this.state.floatingQuickSearchOpen = false;
+                }
+            },
         });
         this.quickSearchFloating = useDropdownState();
     }

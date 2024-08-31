@@ -19,8 +19,10 @@ export const BUTTON_CLICK_PARAMS = [
     "name",
     "type",
     "args",
+    "block-ui", // Blocks UI with a spinner until the action is done
     "context",
     "close",
+    "cancel-label",
     "confirm",
     "confirm-title",
     "confirm-label",

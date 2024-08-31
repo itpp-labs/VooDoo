@@ -28,7 +28,7 @@ import { assets } from "@web/core/assets";
 import { browser } from "@web/core/browser/browser";
 import { FormController } from "@web/views/form/form_controller";
 import { moveSelectionOutsideEditor, setSelection } from "./_helpers/selection";
-import { insertText, pasteText } from "./_helpers/user_actions";
+import { insertText, pasteText, undo } from "./_helpers/user_actions";
 
 class Partner extends models.Model {
     txt = fields.Html({ trim: true });
@@ -963,7 +963,7 @@ test("codeview is not available by default", async () => {
 });
 
 test("codeview is not available when not in debug mode", async () => {
-    odoo.debug = false;
+    patchWithCleanup(odoo, { debug: false });
     await mountView({
         type: "form",
         resId: 1,
@@ -980,7 +980,7 @@ test("codeview is not available when not in debug mode", async () => {
 });
 
 test("codeview is available when option is active and in debug mode", async () => {
-    odoo.debug = true;
+    patchWithCleanup(odoo, { debug: true });
     await mountView({
         type: "form",
         resId: 1,
@@ -997,7 +997,7 @@ test("codeview is available when option is active and in debug mode", async () =
 });
 
 test("enable/disable codeview with editor toolbar", async () => {
-    odoo.debug = true;
+    patchWithCleanup(odoo, { debug: true });
     await mountView({
         type: "form",
         resId: 1,
@@ -1016,7 +1016,7 @@ test("enable/disable codeview with editor toolbar", async () => {
     setSelection({ anchorNode: node, anchorOffset: 0, focusNode: node, focusOffset: 1 });
     await waitFor(".o-we-toolbar");
     await contains(".o-we-toolbar button[name='codeview']").click();
-    expect("[name='txt'] .odoo-editor-editable").toHaveCount(0);
+    expect("[name='txt'] .odoo-editor-editable").toHaveClass("d-none");
     expect("[name='txt'] textarea").toHaveValue("<p>first</p>");
 
     // Switch to editor
@@ -1026,11 +1026,11 @@ test("enable/disable codeview with editor toolbar", async () => {
 });
 
 test("edit and enable/disable codeview with editor toolbar", async () => {
+    patchWithCleanup(odoo, { debug: true });
     onRpc("partner", "web_save", ({ args }) => {
         expect(args[1].txt).toBe("<div></div>");
         expect.step("web_save");
     });
-    odoo.debug = true;
     await mountView({
         type: "form",
         resId: 1,
@@ -1059,6 +1059,12 @@ test("edit and enable/disable codeview with editor toolbar", async () => {
     // Switch to editor
     await contains(".o_codeview_btn").click();
     expect("[name='txt'] .odoo-editor-editable").toHaveInnerHTML("<p> Yop </p>");
+
+    undo(htmlEditor);
+    expect("[name='txt'] .odoo-editor-editable").toHaveInnerHTML("<p>Hello first </p>");
+
+    undo(htmlEditor);
+    expect("[name='txt'] .odoo-editor-editable").toHaveInnerHTML("<p>Hellofirst </p>");
 });
 
 describe("sandbox", () => {

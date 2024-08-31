@@ -22,7 +22,7 @@ class Project(models.Model):
             'context': {'project_id': self.id},
             'domain': domain or [('id', 'in', expense_ids)],
         })
-        if len(expense_ids) == 1:
+        if not self.env.context.get('from_embedded_action') and len(expense_ids) == 1:
             action["views"] = [[False, 'form']]
             action["res_id"] = expense_ids[0]
         return action
@@ -37,6 +37,10 @@ class Project(models.Model):
         if section_name == 'expenses':
             return self._get_expense_action(domain, [res_id] if res_id else [])
         return super().action_profitability_items(section_name, domain, res_id)
+
+    def action_open_project_expenses(self):
+        self.ensure_one()
+        return self._get_expense_action(domain=[('analytic_distribution', 'in', self.account_id.ids)])
 
     # ----------------------------
     #  Project Update
@@ -63,14 +67,14 @@ class Project(models.Model):
         return move_line_ids + list(query)
 
     def _get_expenses_profitability_items(self, with_action=True):
-        if not self.analytic_account_id:
+        if not self.account_id:
             return {}
         can_see_expense = with_action and self.env.user.has_group('hr_expense.group_hr_expense_team_approver')
 
         expenses_read_group = self.env['hr.expense']._read_group(
             [
                 ('sheet_id.state', 'in', ['post', 'done']),
-                ('analytic_distribution', 'in', self.analytic_account_id.ids),
+                ('analytic_distribution', 'in', self.account_id.ids),
             ],
             groupby=['currency_id'],
             aggregates=['id:array_agg', 'untaxed_amount_currency:sum'],

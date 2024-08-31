@@ -47,10 +47,15 @@ export class ColorSelector extends Component {
             onClose: () => this.props.dispatch("COLOR_RESET_PREVIEW"),
         });
 
+        this.mode = this.props.type === "foreground" ? "color" : "backgroundColor";
+
         this.state = useState({ activeTab: "solid" });
         this.colorWrapperEl = useRef("colorsWrapper");
         this.selectedColors = useState(this.props.getSelectedColors());
-        this.currentCustomColor = useState({ color: undefined });
+        this.defaultColor = this.selectedColors[this.mode];
+        this.currentCustomColor = useState({ color: this.selectedColors[this.mode] });
+
+        this.usedCustomColors = this.props.getUsedCustomColors();
     }
 
     setTab(tab) {
@@ -60,14 +65,14 @@ export class ColorSelector extends Component {
     processColorFromEvent(ev) {
         let color = ev.target.dataset.color;
         if (color && !isCSSColor(color) && !isColorGradient(color)) {
-            color = (this.props.type === "foreground" ? "text-" : "bg-") + color;
+            color = (this.mode === "color" ? "text-" : "bg-") + color;
         }
         return color;
     }
 
     applyColor(color) {
-        const mode = this.props.type === "foreground" ? "color" : "backgroundColor";
-        this.props.dispatch("APPLY_COLOR", { color: color || "", mode });
+        this.currentCustomColor.color = color;
+        this.props.dispatch("APPLY_COLOR", { color: color || "", mode: this.mode });
     }
 
     onColorApply(ev) {
@@ -81,8 +86,7 @@ export class ColorSelector extends Component {
 
     onColorPreview(ev) {
         const color = ev.hex ? ev.hex : this.processColorFromEvent(ev);
-        const mode = this.props.type === "foreground" ? "color" : "backgroundColor";
-        this.props.dispatch("COLOR_PREVIEW", { color: color || "", mode });
+        this.props.dispatch("COLOR_PREVIEW", { color: color || "", mode: this.mode });
     }
 
     onColorHover(ev) {
@@ -100,16 +104,17 @@ export class ColorSelector extends Component {
     }
 
     getCurrentGradientColor() {
-        const mode = this.props.type === "foreground" ? "color" : "backgroundColor";
-        if (isColorGradient(this.selectedColors[mode])) {
-            return this.selectedColors[mode];
+        if (isColorGradient(this.selectedColors[this.mode])) {
+            return this.selectedColors[this.mode];
         }
     }
 
-    getSelectedColorStyle(mode) {
-        if (isColorGradient(this.selectedColors[mode])) {
-            return `border-bottom: 2px solid transparent; border-image: ${this.selectedColors[mode]}; border-image-slice: 1`;
+    getSelectedColorStyle() {
+        if (isColorGradient(this.selectedColors[this.mode])) {
+            return `border-bottom: 2px solid transparent; border-image: ${
+                this.selectedColors[this.mode]
+            }; border-image-slice: 1`;
         }
-        return `border-bottom: 2px solid ${this.selectedColors[mode]}`;
+        return `border-bottom: 2px solid ${this.selectedColors[this.mode]}`;
     }
 }

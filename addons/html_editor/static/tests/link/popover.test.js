@@ -2,7 +2,16 @@ import { describe, expect, test } from "@odoo/hoot";
 import { animationFrame, tick } from "@odoo/hoot-mock";
 import { setContent, getContent, setSelection } from "../_helpers/selection";
 import { setupEditor } from "../_helpers/editor";
-import { waitUntil, waitFor, click, queryOne, press, select, queryText } from "@odoo/hoot-dom";
+import {
+    waitUntil,
+    waitFor,
+    click,
+    queryOne,
+    press,
+    select,
+    queryText,
+    queryAllTexts,
+} from "@odoo/hoot-dom";
 import { insertText, splitBlock, insertLineBreak } from "../_helpers/user_actions";
 import { contains, onRpc } from "@web/../tests/web_test_helpers";
 import { cleanLinkArtifacts } from "../_helpers/format";
@@ -138,8 +147,9 @@ describe("popover should edit,copy,remove the link", () => {
         await setupEditor('<p>this is a <a href="http://test.com/">li[]nk</a></p>');
         await waitFor(".o-we-linkpopover");
         click(".o_we_copy_link");
-        await waitFor(".o_notification_body");
-        expect(".o_notification_body").toHaveCount(1);
+        await waitFor(".o_notification_bar.bg-success");
+        const notifications = queryAllTexts(".o_notification_body");
+        expect(notifications).toInclude("Link copied to clipboard.");
         await animationFrame();
         expect(".o-we-linkpopover").toHaveCount(0);
         await expect(navigator.clipboard.readText()).resolves.toBe("http://test.com/");
@@ -617,5 +627,85 @@ describe("link preview", () => {
         expect(".o_we_description_link_preview").toHaveText(
             "From ERP to CRM, eCommerce and CMS. Download Odoo or use it in the cloud. Grow Your Business."
         );
+    });
+    test("test internal metadata cached correctly", async () => {
+        onRpc("/html_editor/link_preview_internal", () => {
+            expect.step("/html_editor/link_preview_internal");
+            return {
+                description: markup("<p>Test description</p>"),
+                link_preview_name: "Task name | Project name",
+            };
+        });
+        onRpc("/odoo/cachetest/8", () => new Response("", { status: 200 }));
+        const { editor } = await setupEditor(`<p>abc[]</p>`);
+        insertText(editor, "/link");
+        await animationFrame();
+        click(".o-we-command-name:first");
+        await contains(".o-we-linkpopover input.o_we_href_input_link").fill(
+            window.location.origin + "/odoo/cachetest/8"
+        );
+        await animationFrame();
+        expect.verifySteps(["/html_editor/link_preview_internal"]);
+        expect(".o_we_url_link").toHaveText("Task name | Project name");
+
+        const pNode = queryOne("p");
+        setSelection({
+            anchorNode: pNode,
+            anchorOffset: 1,
+            focusNode: pNode,
+            focusOffset: 1,
+        });
+        await waitUntil(() => !document.querySelector(".o-we-linkpopover"));
+
+        const linkNode = queryOne("a");
+        setSelection({
+            anchorNode: linkNode,
+            anchorOffset: 1,
+            focusNode: linkNode,
+            focusOffset: 1,
+        });
+        await waitFor(".o-we-linkpopover");
+        expect.verifySteps([]);
+    });
+    test("test external metadata cached correctly", async () => {
+        onRpc("/html_editor/link_preview_external", () => {
+            expect.step("/html_editor/link_preview_external");
+            return {
+                og_description:
+                    "From ERP to CRM, eCommerce and CMS. Download Odoo or use it in the cloud. Grow Your Business.",
+                og_image: "https://www.odoo.com/web/image/41207129-1abe7a15/homepage-seo.png",
+                og_title: "Open Source ERP and CRM | Odoo",
+                og_type: "website",
+                og_site_name: "Odoo",
+                source_url: "http://odoo.com/",
+            };
+        });
+        const { editor } = await setupEditor(`<p>[]</p>`);
+        insertText(editor, "/link");
+        await animationFrame();
+        click(".o-we-command-name:first");
+        await contains(".o-we-linkpopover input.o_we_href_input_link").fill("http://odoo.com/");
+        await animationFrame();
+        expect.verifySteps(["/html_editor/link_preview_external"]);
+        expect(".o_we_url_link").toHaveText("Open Source ERP and CRM | Odoo");
+
+        const pNode = queryOne("p");
+        setSelection({
+            anchorNode: pNode,
+            anchorOffset: 1,
+            focusNode: pNode,
+            focusOffset: 1,
+        });
+        await waitUntil(() => !document.querySelector(".o-we-linkpopover"));
+
+        const linkNode = queryOne("a");
+        setSelection({
+            anchorNode: linkNode,
+            anchorOffset: 1,
+            focusNode: linkNode,
+            focusOffset: 1,
+        });
+        await waitFor(".o-we-linkpopover");
+        expect.verifySteps([]);
     });
 });

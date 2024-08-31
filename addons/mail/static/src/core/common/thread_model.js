@@ -40,8 +40,8 @@ export class Thread extends Record {
     static insert(data) {
         return super.insert(...arguments);
     }
-    static new(data) {
-        const thread = super.new(data);
+    static new() {
+        const thread = super.new(...arguments);
         Record.onChange(thread, ["state"], () => {
             if (thread.state === "open" && !this.store.env.services.ui.isSmall) {
                 const cw = this.store.ChatWindow?.insert({ thread });
@@ -351,6 +351,10 @@ export class Thread extends Record {
 
     get isUnread() {
         return this.selfMember?.message_unread_counter > 0 || this.needactionMessages.length > 0;
+    }
+
+    get isMuted() {
+        return this.mute_until_dt || this.store.settings.mute_until_dt;
     }
 
     get typesAllowingCalls() {
