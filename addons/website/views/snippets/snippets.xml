@@ -57,10 +57,16 @@
                 <t t-snippet="website.s_adventure" string="Adventure" group="intro">
                     <keywords>journey, exploration, travel, outdoor, excitement, quest, start, onboarding, discovery, thrill</keywords>
                 </t>
+                <t t-snippet="website.s_striped_center_top" string="Striped Center Top" group="intro">
+                    <keywords>hero, jumbotron, headline, header, intro, home, content, picture, photo, illustration, media, visual, article, combination, trendy, pattern, design</keywords>
+                </t>
 
                 <!-- Columns group -->
                 <t t-snippet="website.s_three_columns" string="Columns" group="columns">
                     <keywords>columns, description</keywords>
+                </t>
+                <t t-snippet="website.s_features_wall" string="Features Wall" group="columns">
+                    <keywords>reveal, showcase, launch, presentation, announcement, content, picture, photo, illustration, media, visual, combination</keywords>
                 </t>
                 <t t-snippet="website.s_key_benefits" string="Key benefits" group="columns">
                     <keywords>promotion, characteristic, quality, highlights, specs, advantages, functionalities, features, exhibit, details, capabilities, attributes, promotion, headline, content, overiew, spotlight</keywords>
@@ -138,6 +144,9 @@
                     <keywords>gallery, carousel</keywords>
                 </t>
                 <t t-snippet="website.s_images_wall" string="Images Wall" group="images"/>
+                <t t-snippet="website.s_image_punchy" string="Punchy Image" group="images">
+                    <keywords>headline, header, content, picture, photo, illustration, media, visual, article, combination, trendy, pattern, design, bold, impactful, vibrant, standout</keywords>
+                </t>
                 <t t-snippet="website.s_parallax" string="Parallax" group="images"/>
                 <t t-snippet="website.s_unveil" string="Unveil" group="images">
                     <keywords>reveal, showcase, launch, presentation, announcement, content, picture, photo, illustration, media, visual, article, combination</keywords>
