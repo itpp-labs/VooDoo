@@ -6,13 +6,13 @@ import { AlertDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 export class PaymentMercadoPago extends PaymentInterface {
     async create_payment_intent() {
         const order = this.pos.get_order();
-        const line = order.selected_paymentline;
+        const line = order.get_selected_paymentline();
         // Build informations for creating a payment intend on Mercado Pago.
         // Data in "external_reference" are send back with the webhook notification
         const infos = {
             amount: parseInt(line.amount * 100, 10),
             additional_info: {
-                external_reference: `${this.pos.config.current_session_id.id}_${line.payment_method.id}_${order.uid}`,
+                external_reference: `${this.pos.config.current_session_id.id}_${line.payment_method_id.id}_${order.uuid}`,
                 print_on_terminal: true,
             },
         };
@@ -20,28 +20,39 @@ export class PaymentMercadoPago extends PaymentInterface {
         return await this.env.services.orm.silent.call(
             "pos.payment.method",
             "mp_payment_intent_create",
-            [[line.payment_method.id], infos]
+            [[line.payment_method_id.id], infos]
         );
     }
     async get_last_status_payment_intent() {
-        const line = this.pos.get_order().selected_paymentline;
+        const line = this.pos.get_order().get_selected_paymentline();
         // mp_payment_intent_get will call the Mercado Pago api
         return await this.env.services.orm.silent.call(
             "pos.payment.method",
             "mp_payment_intent_get",
-            [[line.payment_method.id], this.payment_intent.id]
+            [[line.payment_method_id.id], this.payment_intent.id]
         );
     }
 
     async cancel_payment_intent() {
-        const line = this.pos.get_order().selected_paymentline;
+        const line = this.pos.get_order().get_selected_paymentline();
         // mp_payment_intent_cancel will call the Mercado Pago api
         return await this.env.services.orm.silent.call(
             "pos.payment.method",
             "mp_payment_intent_cancel",
-            [[line.payment_method.id], this.payment_intent.id]
+            [[line.payment_method_id.id], this.payment_intent.id]
         );
     }
+
+    async get_payment(payment_id) {
+        const line = this.pos.get_order().selected_paymentline;
+        // mp_get_payment_status will call the Mercado Pago api
+        return await this.env.services.orm.silent.call(
+            "pos.payment.method",
+            "mp_get_payment_status",
+            [[line.payment_method.id], payment_id]
+        );
+    }
+
     setup() {
         super.setup(...arguments);
         this.webhook_resolver = null;
@@ -50,7 +61,7 @@ export class PaymentMercadoPago extends PaymentInterface {
 
     async send_payment_request(cid) {
         await super.send_payment_request(...arguments);
-        const line = this.pos.get_order().selected_paymentline;
+        const line = this.pos.get_order().get_selected_paymentline();
         try {
             // During payment creation, user can't cancel the payment intent
             line.set_payment_status("waitingCapture");
@@ -92,9 +103,10 @@ export class PaymentMercadoPago extends PaymentInterface {
     }
 
     async handleMercadoPagoWebhook() {
-        const line = this.pos.get_order().selected_paymentline;
+        const line = this.pos.get_order().get_selected_paymentline();
         const MAX_RETRY = 5; // Maximum number of retries for the "ON_TERMINAL" BUG
         const RETRY_DELAY = 1000; // Delay between retries in milliseconds for the "ON_TERMINAL" BUG
+
         const showMessageAndResolve = (messageKey, status, resolverValue) => {
             if (!resolverValue) {
                 this._showMsg(messageKey, status);
@@ -103,6 +115,20 @@ export class PaymentMercadoPago extends PaymentInterface {
             this.webhook_resolver?.(resolverValue);
             return resolverValue;
         };
+
+        const handleFinishedPayment = async (paymentIntent) => {
+            if (paymentIntent.state === "CANCELED") {
+                return showMessageAndResolve(_t("Payment has been canceled"), "info", false);
+            }
+            if (["FINISHED", "PROCESSED"].includes(paymentIntent.state)) {
+                const payment = await this.get_payment(paymentIntent.payment.id);
+                if (payment.status === "approved") {
+                    return showMessageAndResolve(_t("Payment has been processed"), "info", true);
+                }
+                return showMessageAndResolve(_t("Payment has been rejected"), "info", false);
+            }
+        };
+
         // No payment intent id means either that the user reload the page or
         // it is an old webhook -> trash
         if ("id" in this.payment_intent) {
@@ -111,11 +137,10 @@ export class PaymentMercadoPago extends PaymentInterface {
             // Bad payment intent id, then it's an old webhook not related with the
             // current payment intent -> trash
             if (this.payment_intent.id == last_status_payment_intent.id) {
-                if (last_status_payment_intent.state === "CANCELED") {
-                    return showMessageAndResolve(_t("Payment has been canceled"), "info", false);
-                }
-                if (["FINISHED", "PROCESSED"].includes(last_status_payment_intent.state)) {
-                    return showMessageAndResolve(_t("Payment has been finished"), "info", true);
+                if (
+                    ["FINISHED", "PROCESSED", "CANCELED"].includes(last_status_payment_intent.state)
+                ) {
+                    return await handleFinishedPayment(last_status_payment_intent);
                 }
                 // BUG Sometimes the Mercado Pago webhook return ON_TERMINAL
                 // instead of CANCELED/FINISHED when we requested a payment status
@@ -134,18 +159,7 @@ export class PaymentMercadoPago extends PaymentInterface {
                                 )
                             ) {
                                 clearInterval(s);
-                                const payment_ok = ["FINISHED", "PROCESSED"].includes(
-                                    last_status_payment_intent.state
-                                );
-                                resolve(
-                                    showMessageAndResolve(
-                                        payment_ok
-                                            ? _t("Payment has been finished")
-                                            : _t("Payment has been canceled"),
-                                        "info",
-                                        payment_ok
-                                    )
-                                );
+                                resolve(await handleFinishedPayment(last_status_payment_intent));
                             }
                             retry_cnt += 1;
                             if (retry_cnt >= MAX_RETRY) {

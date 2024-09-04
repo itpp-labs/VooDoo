@@ -63,6 +63,17 @@ TYPE_REVERSE_MAP = {
     'in_receipt': 'in_refund',
 }
 
+ALLOWED_MIMETYPES = {
+    'text/plain',
+    'text/csv',
+    'application/pdf',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.oasis.opendocument.spreadsheet',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+}
+
 EMPTY = object()
 
 
@@ -1069,7 +1080,7 @@ class AccountMove(models.Model):
                     JOIN account_move counterpart_move ON counterpart_move.id = counterpart_line.move_id
                     LEFT JOIN account_payment pay ON pay.id = counterpart_move.payment_id
                     WHERE source_line.move_id IN %s AND counterpart_line.move_id != source_line.move_id
-                    GROUP BY source_line_id, source_move_id, source_line_account_type
+                    GROUP BY source_line.id, source_line.move_id, account.account_type
                 ''', SQL.identifier(source_field), SQL.identifier(counterpart_field), stored_ids))
 
             payment_data = defaultdict(list)
@@ -3680,7 +3691,7 @@ class AccountMove(models.Model):
                 file_data['type'] == 'binary'
                 and self._context.get('from_alias')
                 and not attachments_by_invoice.get(file_data['attachment'])
-                and file_data['attachment'].mimetype not in FILE_TYPE_DICT
+                and file_data['attachment'].mimetype not in ALLOWED_MIMETYPES
             ):
                 close_file(file_data)
                 continue
@@ -3722,7 +3733,7 @@ class AccountMove(models.Model):
                         else:
                             success = decoder(invoice, file_data, new)
 
-                        if success or file_data['type'] == 'pdf' or file_data['attachment'].mimetype in FILE_TYPE_DICT:
+                        if success or file_data['type'] == 'pdf' or file_data['attachment'].mimetype in ALLOWED_MIMETYPES:
                             (invoice.invoice_line_ids - existing_lines).is_imported = True
                             invoice._link_bill_origin_to_purchase_orders(timeout=4)
                             invoices |= invoice

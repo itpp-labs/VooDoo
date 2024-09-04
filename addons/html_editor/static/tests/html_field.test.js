@@ -1,6 +1,8 @@
 import { HtmlField } from "@html_editor/fields/html_field";
 import { MediaDialog } from "@html_editor/main/media/media_dialog/media_dialog";
+import { stripHistoryIds } from "@html_editor/others/collaboration/collaboration_odoo_plugin";
 import { parseHTML } from "@html_editor/utils/html";
+import { Wysiwyg } from "@html_editor/wysiwyg";
 import { beforeEach, describe, expect, test } from "@odoo/hoot";
 import {
     click,
@@ -13,6 +15,7 @@ import {
 } from "@odoo/hoot-dom";
 import { Deferred, animationFrame, mockSendBeacon, tick } from "@odoo/hoot-mock";
 import {
+    clickSave,
     contains,
     defineModels,
     defineParams,
@@ -1067,6 +1070,49 @@ test("edit and enable/disable codeview with editor toolbar", async () => {
     expect("[name='txt'] .odoo-editor-editable").toHaveInnerHTML("<p>Hellofirst </p>");
 });
 
+test("edit and save a html field in collaborative should keep the same wysiwyg", async () => {
+    patchWithCleanup(Wysiwyg.prototype, {
+        setup() {
+            super.setup();
+            expect.step("Setup Wysiwyg");
+        },
+    });
+
+    onRpc("partner", "web_save", ({ args }) => {
+        const txt = args[1].txt;
+        expect(stripHistoryIds(txt)).toBe("<p>Hello first</p>");
+        expect.step("web_save");
+        args[1].txt = txt.replace(
+            /\sdata-last-history-steps="[^"]*?"/,
+            ' data-last-history-steps="12345"'
+        );
+    });
+    onRpc("/html_editor/get_ice_servers", () => {
+        return [];
+    });
+    onRpc("/html_editor/bus_broadcast", (params) => {
+        return { id: 10 };
+    });
+
+    await mountView({
+        type: "form",
+        resId: 1,
+        resModel: "partner",
+        arch: `
+            <form>
+                <field name="txt" widget="html" options="{'collaborative': true}"/>
+            </form>`,
+    });
+
+    setSelectionInHtmlField();
+    insertText(htmlEditor, "Hello ");
+    expect("[name='txt'] .odoo-editor-editable").toHaveInnerHTML("<p>Hello first </p>");
+    expect.verifySteps(["Setup Wysiwyg"]);
+
+    await clickSave();
+    expect.verifySteps(["web_save"]);
+});
+
 describe("sandbox", () => {
     const recordWithComplexHTML = {
         id: 1,
@@ -1638,7 +1684,7 @@ describe("save image", () => {
         });
         onRpc(`/html_editor/modify_image/${imageRecord.id}`, async (request) => {
             if (modifyImageCount === 0) {
-                const { params } = request.json();
+                const { params } = await request.json();
                 expect(params.res_model).toBe("partner");
                 expect(params.res_id).toBe(1);
                 await modifyImagePromise;
@@ -1699,8 +1745,9 @@ describe("save image", () => {
                 txt: "<p class='test_target'><br></p>",
             },
         ];
-        onRpc("/html_editor/attachment/add_data", (request) => {
-            const { res_id, res_model } = request.json().params;
+        onRpc("/html_editor/attachment/add_data", async (request) => {
+            const { params } = await request.json();
+            const { res_id, res_model } = params;
             expect.step(`add_data: ${res_model} ${res_id}`);
             return {
                 image_src: "/test_image_url.png",
@@ -1749,7 +1796,8 @@ describe("save image", () => {
 
         const def = new Deferred();
         onRpc("/html_editor/attachment/add_data", async (request) => {
-            const { res_id, res_model } = request.json().params;
+            const { params } = await request.json();
+            const { res_id, res_model } = params;
             expect.step(`add_data-start: ${res_model} ${res_id}`);
             await def;
             expect.step(`add_data-end: ${res_model} ${res_id}`);
@@ -1817,7 +1865,8 @@ describe("save image", () => {
 
         const def = new Deferred();
         onRpc("/html_editor/attachment/add_data", async (request) => {
-            const { res_id, res_model } = request.json().params;
+            const { params } = await request.json();
+            const { res_id, res_model } = params;
             expect.step(`add_data-start: ${res_model} ${res_id}`);
             await def;
             expect.step(`add_data-end: ${res_model} ${res_id}`);
@@ -1879,8 +1928,9 @@ describe("save image", () => {
                 txt: "<p class='test_target'><br></p>",
             },
         ];
-        onRpc("/html_editor/attachment/add_data", (request) => {
-            const { res_id, res_model } = request.json().params;
+        onRpc("/html_editor/attachment/add_data", async (request) => {
+            const { params } = await request.json();
+            const { res_id, res_model } = params;
             expect.step(`add_data: ${res_model} ${res_id}`);
             return {
                 image_src: "/test_image_url.png",

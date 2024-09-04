@@ -356,6 +356,7 @@ class StockRule(models.Model):
             'picking_type_id': self.picking_type_id.id,
             'group_id': group_id,
             'route_ids': [(4, route.id) for route in values.get('route_ids', [])],
+            'never_product_template_attribute_value_ids': values.get('never_product_template_attribute_value_ids'),
             'warehouse_id': self.warehouse_id.id,
             'date': date_scheduled,
             'date_deadline': False if self.group_propagation_option == 'fixed' else date_deadline,
@@ -555,7 +556,10 @@ class ProcurementGroup(models.Model):
         # ones of the company. This is not useful as a regular user since there is a record
         # rule to filter out the rules based on the company.
         if self.env.su and values.get('company_id'):
-            domain_company = ['|', ('company_id', '=', False), ('company_id', 'child_of', values['company_id'].ids)]
+            company_ids = set(values.get('company_id').ids)
+            if values.get('route_ids'):
+                company_ids |= set(values['route_ids'].company_id.ids)
+            domain_company = ['|', ('company_id', '=', False), ('company_id', 'child_of', list(company_ids))]
             domain = expression.AND([domain, domain_company])
         return domain
 
@@ -564,7 +568,9 @@ class ProcurementGroup(models.Model):
         moves_domain = [
             ('state', 'in', ['confirmed', 'partially_available']),
             ('product_uom_qty', '!=', 0.0),
-            ('reservation_date', '<=', fields.Date.today())
+            '|',
+                ('reservation_date', '<=', fields.Date.today()),
+                ('picking_type_id.reservation_method', '=', 'at_confirm'),
         ]
         if company_id:
             moves_domain = expression.AND([[('company_id', '=', company_id)], moves_domain])

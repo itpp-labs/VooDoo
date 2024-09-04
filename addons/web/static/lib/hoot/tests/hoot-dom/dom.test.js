@@ -10,7 +10,6 @@ import {
     getPreviousFocusableElement,
     isDisplayed,
     isEditable,
-    isEventTarget,
     isFocusable,
     isInDOM,
     isVisible,
@@ -121,7 +120,23 @@ const FULL_HTML_TEMPLATE = /* html */ `
         <button type="button">Back to top</button>
     </footer>
     `;
-const SVG_URL = "http://www.w3.org/2000/svg";
+
+customElements.define(
+    "hoot-test-shadow-root",
+    class ShadowRoot extends HTMLElement {
+        constructor() {
+            super();
+            const shadow = this.attachShadow({ mode: "open" });
+
+            const p = document.createElement("p");
+            p.textContent = "Shadow content";
+
+            const input = document.createElement("input");
+
+            shadow.append(p, input);
+        }
+    }
+);
 
 describe.tags("ui")(parseUrl(import.meta.url), () => {
     test.todo("should crash", async () => {
@@ -171,25 +186,14 @@ describe.tags("ui")(parseUrl(import.meta.url), () => {
     });
 
     test("getActiveElement: shadow dom", async () => {
-        customElements.define(
-            "shadow-input",
-            class extends HTMLElement {
-                constructor() {
-                    super();
-                    this.attachShadow({ mode: "open" });
-                    this.shadowRoot.appendChild(document.createElement("input"));
-                }
-            }
-        );
+        await mountOnFixture(/* xml */ `<hoot-test-shadow-root />`);
 
-        await mountOnFixture(/* xml */ `<shadow-input></shadow-input>`);
+        expect("hoot-test-shadow-root:shadow input").not.toBeFocused();
 
-        expect("shadow-input:shadow input").not.toBeFocused();
-
-        const input = queryOne("shadow-input:shadow input");
+        const input = queryOne("hoot-test-shadow-root:shadow input");
         click(input);
 
-        expect("shadow-input:shadow input").toBeFocused();
+        expect("hoot-test-shadow-root:shadow input").toBeFocused();
         expect(getActiveElement()).toBe(input);
     });
 
@@ -269,15 +273,6 @@ describe.tags("ui")(parseUrl(import.meta.url), () => {
         expect(isEditable(editableDiv)).toBe(false); // not supported
     });
 
-    test("isEventTarget", async () => {
-        expect(isEventTarget(window)).toBe(true);
-        expect(isEventTarget(document)).toBe(true);
-        expect(isEventTarget(document.body)).toBe(true);
-        expect(isEventTarget(document.createElement("form"))).toBe(true);
-        expect(isEventTarget(document.createElementNS(SVG_URL, "svg"))).toBe(true);
-        expect(isEventTarget({})).toBe(false);
-    });
-
     test("isFocusable", async () => {
         await mountOnFixture(FULL_HTML_TEMPLATE);
 
@@ -323,13 +318,14 @@ describe.tags("ui")(parseUrl(import.meta.url), () => {
     });
 
     test("isVisible", async () => {
-        await mountOnFixture(FULL_HTML_TEMPLATE);
+        await mountOnFixture(FULL_HTML_TEMPLATE + "<hoot-test-shadow-root />");
 
         expect(isVisible(document)).toBe(true);
         expect(isVisible(document.body)).toBe(true);
         expect(isVisible(document.head)).toBe(false);
         expect(isVisible(document.documentElement)).toBe(true);
         expect(isVisible("form")).toBe(true);
+        expect(isVisible("hoot-test-shadow-root:shadow input")).toBe(true);
 
         expect(isVisible(".hidden")).toBe(false);
         expect(isVisible("body")).toBe(false); // not available from fixture
@@ -515,6 +511,7 @@ describe.tags("ui")(parseUrl(import.meta.url), () => {
 
             // :iframe
             expectSelector("iframe p:contains(iframe text content)").toEqualNodes("");
+            expectSelector("div:iframe p").toEqualNodes("");
             expectSelector(":iframe p:contains(iframe text content)").toEqualNodes("p", {
                 root: "iframe",
             });

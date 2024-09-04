@@ -33,14 +33,14 @@ class PickingType(models.Model):
         check_company=True, copy=False)
     sequence_code = fields.Char('Sequence Prefix', required=True)
     default_location_src_id = fields.Many2one(
-        'stock.location', 'Default Source Location', compute='_compute_default_location_src_id',
+        'stock.location', 'Source Location', compute='_compute_default_location_src_id',
         check_company=True, store=True, readonly=False, precompute=True, required=True,
         help="This is the default source location when you create a picking manually with this operation type. It is possible however to change it or that the routes put another location.")
     default_location_dest_id = fields.Many2one(
-        'stock.location', 'Default Destination Location', compute='_compute_default_location_dest_id',
+        'stock.location', 'Destination Location', compute='_compute_default_location_dest_id',
         check_company=True, store=True, readonly=False, precompute=True, required=True,
         help="This is the default destination location when you create a picking manually with this operation type. It is possible however to change it or that the routes put another location.")
-    default_location_return_id = fields.Many2one('stock.location', 'Default returns location', check_company=True,
+    default_location_return_id = fields.Many2one('stock.location', 'Return Location', check_company=True,
         help="This is the default location for returns created from a picking with this operation type.",
         domain="[('return_location', '=', True)]")
     code = fields.Selection([('incoming', 'Receipt'), ('outgoing', 'Delivery'), ('internal', 'Internal Transfer')], 'Type of Operation', required=True)
@@ -61,7 +61,7 @@ class PickingType(models.Model):
         compute='_compute_use_existing_lots', store=True, readonly=False,
         help="If this is checked, you will be able to choose the Lots/Serial Numbers. You can also decide to not put lots in this operation type.  This means it will create stock with no lot or not put a restriction on the lot taken. ")
     print_label = fields.Boolean(
-        'Print Label', compute="_compute_print_label", store=True, readonly=False,
+        'Generate Shipping Labels', compute="_compute_print_label", store=True, readonly=False,
         help="Check this box if you want to generate shipping label in this operation.")
     # TODO: delete this field `show_operations`
     show_operations = fields.Boolean(
@@ -199,6 +199,22 @@ class PickingType(models.Model):
                         'prefix': vals['sequence_code'], 'padding': 5,
                         'company_id': picking_type.env.company.id,
                     })
+        if 'reservation_method' in vals:
+            if vals['reservation_method'] == 'by_date':
+                if picking_types := self.filtered(lambda p: p.reservation_method != 'by_date'):
+                    domain = [('picking_type_id', 'in', picking_types.ids), ('state', 'in', ('draft', 'confirmed', 'waiting', 'partially_available'))]
+                    group_by = ['picking_type_id']
+                    aggregates = ['id:recordset']
+                    for picking_type, moves in self.env['stock.move']._read_group(domain, group_by, aggregates):
+                        common_days = vals.get('reservation_days_before') or picking_type.reservation_days_before
+                        priority_days = vals.get('reservation_days_before_priority') or picking_type.reservation_days_before_priority
+                        for move in moves:
+                            move.reservation_date = fields.Date.to_date(move.date) - timedelta(days=priority_days if move.priority == '1' else common_days)
+            else:
+                if picking_types := self.filtered(lambda p: p.reservation_method == 'by_date'):
+                    moves = self.env['stock.move'].search([('picking_type_id', 'in', picking_types.ids), ('state', 'not in', ('assigned', 'done', 'cancel'))])
+                    moves.reservation_date = False
+
         return super(PickingType, self).write(vals)
 
     @api.model
@@ -294,6 +310,8 @@ class PickingType(models.Model):
     @api.depends('code')
     def _compute_default_location_src_id(self):
         for picking_type in self:
+            if not picking_type.warehouse_id:
+                self.env['stock.warehouse']._warehouse_redirect_warning()
             stock_location = picking_type.warehouse_id.lot_stock_id
             if picking_type.code == 'incoming':
                 picking_type.default_location_src_id = self.env.ref('stock.stock_location_suppliers').id
@@ -303,6 +321,8 @@ class PickingType(models.Model):
     @api.depends('code')
     def _compute_default_location_dest_id(self):
         for picking_type in self:
+            if not picking_type.warehouse_id:
+                self.env['stock.warehouse']._warehouse_redirect_warning()
             stock_location = picking_type.warehouse_id.lot_stock_id
             if picking_type.code == 'outgoing':
                 picking_type.default_location_dest_id = self.env.ref('stock.stock_location_customers').id
@@ -334,8 +354,6 @@ class PickingType(models.Model):
             if picking_type.company_id:
                 warehouse = self.env['stock.warehouse'].search([('company_id', '=', picking_type.company_id.id)], limit=1)
                 picking_type.warehouse_id = warehouse
-            else:
-                picking_type.warehouse_id = False
 
     @api.depends('code')
     def _compute_show_picking_type(self):
@@ -668,7 +686,7 @@ class Picking(models.Model):
     weight_bulk = fields.Float(
         'Bulk Weight', compute='_compute_bulk_weight', help="Total weight of products which are not in a package.")
     shipping_weight = fields.Float(
-        "Weight for Shipping", compute='_compute_shipping_weight',
+        "Weight for Shipping", compute='_compute_shipping_weight', readonly=False,
         help="Total weight of packages and products not in a package. "
         "Packages with no shipping weight specified will default to their products' total weight. "
         "This is the weight used to compute the cost of the shipping.")

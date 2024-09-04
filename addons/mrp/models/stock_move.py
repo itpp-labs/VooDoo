@@ -156,6 +156,28 @@ class StockMoveLine(models.Model):
 
         return aggregated_move_lines
 
+    def _prepare_stock_move_vals(self):
+        move_vals = super()._prepare_stock_move_vals()
+        if self.env['product.product'].browse(move_vals['product_id']).is_kits:
+            move_vals['location_id'] = self.location_id.id
+            move_vals['location_dest_id'] = self.location_dest_id.id
+        return move_vals
+
+    def _get_linkable_moves(self):
+        """ Don't linke move lines with kit products to moves with dissimilar locations so that
+        post `action_explode()` move lines will have accurate location data.
+        """
+        self.ensure_one()
+        if self.product_id and self.product_id.is_kits:
+            moves = self.picking_id.move_ids.filtered(lambda move:
+                move.product_id == self.product_id and
+                move.location_id == self.location_id and
+                move.location_dest_id == self.location_dest_id
+            )
+            return sorted(moves, key=lambda m: m.quantity < m.product_qty, reverse=True)
+        else:
+            return super()._get_linkable_moves()
+
 
 class StockMove(models.Model):
     _inherit = 'stock.move'
@@ -224,14 +246,13 @@ class StockMove(models.Model):
         for bom in self.bom_line_id.bom_id:
             if bom.type != 'phantom':
                 continue
-            line_ids = bom.bom_line_ids.ids
+            line_ids = self.bom_line_id.filtered(lambda line: line.bom_id == bom).mapped('id')
             total = len(line_ids)
-            name = bom.display_name
             for i, line_id in enumerate(line_ids):
-                bom_line_description[line_id] = '%s - %d/%d' % (name, i+1, total)
+                bom_line_description[line_id] = '%s - %d/%d' % (bom.display_name, i + 1, total)
 
         for move in self:
-            move.description_bom_line = bom_line_description.get(move.bom_line_id.id)
+            move.description_bom_line = bom_line_description.get(move.bom_line_id.id, move.description_bom_line)
 
     @api.depends('raw_material_production_id.priority')
     def _compute_priority(self):
@@ -475,7 +496,7 @@ class StockMove(models.Model):
                 factor = move.product_uom._compute_quantity(move.quantity, bom.product_uom_id) / bom.product_qty
             else:
                 factor = move.product_uom._compute_quantity(move.product_uom_qty, bom.product_uom_id) / bom.product_qty
-            boms, lines = bom.sudo().explode(move.product_id, factor, picking_type=bom.picking_type_id)
+            _dummy, lines = bom.sudo().explode(move.product_id, factor, picking_type=bom.picking_type_id, never_attribute_values=move.never_product_template_attribute_value_ids)
             for bom_line, line_data in lines:
                 if float_is_zero(move.product_uom_qty, precision_rounding=move.product_uom.rounding) or self.env.context.get('is_scrap'):
                     phantom_moves_vals_list += move._generate_move_phantom(bom_line, 0, line_data['qty'])

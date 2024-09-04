@@ -148,7 +148,7 @@ export function removeClass(element, ...classNames) {
 /**
  * Add a BR in the given node if its closest ancestor block has nothing to make
  * it visible, and/or add a zero-width space in the given node if it's an empty
- * inline unremovable so the cursor can stay in it.
+ * inline so the cursor can stay in it.
  *
  * @param {HTMLElement} el
  * @returns {Object} { br: the inserted <br> if any,
@@ -157,9 +157,7 @@ export function removeClass(element, ...classNames) {
 export function fillEmpty(el) {
     const document = el.ownerDocument;
     const fillers = { ...fillShrunkPhrasingParent(el) };
-    if (!isVisible(el) && !el.hasAttribute("data-oe-zws-empty-inline")) {
-        // As soon as there is actual content in the node, the zero-width space
-        // is removed by the sanitize function.
+    if (!isBlock(el) && !isVisible(el) && !el.hasAttribute("data-oe-zws-empty-inline")) {
         const zws = document.createTextNode("\u200B");
         el.appendChild(zws);
         el.setAttribute("data-oe-zws-empty-inline", "");
@@ -220,12 +218,12 @@ export function toggleClass(node, className) {
 }
 
 /**
- * Remove all occurrences of a character from a text node and update cursors for
- * for later selection restore.
+ * Remove all occurrences of a character from a text node and optionally update
+ * cursors for later selection restore.
  *
  * @param {Node} node text node
  * @param {String} char character to remove (string of length 1)
- * @param {Cursors} cursors
+ * @param {Cursors} [cursors]
  */
 export function cleanTextNode(node, char, cursors) {
     const removedIndexes = [];
@@ -233,7 +231,7 @@ export function cleanTextNode(node, char, cursors) {
         removedIndexes.push(offset);
         return "";
     });
-    cursors.update((cursor) => {
+    cursors?.update((cursor) => {
         if (cursor.node === node) {
             cursor.offset -= removedIndexes.filter((index) => cursor.offset > index).length;
         }

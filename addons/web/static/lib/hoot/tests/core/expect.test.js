@@ -1,10 +1,11 @@
 /** @odoo-module */
 
 import { describe, expect, makeExpect, mountOnFixture, test } from "@odoo/hoot";
+import { check } from "@odoo/hoot-dom";
 import { tick } from "@odoo/hoot-mock";
 import { Component, xml } from "@odoo/owl";
-import { parseUrl } from "../local_helpers";
 import { Test } from "../../core/test";
+import { parseUrl } from "../local_helpers";
 
 describe(parseUrl(import.meta.url), () => {
     test("makeExpect passing, without a test", () => {
@@ -119,6 +120,89 @@ describe(parseUrl(import.meta.url), () => {
         expect(results.pass).toBe(false);
         expect(results.assertions).toHaveLength(2);
         expect(results.assertions[1].message).toBe("unverified steps");
+    });
+
+    test("makeExpect retains current values", () => {
+        const [customExpect, hooks] = makeExpect({ headless: true });
+
+        hooks.before();
+
+        const object = { a: 1 };
+        customExpect(object).toEqual({ b: 2 });
+        object.b = 2;
+
+        const testResult = hooks.after();
+
+        const [assertion] = testResult.assertions;
+        expect(assertion.pass).toBe(false);
+        expect(assertion.failedDetails[1][1]).toEqual({ a: 1 });
+        expect(object).toEqual({ a: 1, b: 2 });
+    });
+
+    test("'expect' results contain the correct informations", async () => {
+        await mountOnFixture(/* xml */ `
+            <label style="color: #f00">
+                Checkbox
+                <input class="cb" type="checkbox" />
+            </label>
+            <input type="text" value="abc" />
+        `);
+
+        check("input[type=checkbox]");
+
+        const [customExpect, hooks] = makeExpect({ headless: true });
+
+        hooks.before();
+
+        const matchers = [
+            // Standard
+            ["toBe", 1, 1],
+            ["toBeCloseTo", 1, 1],
+            ["toBeEmpty", []],
+            ["toBeGreaterThan", 1, 0],
+            ["toBeInstanceOf", {}, Object],
+            ["toBeLessThan", 0, 1],
+            ["toBeOfType", 1, "integer"],
+            ["toBeWithin", 1, 0, 2],
+            ["toEqual", [], []],
+            ["toHaveLength", [], 0],
+            ["toInclude", [1], 1],
+            ["toMatch", "a", "a"],
+            [
+                "toThrow",
+                () => {
+                    throw new Error("");
+                },
+            ],
+            // DOM
+            ["toBeChecked", ".cb"],
+            ["toBeDisplayed", ".cb"],
+            ["toBeEnabled", ".cb"],
+            ["toBeFocused", ".cb"],
+            ["toBeVisible", ".cb"],
+            ["toHaveAttribute", ".cb", "type", "checkbox"],
+            ["toHaveClass", ".cb", "cb"],
+            ["toHaveCount", ".cb", 1],
+            ["toHaveInnerHTML", ".cb", ""],
+            ["toHaveOuterHTML", ".cb", `<input class="cb" type="checkbox" />`],
+            ["toHaveProperty", ".cb", "checked", true],
+            ["toHaveRect", "label", { x: 0 }],
+            ["toHaveStyle", "label", { color: "rgb(255, 0, 0)" }],
+            ["toHaveText", "label", "Checkbox"],
+            ["toHaveValue", "input[type=text]", "abc"],
+        ];
+
+        for (const [name, ...args] of matchers) {
+            customExpect(args.shift())[name](...args);
+        }
+
+        const testResult = hooks.after();
+
+        expect(testResult.pass).toBe(true);
+        expect(testResult.assertions).toHaveLength(matchers.length);
+        expect(testResult.assertions.map(({ label }) => label)).toEqual(
+            matchers.map(([name]) => name)
+        );
     });
 
     describe("standard matchers", () => {

@@ -65,6 +65,18 @@ class MrpProduction(models.Model):
         compute='_compute_product_id', store=True, copy=True, precompute=True,
         readonly=False, required=True, check_company=True)
     product_variant_attributes = fields.Many2many('product.template.attribute.value', related='product_id.product_template_attribute_value_ids')
+    valid_product_template_attribute_line_ids = fields.Many2many(related='product_tmpl_id.valid_product_template_attribute_line_ids')
+    never_product_template_attribute_value_ids = fields.Many2many(
+        'product.template.attribute.value',
+        'template_attribute_value_mrp_production_rel',
+        'production_id', 'template_attribute_value_id',
+        domain="""[
+            '&',
+                ('attribute_line_id', 'in', valid_product_template_attribute_line_ids),
+                ('attribute_id.create_variant', '=', 'no_variant')]""",
+        string="Never attribute values",
+    )
+
     workcenter_id = fields.Many2one('mrp.workcenter', store=False)  # Only used for search in view_mrp_production_filter
     product_tracking = fields.Selection(related='product_id.tracking')
     product_tmpl_id = fields.Many2one('product.template', 'Product Template', related='product_id.product_tmpl_id')
@@ -293,6 +305,9 @@ class MrpProduction(models.Model):
             if mo.picking_type_id and mo.picking_type_id.company_id == mo.company_id:
                 continue
             mo.picking_type_id = picking_type_by_company.get(mo.company_id.id, False)
+            company_warehouse = self.env['stock.warehouse'].search([('company_id', '=', mo.company_id.id)], limit=1)
+            if not company_warehouse:
+                self.env['stock.warehouse']._warehouse_redirect_warning()
 
     @api.depends('bom_id', 'product_id')
     def _compute_uom_id(self):
@@ -368,7 +383,7 @@ class MrpProduction(models.Model):
             ):
                 production.product_id = bom.product_id or bom.product_tmpl_id.product_variant_id
 
-    @api.depends('product_id')
+    @api.depends('product_id', 'never_product_template_attribute_value_ids')
     def _compute_bom_id(self):
         mo_by_company_id = defaultdict(lambda: self.env['mrp.production'])
         for mo in self:
@@ -546,7 +561,8 @@ class MrpProduction(models.Model):
                 # keep manual entries
                 workorders_values = []
                 product_qty = production.product_uom_id._compute_quantity(production.product_qty, production.bom_id.product_uom_id)
-                exploded_boms, dummy = production.bom_id.explode(production.product_id, product_qty / production.bom_id.product_qty, picking_type=production.bom_id.picking_type_id)
+                exploded_boms, _dummy = production.bom_id.explode(production.product_id, product_qty / production.bom_id.product_qty, picking_type=production.bom_id.picking_type_id,
+                    never_attribute_values=production.never_product_template_attribute_value_ids)
 
                 for bom, bom_data in exploded_boms:
                     # If the operations of the parent BoM and phantom BoM are the same, don't recreate work orders.
@@ -698,7 +714,7 @@ class MrpProduction(models.Model):
                 date_finished = date_finished + relativedelta(minutes=workorder_expected_duration or 60)
             production.date_finished = date_finished
 
-    @api.depends('company_id', 'bom_id', 'product_id', 'product_qty', 'product_uom_id', 'location_src_id')
+    @api.depends('company_id', 'bom_id', 'product_id', 'product_qty', 'product_uom_id', 'location_src_id', 'never_product_template_attribute_value_ids')
     def _compute_move_raw_ids(self):
         for production in self:
             if production.state != 'draft' or self.env.context.get('skip_compute_move_raw_ids'):
@@ -706,7 +722,7 @@ class MrpProduction(models.Model):
             list_move_raw = [Command.link(move.id) for move in production.move_raw_ids.filtered(lambda m: not m.bom_line_id)]
             if not production.bom_id and not production._origin.product_id:
                 production.move_raw_ids = list_move_raw
-            if any(move.bom_line_id.bom_id != production.bom_id or move.bom_line_id._skip_bom_line(production.product_id)\
+            if any(move.bom_line_id.bom_id != production.bom_id or move.bom_line_id._skip_bom_line(production.product_id, production.never_product_template_attribute_value_ids)
                 for move in production.move_raw_ids if move.bom_line_id):
                 production.move_raw_ids = [Command.clear()]
             if production.bom_id and production.product_id and production.product_qty > 0:
@@ -797,7 +813,7 @@ class MrpProduction(models.Model):
                 return {'warning': {'title': _('Warning'), 'message': message}}
         return True
 
-    @api.onchange('product_id', 'move_raw_ids')
+    @api.onchange('product_id', 'move_raw_ids', 'never_product_template_attribute_value_ids')
     def _onchange_product_id(self):
         for move in self.move_raw_ids:
             if self.product_id == move.product_id:
@@ -831,19 +847,18 @@ class MrpProduction(models.Model):
             del vals['move_byproduct_ids']
         if 'workorder_ids' in self:
             production_to_replan = self.filtered(lambda p: p.is_planned)
-        if 'move_raw_ids' in vals and self.state not in ['draft', 'cancel', 'done']:
-            # When adding a move raw, it should have the source location's `warehouse_id`.
+        for move_str in ('move_raw_ids', 'move_finished_ids'):
+            if move_str not in vals or self.state in ['draft', 'cancel', 'done']:
+                continue
+            # When adding a move raw/finished, it should have the source location's `warehouse_id`.
             # Before, it was handle by an onchange, now it's forced if not already in vals.
             warehouse_id = self.location_src_id.warehouse_id.id
             if vals.get('location_src_id'):
                 location_source = self.env['stock.location'].browse(vals.get('location_src_id'))
                 warehouse_id = location_source.warehouse_id.id
-            for move_vals in vals['move_raw_ids']:
-                command = move_vals[0]
-                if command != Command.CREATE:
-                    continue
-                field_values = move_vals[2]
-                if not field_values.get('warehouse_id', False):
+            for move_vals in vals[move_str]:
+                command, _id, field_values = move_vals
+                if command == Command.CREATE and not field_values.get('warehouse_id', False):
                     field_values['warehouse_id'] = warehouse_id
 
         if vals.get('picking_type_id'):
@@ -941,22 +956,6 @@ class MrpProduction(models.Model):
             if not default or 'move_raw_ids' not in default:
                 vals['move_raw_ids'] = [(0, 0, move_vals) for move_vals in production.move_raw_ids.filtered(lambda m: m.product_qty != 0.0).copy_data()]
         return vals_list
-
-    def copy(self, default=None):
-        new_productions = super().copy(default)
-        for old_production, new_production in zip(self, new_productions):
-            if old_production.workorder_ids.blocked_by_workorder_ids:
-                workorders_mapping = {}
-                for original, copied in zip(old_production.workorder_ids, new_production.workorder_ids.sorted()):
-                    workorders_mapping[original] = copied
-                for workorder in old_production.workorder_ids:
-                    if workorder.blocked_by_workorder_ids:
-                        copied_workorder = workorders_mapping[workorder]
-                        dependencies = []
-                        for dependency in workorder.blocked_by_workorder_ids:
-                            dependencies.append(Command.link(workorders_mapping[dependency].id))
-                        copied_workorder.blocked_by_workorder_ids = dependencies
-        return new_productions
 
     def action_generate_bom(self):
         """ Generates a new Bill of Material based on the Manufacturing Order's product, components,
@@ -1142,7 +1141,7 @@ class MrpProduction(models.Model):
             if not production.bom_id:
                 continue
             factor = production.product_uom_id._compute_quantity(production.product_qty, production.bom_id.product_uom_id) / production.bom_id.product_qty
-            boms, lines = production.bom_id.explode(production.product_id, factor, picking_type=production.bom_id.picking_type_id)
+            _boms, lines = production.bom_id.explode(production.product_id, factor, picking_type=production.bom_id.picking_type_id, never_attribute_values=production.never_product_template_attribute_value_ids)
             for bom_line, line_data in lines:
                 if bom_line.child_bom_id and bom_line.child_bom_id.type == 'phantom' or\
                         bom_line.product_id.type != 'consu':
@@ -1258,7 +1257,7 @@ class MrpProduction(models.Model):
             moves_in_first_operation = self.move_raw_ids.filtered(lambda move: move.operation_id == first_operation)
         moves_in_first_operation = moves_in_first_operation.filtered(
             lambda move: move.bom_line_id and
-            not move.bom_line_id._skip_bom_line(self.product_id)
+            not move.bom_line_id._skip_bom_line(self.product_id, self.never_product_template_attribute_value_ids)
         )
 
         if all(move.state == 'assigned' for move in moves_in_first_operation):
@@ -1440,11 +1439,8 @@ class MrpProduction(models.Model):
         last_workorder_per_bom = defaultdict(lambda: self.env['mrp.workorder'])
         self.allow_workorder_dependencies = self.bom_id.allow_operation_dependencies
 
-        def workorder_order(wo):
-            return (wo.operation_id.bom_id, wo.operation_id.sequence)
-
         if self.allow_workorder_dependencies:
-            for workorder in self.workorder_ids.sorted(workorder_order):
+            for workorder in self.workorder_ids.sorted():
                 workorder.blocked_by_workorder_ids = [Command.link(workorder_per_operation[operation_id].id)
                                                       for operation_id in
                                                       workorder.operation_id.blocked_by_operation_ids
@@ -1453,8 +1449,8 @@ class MrpProduction(models.Model):
                     last_workorder_per_bom[workorder.operation_id.bom_id] = workorder
         else:
             previous_workorder = False
-            for workorder in self.workorder_ids.sorted(workorder_order):
-                if previous_workorder and previous_workorder.operation_id.bom_id == workorder.operation_id.bom_id:
+            for workorder in self.workorder_ids.sorted():
+                if previous_workorder:
                     workorder.blocked_by_workorder_ids = [Command.link(previous_workorder.id)]
                 previous_workorder = workorder
                 last_workorder_per_bom[workorder.operation_id.bom_id] = workorder

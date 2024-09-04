@@ -2,12 +2,20 @@ import { Plugin } from "../plugin";
 import { isBlock } from "../utils/blocks";
 import { hasAnyNodesColor } from "@html_editor/utils/color";
 import { cleanTextNode, unwrapContents } from "../utils/dom";
-import { isContentEditable, isTextNode, isVisibleTextNode, isZWS } from "../utils/dom_info";
-import { closestElement, descendants, selectElements } from "../utils/dom_traversal";
+import {
+    areSimilarElements,
+    isContentEditable,
+    isSelfClosingElement,
+    isTextNode,
+    isVisibleTextNode,
+    isZWS,
+} from "../utils/dom_info";
+import { childNodes, closestElement, descendants, selectElements } from "../utils/dom_traversal";
 import { FONT_SIZE_CLASSES, formatsSpecs } from "../utils/formatting";
 import { boundariesIn, boundariesOut, DIRECTIONS, leftPos, rightPos } from "../utils/position";
 import { prepareUpdate } from "@html_editor/utils/dom_state";
 import { _t } from "@web/core/l10n/translation";
+import { callbacksForCursorUpdate } from "@html_editor/utils/selection";
 
 const allWhitespaceRegex = /^[\s\u200b]*$/;
 
@@ -32,7 +40,7 @@ function hasFormat(formatPlugin) {
 
 export class FormatPlugin extends Plugin {
     static name = "format";
-    static dependencies = ["selection", "split"];
+    static dependencies = ["selection", "split", "delete"];
     static shared = ["isSelectionFormat", "insertAndSelectZws"];
     /** @type { (p: FormatPlugin) => Record<string, any> } */
     static resources = (p) => ({
@@ -127,10 +135,10 @@ export class FormatPlugin extends Plugin {
             case "FORMAT_REMOVE_FORMAT":
                 this.removeFormat();
                 break;
-            case "CLEAN":
-                // TODO @phoenix: evaluate if this should be cleanforsave instead
-                this.clean(payload.root);
+            case "CLEAN_FOR_SAVE": {
+                this.cleanForSave(payload);
                 break;
+            }
             case "NORMALIZE":
                 this.normalize(payload.node);
                 break;
@@ -346,8 +354,8 @@ export class FormatPlugin extends Plugin {
         }
     }
 
-    normalize(element) {
-        for (const el of selectElements(element, "[data-oe-zws-empty-inline]")) {
+    normalize(root) {
+        for (const el of selectElements(root, "[data-oe-zws-empty-inline]")) {
             if (!allWhitespaceRegex.test(el.textContent)) {
                 // The element has some meaningful text. Remove the ZWS in it.
                 delete el.dataset.oeZwsEmptyInline;
@@ -362,19 +370,21 @@ export class FormatPlugin extends Plugin {
                 }
             }
         }
+        this.mergeAdjacentInlines(root);
     }
 
-    clean(root) {
-        for (const el of root.querySelectorAll("[data-oe-zws-empty-inline]")) {
-            this.cleanElement(el);
+    cleanForSave({ root, preserveSelection = false } = {}) {
+        for (const element of root.querySelectorAll("[data-oe-zws-empty-inline]")) {
+            this.cleanElement(element, { preserveSelection });
         }
+        this.mergeAdjacentInlines(root, { preserveSelection });
     }
 
-    cleanElement(element) {
+    cleanElement(element, { preserveSelection }) {
         delete element.dataset.oeZwsEmptyInline;
         if (!allWhitespaceRegex.test(element.textContent)) {
             // The element has some meaningful text. Remove the ZWS in it.
-            this.cleanZWS(element);
+            this.cleanZWS(element, { preserveSelection });
             return;
         }
         if (this.resources.isUnremovable.some((predicate) => predicate(element))) {
@@ -392,13 +402,13 @@ export class FormatPlugin extends Plugin {
         restore();
     }
 
-    cleanZWS(element) {
+    cleanZWS(element, { preserveSelection = true } = {}) {
         const textNodes = descendants(element).filter(isTextNode);
-        const cursors = this.shared.preserveSelection();
+        const cursors = preserveSelection ? this.shared.preserveSelection() : null;
         for (const node of textNodes) {
             cleanTextNode(node, "\u200B", cursors);
         }
-        cursors.restore();
+        cursors?.restore();
     }
 
     insertText(selection, content) {
@@ -460,6 +470,29 @@ export class FormatPlugin extends Plugin {
                 this.shared.setSelection({ anchorNode, anchorOffset, focusNode, focusOffset });
             }
         }
+    }
+
+    mergeAdjacentInlines(root, { preserveSelection = true } = {}) {
+        let selectionToRestore = null;
+        for (const node of descendants(root)) {
+            if (this.shouldBeMergedWithPreviousSibling(node)) {
+                if (preserveSelection) {
+                    selectionToRestore ??= this.shared.preserveSelection();
+                    selectionToRestore.update(callbacksForCursorUpdate.merge(node));
+                }
+                node.previousSibling.append(...childNodes(node));
+                node.remove();
+            }
+        }
+        selectionToRestore?.restore();
+    }
+
+    shouldBeMergedWithPreviousSibling(node) {
+        return (
+            !isSelfClosingElement(node) &&
+            areSimilarElements(node, node.previousSibling) &&
+            !this.shared.isUnmergeable(node)
+        );
     }
 }
 
