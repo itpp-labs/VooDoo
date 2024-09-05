@@ -4399,6 +4399,7 @@ class MailThread(models.AbstractModel):
 
         return True
 
+    @api.readonly
     def message_get_followers(self, after=None, limit=100, filter_recipients=False):
         self.ensure_one()
         store = Store()
@@ -4471,11 +4472,11 @@ class MailThread(models.AbstractModel):
         msg_vals = {"res_id": new_thread.id, "model": new_thread._name}
         if new_parent_message:
             msg_vals["parent_id"] = new_parent_message.id
-        msg_comment.write(msg_vals)
+        msg_comment.sudo().write(msg_vals)
 
         # other than comment: reset subtype
         msg_vals["subtype_id"] = None
-        msg_not_comment.write(msg_vals)
+        msg_not_comment.sudo().write(msg_vals)
         return True
 
     def _message_update_content(self, message, body, attachment_ids=None, partner_ids=None,
@@ -4542,7 +4543,7 @@ class MailThread(models.AbstractModel):
         empty_messages._cleanup_side_records()
         empty_messages.write({'pinned_at': None})
         res = {
-            "attachments": Store.many(message.attachment_ids.sorted("id")),
+            "attachment_ids": Store.many(message.attachment_ids.sorted("id")),
             "body": message.body,
             "pinned_at": message.pinned_at,
             "recipients": Store.many(message.partner_ids, fields=["name", "write_date"]),

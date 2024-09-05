@@ -720,6 +720,8 @@ class Message(models.Model):
 
     def write(self, vals):
         record_changed = 'model' in vals or 'res_id' in vals
+        if record_changed and not self.env.is_system():
+            raise AccessError(_("Only administrators can modify 'model' and 'res_id' fields."))
         if record_changed or 'message_type' in vals:
             self._invalidate_documents()
         res = super(Message, self).write(vals)
@@ -1019,7 +1021,7 @@ class Message(models.Model):
             data["default_subject"] = default_subject
             vals = {
                 # sudo: mail.message - reading attachments on accessible message is allowed
-                "attachments": Store.many(message.sudo().attachment_ids.sorted("id")),
+                "attachment_ids": Store.many(message.sudo().attachment_ids.sorted("id")),
                 # sudo: mail.message - reading link preview on accessible message is allowed
                 "linkPreviews": Store.many(
                     message.sudo().link_preview_ids.filtered(lambda l: not l.is_hidden)
