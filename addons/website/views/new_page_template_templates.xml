@@ -546,14 +546,14 @@ overridden by modules), because:
     <xpath expr="//section" position="attributes">
         <attribute name="class" add="pt0 o_cc3 o_colored_level" remove="o_cc1 pt80" separator=" "/>
     </xpath>
-    <xpath expr="//h6" position="replace">
-        <h6 class="lead" style="text-align: center;">Clients</h6>
+    <xpath expr="//span[hasclass('h5-fs')]" position="replace" mode="inner">
+        Clients
     </xpath>
-    <xpath expr="(//h6)[2]" position="replace">
-        <h6 class="lead" style="text-align: center;">Amazing Pages</h6>
+    <xpath expr="(//span[hasclass('h5-fs')])[2]" position="replace" mode="inner">
+        Growth Rate
     </xpath>
-    <xpath expr="(//h6)[3]" position="replace">
-        <h6 class="lead" style="text-align: center;">Websites</h6>
+    <xpath expr="(//span[hasclass('h5-fs')])[3]" position="replace" mode="inner">
+        Websites
     </xpath>
 </template>
 
@@ -787,13 +787,13 @@ overridden by modules), because:
         <p class="card-text">Aline is one of the iconic people in life who can say they love what they do. She mentors 100+ in-house developers and looks after the community of thousands of developers.</p>
     </xpath>
     <xpath expr="//img" position="replace">
-        <img alt="" src="/web/image/website.s_company_team_image_1" class="card-img-top"/>
+        <img alt="" src="/web/image/website.s_company_team_image_1" class="o_card_img card-img-top"/>
     </xpath>
     <xpath expr="(//img)[2]" position="replace">
-        <img alt="" src="/web/image/website.s_company_team_image_2" class="card-img-top"/>
+        <img alt="" src="/web/image/website.s_company_team_image_2" class="o_card_img card-img-top"/>
     </xpath>
     <xpath expr="(//img)[3]" position="replace">
-        <img alt="" src="/web/image/website.s_company_team_image_3" class="card-img-top"/>
+        <img alt="" src="/web/image/website.s_company_team_image_3" class="o_card_img card-img-top"/>
     </xpath>
 </template>
 
@@ -1058,4 +1058,3 @@ overridden by modules), because:
 </function>
 
 </odoo>
-

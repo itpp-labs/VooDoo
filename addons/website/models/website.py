@@ -14,7 +14,7 @@ from lxml import etree, html
 from werkzeug import urls
 from werkzeug.exceptions import NotFound
 
-from odoo import api, fields, models, tools, release, registry
+from odoo import api, fields, models, tools, release
 from odoo.addons.website.models.ir_http import sitemap_qs2dom
 from odoo.addons.website.tools import similarity_score, text_from_html, get_base_domain
 from odoo.addons.portal.controllers.portal import pager
@@ -507,9 +507,6 @@ class Website(models.Model):
         theme = self.env['ir.module.module'].search([('name', '=', theme_name)])
         redirect_url = theme.button_choose_theme()
 
-        # Force to refresh env after install of module
-        assert self.env.registry is registry()
-
         website.configurator_done = True
 
         # Enable tour
@@ -621,7 +618,6 @@ class Website(models.Model):
 
         if modules:
             modules.button_immediate_install()
-            assert self.env.registry is registry()
 
         self.env['website'].browse(website.id).configurator_set_menu_links(menu_company, module_data)
 
@@ -849,6 +845,7 @@ class Website(models.Model):
             #       to close to OXP.
             fallback_create_missing_industry_image('s_banner_default_image_2', 's_image_text_default_image')
             fallback_create_missing_industry_image('s_banner_default_image_3', 's_product_list_default_image_1')
+            fallback_create_missing_industry_image('s_striped_top_default_image', 's_picture_default_image')
             fallback_create_missing_industry_image('s_text_cover_default_image', 's_cover_default_image')
             fallback_create_missing_industry_image('s_showcase_default_image', 's_image_text_default_image')
             fallback_create_missing_industry_image('s_image_hexagonal_default_image', 's_cover_default_image')
@@ -1514,13 +1511,9 @@ class Website(models.Model):
         }
         return action
 
-    def button_go_website(self, path='/', mode_edit=False):
+    def button_go_website(self, path='/'):
         self._force()
-        if mode_edit:
-            # If the user gets on a translated page (e.g /fr) the editor will
-            # never start. Forcing the default language fixes this issue.
-            path = self.env['ir.http']._url_for(path, self.default_lang_id.url_code)
-        return self.get_client_action(path, mode_edit)
+        return self.get_client_action(path)
 
     def _is_canonical_url(self):
         """Returns whether the current request URL is canonical."""

@@ -94,11 +94,13 @@ class SaleOrderLine(models.Model):
 
         return name_per_id
 
-    def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
+    @api.model
+    def name_search(self, name='', args=None, operator='ilike', limit=100):
+        domain = args or []
         # optimization for a SOL services name_search, to avoid joining on sale_order with too many lines
         if domain and ('is_service', '=', True) in domain and operator in ('like', 'ilike') and limit is not None:
-            query = self.env['sale.order.line']._search(domain, limit=limit, order=None)
-            query.order = f'{query.table}.order_id DESC, {query.table}.sequence, {query.table}.id'
-            return query
-        else:
-            return super()._name_search(name, domain, operator, limit, order)
+            sols = self.search_fetch(
+                domain, ['display_name'], limit=limit, order='order_id.id DESC, sequence, id',
+            )
+            return [(sol.id, sol.display_name) for sol in sols]
+        return super().name_search(name, domain, operator, limit)

@@ -65,6 +65,15 @@ class FormatAddressMixin(models.AbstractModel):
     _name = "format.address.mixin"
     _description = 'Address Format'
 
+    def _extract_fields_from_address(self, address_line):
+        """
+        Extract keys from the address line.
+        For example, if the address line is "zip: %(zip)s, city: %(city)s.",
+        this method will return ['zip', 'city'].
+        """
+        address_fields = ['%(' + field + ')s' for field in ADDRESS_FIELDS + ('state_code', 'state_name')]
+        return sorted([field[2:-2] for field in address_fields if field in address_line], key=address_line.index)
+
     def _view_get_address(self, arch):
         # consider the country of the user, not the country of the partner we want to display
         address_view_id = self.env.company.country_id.address_view_id.sudo()
@@ -85,12 +94,13 @@ class FormatAddressMixin(models.AbstractModel):
         elif address_format and not self._context.get('no_address_format'):
             # For the zip, city and state fields we need to move them around in order to follow the country address format.
             # The purpose of this is to help the user by following a format he is used to.
-            city_line = [line.split(' ') for line in address_format.split('\n') if 'city' in line]
+            city_line = [self._extract_fields_from_address(line) for line in address_format.split('\n') if 'city' in line]
             if city_line:
-                field_order = [field.replace('%(', '').replace(')s', '') for field in city_line[0]]
+                field_order = city_line[0]
                 for address_node in arch.xpath("//div[hasclass('o_address_format')]"):
-                    concerned_fields = {'zip', 'city', 'state_id'} - {field_order[0]}
-                    current_field = address_node.find(f".//field[@name='{field_order[0]}']")
+                    first_field = field_order[0] if field_order[0] not in ('state_code', 'state_name') else 'state_id'
+                    concerned_fields = {'zip', 'city', 'state_id'} - {first_field}
+                    current_field = address_node.find(f".//field[@name='{first_field}']")
                     # First loop into the fields displayed in the address_format, and order them.
                     for field in field_order[1:]:
                         if field in ('state_code', 'state_name'):
@@ -136,7 +146,6 @@ class PartnerCategory(models.Model):
         return randint(1, 11)
 
     name = fields.Char('Name', required=True, translate=True)
-    display_name = fields.Char('Display Name', compute='_compute_display_name', search='_search_display_name')
     color = fields.Integer(string='Color', default=_get_default_color, aggregator=False)
     parent_id: PartnerCategory = fields.Many2one('res.partner.category', string='Category', index=True, ondelete='cascade')
     child_ids: PartnerCategory = fields.One2many('res.partner.category', 'parent_id', string='Child Tags')
@@ -163,17 +172,11 @@ class PartnerCategory(models.Model):
             category.display_name = ' / '.join(reversed(names))
 
     @api.model
-    def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
-        domain = domain or []
-        if name:
-            # Be sure name_search is symetric to display_name
-            name = name.split(' / ')[-1]
-            domain = [('name', operator, name)] + domain
-        return self._search(domain, limit=limit, order=order)
-
-    @api.model
     def _search_display_name(self, operator, value):
-        return [('id', 'child_of', self._search([('name', operator, value)]))]
+        domain = super()._search_display_name(operator, value)
+        if operator.endswith('like'):
+            return [('id', 'child_of', self._search(domain))]
+        return domain
 
 class PartnerTitle(models.Model):
     _name = 'res.partner.title'

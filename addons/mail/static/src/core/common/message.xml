@@ -2,7 +2,7 @@
 <templates xml:space="preserve">
 
     <t t-name="mail.Message">
-        <div t-if="message.isNotification" class="o-mail-NotificationMessage text-break mx-auto text-500 px-3 text-center" t-on-click="onClickNotificationMessage"  t-att-class="props.className" t-ref="root">
+        <div t-if="message.isNotification" class="o-mail-NotificationMessage text-break mx-auto text-500 px-3 text-center smaller" t-on-click="onClickNotificationMessage"  t-att-class="props.className" t-ref="root">
             <i t-if="message.notificationIcon" t-attf-class="{{ message.notificationIcon }} me-1"/>
             <span class="o-mail-NotificationMessage-author d-inline" t-if="message.author and !message.body.includes(escape(message.author.name))" t-esc="message.author.name"/> <t t-out="message.body"/>
         </div>
@@ -87,7 +87,7 @@
                                                     <Composer t-if="state.isEditing" autofocus="true" composer="message.composer" onDiscardCallback.bind="exitEditMode" onPostCallback.bind="exitEditMode" mode="env.inChatter ? 'extended' : 'compact'" sidebar="false"/>
                                                     <t t-else="">
                                                         <em t-if="message.subject and !message.isSubjectSimilarToThreadName and !message.isSubjectDefault" class="mb-1 me-2">Subject: <t t-out="props.messageSearch?.highlight(message.subject) ?? message.subject"/></em>
-                                                        <div t-if="message.message_type and message.message_type.includes('email')" t-ref="shadowBody"/>
+                                                        <div class="overflow-x-auto" t-if="message.message_type and message.message_type.includes('email')" t-ref="shadowBody"/>
                                                         <t t-elif="state.showTranslation" t-out="message.translationValue"/>
                                                         <t t-elif="message.body" t-out="props.messageSearch?.highlight(message.body) ?? message.body"/>
                                                         <p class="fst-italic text-muted small" t-if="state.showTranslation">

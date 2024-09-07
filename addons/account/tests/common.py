@@ -299,10 +299,12 @@ class AccountTestInvoicingCommon(ProductCommon):
                     ('company_id', '=', company.id),
                     ('type', '=', 'cash')
                 ], limit=1),
-            'default_journal_credit': cls.env['account.journal'].search([
-                    ('company_id', '=', company.id),
-                    ('type', '=', 'credit')
-                ], limit=1),
+            'default_journal_credit': cls.env['account.journal'].create({
+                'name': 'Credit Journal',
+                'type': 'credit',
+                'code': 'CCD1',
+                'company_id': company.id,
+            }),
             'default_tax_sale': company.account_sale_tax_id,
             'default_tax_purchase': company.account_purchase_tax_id,
         }
@@ -497,8 +499,8 @@ class AccountTestInvoicingCommon(ProductCommon):
     def assertInvoiceValues(self, move, expected_lines_values, expected_move_values):
         def sort_lines(lines):
             return lines.sorted(lambda line: (line.sequence, not bool(line.tax_line_id), line.name or line.product_id.display_name or '', line.balance))
-        self.assertRecordValues(sort_lines(move.line_ids.sorted()), expected_lines_values)
-        self.assertRecordValues(move, [expected_move_values])
+        self.assertRecordValues(sort_lines(move.line_ids.sorted()), expected_lines_values, field_names=expected_lines_values[0].keys())
+        self.assertRecordValues(move, [expected_move_values], field_names=expected_move_values.keys())
 
     def assert_tax_totals(self, tax_totals, currency, expected_values):
         main_keys_to_ignore = {'formatted_amount_total', 'formatted_amount_untaxed'}
@@ -824,7 +826,6 @@ class TestTaxCommon(AccountTestInvoicingHttpCommon):
             'price_include': tax.price_include,
             'include_base_amount': tax.include_base_amount,
             'is_base_affected': tax.is_base_affected,
-            'total_tax_factor': tax.total_tax_factor,
             'children_tax_ids': [self._jsonify_tax(child) for child in tax.children_tax_ids],
         }
 
