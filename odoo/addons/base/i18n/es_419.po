@@ -2119,10 +2119,8 @@ msgstr ""
 #: model:ir.module.module,description:base.module_l10n_fr_facturx_chorus_pro
 msgid ""
 "\n"
-"Add supports to fill three optional fields used when using Chorus Pro, especially when invoicing public services.\n"
+"Add support to fill three optional fields used when using Chorus Pro, especially when invoicing public services.\n"
 msgstr ""
-"\n"
-"Agregue soporte para completar tres campos opcionales al usar Chorus Pro, en particular al facturar servicios públicos.\n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_documents_project
@@ -32553,7 +32551,7 @@ msgstr "QWeb"
 #. module: base
 #: model:ir.model,name:base.model_ir_qweb_field_time
 msgid "QWeb Field Time"
-msgstr "Tiempo del campo QWeb"
+msgstr "Campo de tiempo QWeb"
 
 #. module: base
 #: model:res.country,name:base.qa
