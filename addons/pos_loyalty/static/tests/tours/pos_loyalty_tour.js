@@ -486,3 +486,50 @@ registry.category("web_tour.tours").add("PosLoyaltyArchivedRewardProductsActive"
             PosLoyalty.finalizeOrder("Cash", "100"),
         ].flat(),
 });
+
+registry.category("web_tour.tours").add("CustomerLoyaltyPointsDisplayed", {
+    test: true,
+    url: "/pos/web",
+    steps: () =>
+        [
+            Dialog.confirm("Open session"),
+
+            ProductScreen.clickDisplayedProduct("product_a"),
+            ProductScreen.selectedOrderlineHas("product_a", "1.00", "100.00"),
+
+            ProductScreen.clickPartnerButton(),
+            ProductScreen.clickCustomer("John Doe"),
+
+            PosLoyalty.orderTotalIs("100.00"),
+            PosLoyalty.pointsAwardedAre("100"),
+            PosLoyalty.finalizeOrder("Cash", "100.00"),
+
+            PosLoyalty.checkPartnerPoints("John Doe", "100.00"),
+        ].flat(),
+});
+
+registry.category("web_tour.tours").add("PosRewardProductScan", {
+    test: true,
+    steps: () =>
+        [
+            Dialog.confirm("Open session"),
+
+            ProductScreen.scan_barcode("95412427100283"),
+            ProductScreen.selectedOrderlineHas("product_a", "1.00", "1,150.00"),
+            PosLoyalty.hasRewardLine("50% on your order", "-575.00"),
+            PosLoyalty.orderTotalIs("575.00"),
+            PosLoyalty.finalizeOrder("Cash", "575.00"),
+        ].flat(),
+});
+
+registry.category("web_tour.tours").add("PosRewardProductScanGS1", {
+    test: true,
+    steps: () =>
+        [
+            ProductScreen.scan_barcode("0195412427100283"),
+            ProductScreen.selectedOrderlineHas("product_a", "1.00", "1,150.00"),
+            PosLoyalty.hasRewardLine("50% on your order", "-575.00"),
+            PosLoyalty.orderTotalIs("575.00"),
+            PosLoyalty.finalizeOrder("Cash", "575.00"),
+        ].flat(),
+});

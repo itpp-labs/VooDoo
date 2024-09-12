@@ -20,6 +20,7 @@ import { createWebClient } from "@web/../tests/legacy/webclient/helpers";
 import { assertSteps, step, click, contains } from "@web/../tests/legacy/utils";
 import { browser } from "@web/core/browser/browser";
 import { user } from "@web/core/user";
+import { session } from "@web/session";
 
 QUnit.module("Bus");
 
@@ -27,8 +28,10 @@ QUnit.test("notifications received from the channel", async () => {
     addBusServicesToRegistry();
     const pyEnv = await startServer();
     const env = await makeTestEnv({ activateMockServer: true });
-    env.services["bus_service"].addChannel("lambda");
-    await waitUntilSubscribe("lambda");
+    await Promise.all([
+        env.services["bus_service"].addChannel("lambda"),
+        waitUntilSubscribe("lambda"),
+    ]);
     pyEnv["bus.bus"]._sendone("lambda", "notifType", "beta");
     pyEnv["bus.bus"]._sendone("lambda", "notifType", "epsilon");
     await waitNotifications([env, "notifType", "beta"], [env, "notifType", "epsilon"]);
@@ -269,7 +272,9 @@ QUnit.test("WebSocket connects with URL corresponding to given serverURL", async
     const env = await makeTestEnv();
     env.services["bus_service"].start();
     await websocketCreatedDeferred;
-    assert.verifySteps([`${serverURL.replace("http", "ws")}/websocket?version=undefined`]);
+    assert.verifySteps([
+        `${serverURL.replace("http", "ws")}/websocket?version=${session.websocket_worker_version}`,
+    ]);
 });
 
 QUnit.test("Disconnect on offline, re-connect on online", async () => {

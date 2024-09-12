@@ -476,7 +476,7 @@ class IrActionsReport(models.Model):
                 wkhtmltoimage = [_get_wkhtmltoimage_bin()] + command_args + [input_file.name, output_file.name]
                 # start and block, no need for parallelism for now
                 completed_process = subprocess.run(wkhtmltoimage, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=False)
-                if completed_process.stderr:
+                if completed_process.returncode:
                     message = _(
                         'Wkhtmltoimage failed (error code: %(error_code)s). Message: %(error_message_end)s',
                         error_code=completed_process.returncode,
@@ -986,7 +986,6 @@ class IrActionsReport(models.Model):
         if report_type != 'pdf':
             return collected_streams, report_type
 
-        collected_streams = self._render_qweb_pdf_prepare_streams(report_ref, data, res_ids=res_ids)
         has_duplicated_ids = res_ids and len(res_ids) != len(set(res_ids))
 
         # access the report details with sudo() but keep evaluation context as current user
@@ -1024,7 +1023,7 @@ class IrActionsReport(models.Model):
                 'name': _('Problematic record(s)'),
                 'res_model': report_sudo.model,
                 'domain': [('id', 'in', error_record_ids)],
-                'views': [(False, 'tree'), (False, 'form')],
+                'views': [(False, 'list'), (False, 'form')],
             }
             num_errors = len(error_record_ids)
             if num_errors == 1:

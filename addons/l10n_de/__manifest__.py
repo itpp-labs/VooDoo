@@ -26,9 +26,11 @@ German accounting chart and localization.
         'data/account_account_tags_data.xml',
         'views/account_view.xml',
         'views/res_company_views.xml',
+        'wizard/account_secure_entries_wizard.xml',
     ],
     'demo': [
         'demo/demo_company.xml',
     ],
+    'post_init_hook': '_post_init_hook',
     'license': 'LGPL-3',
 }

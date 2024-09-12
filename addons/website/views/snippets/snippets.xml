@@ -106,6 +106,9 @@
                 <t t-snippet="website.s_mockup_image" string="Mockup Image" group="content">
                     <keywords>CTA, button, btn, action, engagement, link, offer, appeal, call to action, prompt, interact, trigger, mockup</keywords>
                 </t>
+                <t t-snippet="website.s_cta_mockups" string="Call to Action Mockups" group="content">
+                    <keywords>CTA, button, btn, action, engagement, link, offer, appeal, call to action, prompt, interact, trigger, mockups</keywords>
+                </t>
                 <t t-snippet="website.s_image_hexagonal" string="Image Hexagonal" group="content">
                     <keywords>content, picture, photo, illustration, media, visual, article, story, combination, more, hexagon, geometric</keywords>
                 </t>
@@ -120,6 +123,12 @@
                 </t>
                 <t t-snippet="website.s_pricelist_boxed" string="Pricelist Boxed" group="content">
                     <keywords>menu, pricing, shop, table, cart, product, cost, charges, fees, tarifs, prices, expenses</keywords>
+                </t>
+                <t t-snippet="website.s_striped" string="Striped section" group="content">
+                    <keywords>hero, jumbotron, headline, header, intro, home, content, picture, photo, illustration, media, visual, article, combination, trendy, pattern, design</keywords>
+                </t>
+                <t t-snippet="website.s_cta_card" string="Card Call to Action" group="content">
+                    <keywords>CTA, button, btn, action, engagement, link, offer, appeal, call to action, prompt, interact, trigger, items, checklists, entries, sequences, bullets, points, list, group, benefits, features, advantages</keywords>
                 </t>
                 <t t-snippet="website.s_product_catalog" string="Pricelist" group="content">
                     <keywords>menu, pricing</keywords>
@@ -140,6 +149,9 @@
                 </t>
                 <t t-snippet="website.s_numbers_list" string="Numbers list" group="content">
                     <keywords>statistics, stats, KPI, metrics, dashboard, analytics, highlights, figures, performance, achievements, benchmarks, milestones, indicators, data, measurements, reports, trends, results, analytics, cta, call to action, button</keywords>
+                </t>
+                <t t-snippet="website.s_numbers_grid" string="Numbers Grid" group="content">
+                    <keywords>statistics, stats, KPI, metrics, dashboard, analytics, highlights, figures, performance, achievements, benchmarks, milestones, indicators, data, measurements, reports, trends, results</keywords>
                 </t>
                 <t t-snippet="website.s_features" string="Features" group="content">
                     <keywords>promotion, characteristic, quality</keywords>
@@ -172,6 +184,9 @@
                 </t>
                 <t t-snippet="website.s_masonry_block" string="Masonry" group="images">
                     <keywords>masonry, grid</keywords>
+                </t>
+                <t t-snippet="website.s_quadrant" string="Quadrant" group="images">
+                    <keywords>four sections, column, grid, division, split, segments, pictures, illustration, media, photos, tiles, arrangement, gallery, images-grid, mixed, collection, stacking, visual-grid, showcase, visuals, portfolio, thumbnails, engage, call to action, cta, showcase</keywords>
                 </t>
                 <t t-snippet="website.s_image_gallery" string="Image Gallery" group="images">
                     <keywords>gallery, carousel</keywords>
@@ -646,7 +661,6 @@
         <t t-set="with_images" t-value="True"/>
         <t t-set="with_videos" t-value="True"/>
         <t t-set="with_shapes" t-value="True"/>
-        <t t-set="css_compatible" t-value="True"/>
         <t t-set="with_gradients" t-value="True"/>
         <t t-set="with_color_combinations" t-value="True"/>
     </t>
@@ -665,6 +679,7 @@
             <we-button data-select-class="s_carousel_default">Default</we-button>
             <we-button data-select-class="s_carousel_boxed">Boxed</we-button>
             <we-button data-select-class="s_carousel_rounded">Rounded</we-button>
+            <we-button data-select-class="s_carousel_arrows_hidden">Hidden</we-button>
         </we-select>
         <we-select string="Indicators" data-apply-to=".carousel-indicators" class="o_we_sublevel_1">
             <we-button data-select-class="">Bars</we-button>
@@ -691,7 +706,7 @@
     </div>
 
     <div data-js="GalleryElement"
-        data-selector=".s_image_gallery img, .s_carousel .carousel-item">
+        data-selector=".s_image_gallery img, .s_carousel .carousel-item, .s_quotes_carousel .carousel-item">
         <we-row string="Re-order" data-no-preview="true">
             <we-button class="fa fa-fw fa-angle-double-left" title="Move to first" data-position="first"/>
             <we-button class="fa fa-fw fa-angle-left" title="Move to previous" data-position="prev"/>
@@ -739,7 +754,7 @@
     <div data-js="layout_column"
         data-selector="section"
         data-target="> *:has(> .row), > .s_allow_columns"
-        data-exclude=".s_dynamic, .s_dynamic_snippet_content, .s_dynamic_snippet_title, .s_masonry_block, .s_features_grid, .s_media_list, .s_table_of_content, .s_process_steps, .s_image_gallery, .s_timeline, .s_pricelist_boxed">
+        data-exclude=".s_dynamic, .s_dynamic_snippet_content, .s_dynamic_snippet_title, .s_masonry_block, .s_features_grid, .s_media_list, .s_table_of_content, .s_process_steps, .s_image_gallery, .s_timeline, .s_pricelist_boxed, .s_quadrant">
         <we-row>
             <we-button-group string="Layout" data-no-preview="true">
                 <we-button data-select-layout="grid" data-name="grid_mode">Grid</we-button>

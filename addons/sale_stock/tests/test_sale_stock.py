@@ -1233,36 +1233,6 @@ class TestSaleStock(TestSaleStockCommon, ValuationReconciliationTestCommon):
         # Check that the remaining quantity is set on the retrun
         self.assertEqual(return_wizard.product_return_moves.quantity, 8)
 
-    def test_create_picking_from_so(self):
-        sale_order = self._get_new_sale_order()
-        sale_order.action_confirm()
-        self.assertEqual(len(sale_order.picking_ids), 1)
-        context = {
-            'active_model': 'sale.order',
-            'active_id': sale_order.id
-        }
-        self.env['stock.picking'].with_context(context).create({
-            'picking_type_id': sale_order.picking_ids.picking_type_id.id,
-            'move_ids': [(0, 0, {
-                'name': 'test move',
-                'product_id': self.company_data['product_delivery_no'].id,
-                'product_uom_qty': 1,
-                'location_id': sale_order.picking_ids.location_id.id,
-                'location_dest_id': sale_order.picking_ids.location_dest_id.id,
-            })]
-        })
-        self.assertEqual(len(sale_order.picking_ids), 2)
-        self.env['stock.picking'].with_context(context).create({
-            'name': 'test move line',
-            'picking_type_id': sale_order.picking_ids.picking_type_id.id,
-            'move_line_ids': [(0, 0, {
-                'product_id': self.company_data['product_delivery_no'].id,
-                'location_id': sale_order.picking_ids.location_id.id,
-                'location_dest_id': sale_order.picking_ids.location_dest_id.id,
-            })]
-        })
-        self.assertEqual(len(sale_order.picking_ids), 3)
-
     def test_return_with_mto_and_multisteps(self):
         """
         Suppose a product P and a 3-steps delivery.
@@ -1999,3 +1969,16 @@ class TestSaleStock(TestSaleStockCommon, ValuationReconciliationTestCommon):
         ship02.move_ids.write({'quantity': 7, 'picked': True})
         ship02.button_validate()
         self.assertEqual(so.delivery_status, 'full')
+
+    def test_so_delivery_ignores_shipping_policy_from_picking_type(self):
+        picking_type_out = self.company_data['default_warehouse'].out_type_id
+        picking_type_out.move_type = "direct"
+
+        so = self._get_new_sale_order()
+        # Ignore picking_type_out, use the value from SO
+        so.picking_policy = "one"
+        so.action_confirm()
+
+        self.assertEqual(so.procurement_group_id.move_type, "one")
+        self.assertEqual(so.picking_ids[0].picking_type_id, picking_type_out)
+        self.assertEqual(so.picking_ids[0].move_type, "one")

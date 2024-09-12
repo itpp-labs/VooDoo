@@ -7,6 +7,8 @@ import {
     mountWithCleanup,
     mountViewInDialog,
     onRpc,
+    mockService,
+    fieldInput,
 } from "@web/../tests/web_test_helpers";
 import { expect, test } from "@odoo/hoot";
 import { click, edit, press, queryAllTexts, queryFirst } from "@odoo/hoot-dom";
@@ -120,7 +122,7 @@ test("formviewdialog buttons in footer are not duplicated", async () => {
     Partner._records[0].poney_ids = [];
     Partner._views["form,false"] = /* xml */ `
         <form string="Partner">
-            <field name="poney_ids"><tree editable="top"><field name="name"/></tree></field>
+            <field name="poney_ids"><list editable="top"><field name="name"/></list></field>
             <footer><button string="Custom Button" type="object" class="my_button"/></footer>
         </form>
     `;
@@ -157,10 +159,10 @@ test.tags("desktop")("Form dialog and subview with _view_ref contexts", async ()
     Instrument._views["form,false"] = /* xml */ `
         <form>
             <field name="name"/>
-            <field name="badassery" widget="many2many" context="{'tree_view_ref': 'some_other_tree_view'}"/>
+            <field name="badassery" widget="many2many" context="{'list_view_ref': 'some_other_tree_view'}"/>
         </form>
     `;
-    Badassery._views["list,false"] = /* xml */ `<tree><field name="level"/></tree>`;
+    Badassery._views["list,false"] = /* xml */ `<list><field name="level"/></list>`;
 
     onRpc(({ kwargs, method, model }) => {
         if (method === "get_formview_id") {
@@ -171,7 +173,7 @@ test.tags("desktop")("Form dialog and subview with _view_ref contexts", async ()
                 {
                     allowed_company_ids: [1],
                     lang: "en",
-                    tree_view_ref: "some_tree_view",
+                    list_view_ref: "some_tree_view",
                     tz: "taht",
                     uid: 7,
                 },
@@ -186,7 +188,7 @@ test.tags("desktop")("Form dialog and subview with _view_ref contexts", async ()
                 {
                     allowed_company_ids: [1],
                     lang: "en",
-                    tree_view_ref: "some_other_tree_view",
+                    list_view_ref: "some_other_tree_view",
                     tz: "taht",
                     uid: 7,
                 },
@@ -205,7 +207,7 @@ test.tags("desktop")("Form dialog and subview with _view_ref contexts", async ()
         arch: /* xml */ `
             <form>
                 <field name="name"/>
-                <field name="instrument" context="{'tree_view_ref': 'some_tree_view'}"/>
+                <field name="instrument" context="{'list_view_ref': 'some_tree_view'}"/>
             </form>
         `,
     });
@@ -381,4 +383,112 @@ test("Save a FormViewDialog when a required field is empty don't close the dialo
     click('.modal button[name="save"]');
     await animationFrame();
     expect(".modal").toHaveCount(0, { message: "modal should be closed" });
+});
+
+test.tags("desktop")("new record has an expand button", async () => {
+    Partner._views["form,false"] = /* xml */ `<form><field name="foo"/></form>`;
+    Partner._records = [];
+    onRpc("web_save", async () => {
+        expect.step("save");
+    });
+    mockService("action", {
+        doAction(actionRequest) {
+            expect.step([
+                actionRequest.res_id,
+                actionRequest.res_model,
+                actionRequest.type,
+                actionRequest.views,
+            ]);
+        },
+    });
+    await mountWithCleanup(WebClient);
+    getService("dialog").add(FormViewDialog, {
+        resModel: "partner",
+    });
+    await animationFrame();
+    expect(".o_dialog .o_form_view").toHaveCount(1);
+    expect(".o_dialog .modal-header .o_expand_button").toHaveCount(1);
+    await fieldInput("foo").edit("new");
+    click(".o_dialog .modal-header .o_expand_button");
+    await animationFrame();
+    expect.verifySteps(["save", [1, "partner", "ir.actions.act_window", [[false, "form"]]]]);
+});
+
+test.tags("desktop")("existing record has an expand button", async () => {
+    Partner._views["form,false"] = /* xml */ `<form><field name="foo"/></form>`;
+    onRpc("web_save", async () => {
+        expect.step("save");
+    });
+    mockService("action", {
+        doAction(actionRequest) {
+            expect.step([
+                actionRequest.res_id,
+                actionRequest.res_model,
+                actionRequest.type,
+                actionRequest.views,
+            ]);
+        },
+    });
+    await mountWithCleanup(WebClient);
+    getService("dialog").add(FormViewDialog, {
+        resModel: "partner",
+        resId: 1,
+    });
+    await animationFrame();
+    expect(".o_dialog .o_form_view").toHaveCount(1);
+    expect(".o_dialog .modal-header .o_expand_button").toHaveCount(1);
+    await fieldInput("foo").edit("hola");
+    click(".o_dialog .modal-header .o_expand_button");
+    await animationFrame();
+    expect.verifySteps(["save", [1, "partner", "ir.actions.act_window", [[false, "form"]]]]);
+});
+
+test.tags("mobile")("no expand button on mobile", async () => {
+    Partner._views["form,false"] = /* xml */ `<form><field name="foo"/></form>`;
+    await mountWithCleanup(WebClient);
+    getService("dialog").add(FormViewDialog, {
+        resModel: "partner",
+        resId: 1,
+    });
+    await animationFrame();
+    expect(".o_dialog .o_form_view").toHaveCount(1);
+    expect(".o_dialog .modal-header .o_expand_button").toHaveCount(0);
+});
+
+test.tags("desktop")("expand button with save and new", async () => {
+    Instrument._views["form,false"] = /* xml */ `<form><field name="name"/></form>`;
+    Instrument._records = [{ id: 1, name: "Violon" }];
+    onRpc("web_save", async () => {
+        expect.step("save");
+    });
+    mockService("action", {
+        doAction(actionRequest) {
+            expect.step([
+                actionRequest.res_id,
+                actionRequest.res_model,
+                actionRequest.type,
+                actionRequest.views,
+            ]);
+        },
+    });
+    await mountWithCleanup(WebClient);
+    getService("dialog").add(FormViewDialog, {
+        resModel: "instrument",
+        resId: 1,
+        isToMany: true,
+    });
+    await animationFrame();
+    expect(".o_dialog .o_form_view").toHaveCount(1);
+    expect(".o_dialog .modal-header .o_expand_button").toHaveCount(1);
+    await fieldInput("name").edit("Violoncelle");
+    click(".o_dialog .modal-footer .o_form_button_save_new");
+    await animationFrame();
+    await fieldInput("name").edit("Flute");
+    click(".o_dialog .modal-header .o_expand_button");
+    await animationFrame();
+    expect.verifySteps([
+        "save",
+        "save",
+        [2, "instrument", "ir.actions.act_window", [[false, "form"]]],
+    ]);
 });

@@ -429,6 +429,14 @@ class BaseAutomation(models.Model):
         self._update_registry()
         return res
 
+    def copy(self, default=None):
+        """Copy the actions of the automation while
+        copying the automation itself."""
+        actions = self.action_server_ids.copy()
+        record_copy = super().copy(default)
+        record_copy.action_server_ids = actions
+        return record_copy
+
     def action_rotate_webhook_uuid(self):
         for automation in self:
             automation.webhook_uuid = str(uuid4())
@@ -439,7 +447,7 @@ class BaseAutomation(models.Model):
             'type': 'ir.actions.act_window',
             'name': _('Webhook Logs'),
             'res_model': 'ir.logging',
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'domain': [('path', '=', "base_automation(%s)" % self.id)],
         }
 

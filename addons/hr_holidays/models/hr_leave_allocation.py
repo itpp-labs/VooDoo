@@ -36,9 +36,12 @@ class HolidaysAllocation(models.Model):
         return [('employee_requests', '=', 'yes')]
 
     def _domain_employee_id(self):
-        if self.env.user.has_group('hr_holidays.group_hr_holidays_user'):
-            return []
-        return [('leave_manager_id', '=', self.env.user.id)]
+        domain = [('company_id', 'in', self.env.companies.ids)]
+        if not self.env.user.has_group('hr_holidays.group_hr_holidays_user'):
+            domain += [
+                ('leave_manager_id', '=', self.env.user.id)
+            ]
+        return domain
 
     name = fields.Char(
         string='Description',
@@ -754,7 +757,7 @@ class HolidaysAllocation(models.Model):
     # before every run, as if it was run from date_from, after an optional change in the allocation value
     # the user can simply confirm and validate the allocation. The record is in correct state for the next
     # call of the cron job.
-    @api.onchange('date_from', 'accrual_plan_id', 'date_to')
+    @api.onchange('date_from', 'accrual_plan_id', 'date_to', 'employee_id')
     def _onchange_date_from(self):
         if not self.date_from or self.allocation_type != 'accrual' or self.state == 'validate' or not self.accrual_plan_id\
            or not self.employee_id:

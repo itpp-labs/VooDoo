@@ -410,55 +410,33 @@ a.no-decoration {
         opacity: 0.2;
     }
 
-    .carousel-outer {
-        height: 400px;
-        max-height: 90vh;
-        display: flex;
-        align-items: center;
-        .carousel-inner {
-            img {
-                object-fit: contain;
-            }
+    .carousel-inner {
+        img {
+            object-fit: contain;
         }
     }
 
-    .carousel-control-prev .fa {
-        padding-right: 2px;
-    }
-    .carousel-control-next .fa {
-        padding-left: 2px;
-    }
+    &.o_carousel_not_single .carousel-outer {
+        aspect-ratio: 1 / 1;
 
-    .carousel-control-prev, .carousel-control-next {
-        top: auto;
-        bottom: auto;
-        opacity: 0.5;
-        cursor: pointer;
-        transition: opacity 0.8s;
+        &.o_wsale_carousel_ratio_4x3 {
+            aspect-ratio: 4 / 3;
+        }
 
-        &:focus {
-            opacity: 0.65;
+        &.o_wsale_carousel_ratio_4x5 {
+            aspect-ratio: 4 / 5;
         }
-        &:hover {
-            opacity: 0.8;
+
+        &.o_wsale_carousel_ratio_16x9 {
+            aspect-ratio: 16 / 9;
         }
-        > span {
-            width: 2.5rem;
-            height: 2.5rem;
-            line-height: 2.5rem;
-            color: map-get($grays, '900');
-            background: white;
-            @include font-size(1.15rem);
-            border: 1px solid map-get($grays, '400');
-            border-radius: 50%;
+
+        &.o_wsale_carousel_ratio_21x9 {
+            aspect-ratio: 21 / 9;
         }
-        @include media-breakpoint-down(lg) {
-            > span {
-                width: 2rem;
-                height: 2rem;
-                line-height: 2rem;
-                font-size: 1rem;
-            }
+
+        .product_detail_img {
+            width: auto !important;
         }
     }
 
@@ -545,14 +523,6 @@ a.no-decoration {
         }
 
         &.o_carousel_product_left_indicators {
-            .carousel-outer {
-                height: 500px;
-            }
-
-            .o_carousel_product_indicators {
-                max-height: 500px;
-            }
-
             .carousel-indicators li {
                 margin: 0;
 
@@ -561,6 +531,52 @@ a.no-decoration {
                 }
             }
         }
+    }
+}
+
+#o-carousel-product, .o_wsale_image_viewer {
+    .carousel-control-prev, .carousel-control-next {
+        top: auto;
+        bottom: auto;
+        opacity: 0.5;
+        cursor: pointer;
+        transition: opacity 0.8s;
+
+        &:focus {
+            opacity: 0.65;
+        }
+
+        &:hover {
+            opacity: 0.8;
+        }
+
+        > i {
+            width: 2.5rem;
+            height: 2.5rem;
+            line-height: 2.5rem;
+            @include font-size(1.15rem);
+            border-radius: var(--btn-border-radius);
+        }
+
+        @include media-breakpoint-down(lg) {
+            > i {
+                width: 2rem;
+                height: 2rem;
+                line-height: 2rem;
+                font-size: 1rem;
+            }
+        }
+    }
+}
+
+// Customization of the grid on /product page.
+.o_wsale_product_page_grid_column div {
+    &:first-child {
+        margin-top: 0 !important;
+    }
+
+    &:last-child {
+        margin-bottom: 0 !important;
     }
 }
 

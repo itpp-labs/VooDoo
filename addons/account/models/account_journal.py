@@ -117,8 +117,8 @@ class AccountJournal(models.Model):
              "allowing finding the right account.", string='Suspense Account',
         domain="[('deprecated', '=', False), ('account_type', '=', 'asset_current')]",
     )
-    restrict_mode_hash_table = fields.Boolean(string="Lock Sent Invoices with Hash",
-        help="If ticked, when the invoice is sent, the hash chain will be computed from the last move hashed to the new move to be hashed. The hash can also be performed on demand.")
+    restrict_mode_hash_table = fields.Boolean(string="Secure Posted Entries with Hash",
+        help="If ticked, when an entry is posted, we retroactively hash all moves in the sequence from the entry back to the last hashed entry. The hash can also be performed on demand by the Secure Entries wizard.")
     sequence = fields.Integer(help='Used to order Journals in the dashboard view', default=10)
 
     invoice_reference_type = fields.Selection(string='Communication Type', required=True, selection=[('none', 'Open'), ('partner', 'Based on Customer'), ('invoice', 'Based on Invoice')], default='invoice', help='You can set here the default communication that will appear on customer invoices, once validated, to help the customer to refer to that particular invoice when making the payment.')
@@ -674,6 +674,9 @@ class AccountJournal(models.Model):
             for journal in self.filtered(lambda r: r.type == 'bank' and not r.bank_account_id):
                 journal.set_bank_account(vals.get('bank_acc_number'), vals.get('bank_id'))
 
+        if vals.get('restrict_mode_hash_table'):
+            self.env['res.groups']._activate_group_account_secured()
+
         return result
 
     def _alias_get_creation_values(self):
@@ -873,6 +876,9 @@ class AccountJournal(models.Model):
             if journal.type == 'bank' and not journal.bank_account_id and vals.get('bank_acc_number'):
                 journal.set_bank_account(vals.get('bank_acc_number'), vals.get('bank_id'))
 
+        if any(journals.mapped('restrict_mode_hash_table')):
+            self.env['res.groups']._activate_group_account_secured()
+
         return journals
 
     def set_bank_account(self, acc_number, bank_id=None):
@@ -963,7 +969,7 @@ class AccountJournal(models.Model):
 
     def create_document_from_attachment(self, attachment_ids):
         """ Create the invoices from files.
-         :return: A action redirecting to account.move tree/form view.
+         :return: A action redirecting to account.move list/form view.
         """
         invoices = self._create_document_from_attachment(attachment_ids)
         action_vals = {

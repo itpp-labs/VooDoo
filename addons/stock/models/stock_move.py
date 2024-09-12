@@ -211,7 +211,12 @@ class StockMove(models.Model):
                 location_dest = move.picking_id.location_dest_id
             elif move.picking_type_id:
                 location_dest = move.picking_type_id.default_location_dest_id
-            if location_dest and move.location_final_id and move.location_final_id._child_of(location_dest):
+            customer_loc, __ = self.env['stock.warehouse']._get_partner_locations()
+            if location_dest and move.location_final_id and (move.location_final_id._child_of(location_dest) or
+               (location_dest._child_of(customer_loc) and move.partner_id and move.location_final_id._child_of(move.partner_id.property_stock_customer))):
+                # Force the location_final as dest in the following cases:
+                # - The location_final is a sublocation of destination -> Means we reached the end
+                # - The location dest is an out location (i.e. Customers) but the final dest is different (e.g. Inter-Company transfers)
                 location_dest = move.location_final_id
             move.location_dest_id = location_dest
 
@@ -596,14 +601,15 @@ Please change the quantity done or the rounding precision of your unit of measur
         for move in self:
             move.show_quant = move.picking_code != 'incoming'\
                            and move.product_id.is_storable
-            move.show_lots_m2o = not move.show_quant\
-                and move.has_tracking != 'none'\
-                and (move.picking_type_id.use_existing_lots or move.state == 'done' or move.origin_returned_move_id.id)
             move.show_lots_text = move.has_tracking != 'none'\
                 and move.picking_type_id.use_create_lots\
                 and not move.picking_type_id.use_existing_lots\
                 and move.state != 'done' \
                 and not move.origin_returned_move_id.id
+            move.show_lots_m2o = not move.show_quant\
+                and not move.show_lots_text\
+                and move.has_tracking != 'none'\
+                and (move.picking_type_id.use_existing_lots or move.state == 'done' or move.origin_returned_move_id.id)
 
     @api.constrains('product_uom')
     def _check_uom(self):
@@ -1425,7 +1431,7 @@ Please change the quantity done or the rounding precision of your unit of measur
             'origin': origin,
             'company_id': self.mapped('company_id').id,
             'user_id': False,
-            'move_type': self.mapped('group_id').move_type or 'direct',
+            'group_id': self.mapped('group_id').id,
             'partner_id': partner,
             'picking_type_id': self.mapped('picking_type_id').id,
             'location_id': self.mapped('location_id').id,

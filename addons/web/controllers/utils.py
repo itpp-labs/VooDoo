@@ -22,8 +22,8 @@ _logger = logging.getLogger(__name__)
 
 def clean_action(action, env):
     action_type = action.setdefault('type', 'ir.actions.act_window_close')
-    if action_type == 'ir.actions.act_window':
-        action = fix_view_modes(action)
+    if action_type == 'ir.actions.act_window' and not action.get('views'):
+        generate_views(action)
 
     # When returning an action, keep only relevant fields/properties
     readable_fields = env[action['type']]._get_readable_fields()
@@ -101,43 +101,7 @@ def ensure_db(redirect='/web/database/selector', db=None):
         werkzeug.exceptions.abort(request.redirect(request.httprequest.url, 302))
 
 
-def fix_view_modes(action):
-    """ For historical reasons, Odoo has weird dealings in relation to
-    view_mode and the view_type attribute (on window actions):
-
-    * one of the view modes is ``tree``, which stands for both list views
-      and tree views
-    * the choice is made by checking ``view_type``, which is either
-      ``form`` for a list view or ``tree`` for an actual tree view
-
-    This methods simply folds the view_type into view_mode by adding a
-    new view mode ``list`` which is the result of the ``tree`` view_mode
-    in conjunction with the ``form`` view_type.
-
-    TODO: this should go into the doc, some kind of "peculiarities" section
-
-    :param dict action: an action descriptor
-    :returns: nothing, the action is modified in place
-    """
-    if not action.get('views'):
-        generate_views(action)
-
-    if action.pop('view_type', 'form') != 'form':
-        return action
-
-    if 'view_mode' in action:
-        action['view_mode'] = ','.join(
-            mode if mode != 'tree' else 'list'
-            for mode in action['view_mode'].split(','))
-    action['views'] = [
-        [id, mode if mode != 'tree' else 'list']
-        for id, mode in action['views']
-    ]
-
-    return action
-
-
-# I think generate_views,fix_view_modes should go into js ActionManager
+# I think generate_views should go into js ActionManager
 def generate_views(action):
     """
     While the server generates a sequence called "views" computing dependencies
@@ -269,7 +233,7 @@ def _get_login_redirect_url(uid, redirect=None):
     fully logged and can proceed to the requested URL
     """
     if request.session.uid:  # fully logged
-        return redirect or ('/web' if is_user_internal(request.session.uid)
+        return redirect or ('/odoo' if is_user_internal(request.session.uid)
                             else '/web/login_successful')
 
     # partial session (MFA)

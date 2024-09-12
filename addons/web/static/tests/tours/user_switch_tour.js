@@ -17,9 +17,22 @@ function logout() {
 
 registry.category("web_tour.tours").add("test_user_switch", {
     test: true,
-    url: "/web",
+    url: "/odoo",
     steps: () => [
         ...logout(),
+        {
+            content: "check if the login input is empty",
+            trigger: "input#login:empty",
+        },
+        {
+            content: "check if the password input is empty",
+            trigger: "input#password:empty",
+        },
+        {
+            content: "Should contains the user switch button",
+            trigger: ".oe_login_form .o_user_switch_btn",
+            run: "click",
+        },
         {
             content: "Click on Marc Demo on the quick login page",
             trigger:

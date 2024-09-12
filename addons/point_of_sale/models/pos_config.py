@@ -158,6 +158,7 @@ class PosConfig(models.Model):
     tax_regime_selection = fields.Boolean("Tax Regime Selection value")
     limit_categories = fields.Boolean("Restrict Categories")
     module_pos_restaurant = fields.Boolean("Is a Bar/Restaurant")
+    module_pos_avatax = fields.Boolean("AvaTax PoS Integration", help="Use automatic taxes mapping with Avatax in PoS")
     module_pos_discount = fields.Boolean("Global Discounts")
     is_posbox = fields.Boolean("PosBox")
     is_header_or_footer = fields.Boolean("Custom Header & Footer")
@@ -649,7 +650,7 @@ class PosConfig(models.Model):
         self._check_pricelists()  # The pricelist company might have changed after the first opening of the session
         return {
             'name': _('Session'),
-            'view_mode': 'form,tree',
+            'view_mode': 'form,list',
             'res_model': 'pos.session',
             'res_id': session_id,
             'view_id': False,

@@ -1558,6 +1558,10 @@ class TestExpenses(TestExpenseCommon):
     def test_expense_by_company_with_caba_tax(self):
         """When using cash basis tax in an expense paid by the company, the transition account should not be used."""
 
+        caba_tag = self.env['account.account.tag'].create({
+            'name': 'Cash Basis Tag Final Account',
+            'applicability': 'taxes',
+        })
         caba_transition_account = self.env['account.account'].create({
             'name': 'Cash Basis Tax Transition Account',
             'account_type': 'asset_current',
@@ -1568,6 +1572,17 @@ class TestExpenses(TestExpenseCommon):
             'tax_exigibility': 'on_payment',
             'amount': 15,
             'cash_basis_transition_account_id': caba_transition_account.id,
+            'invoice_repartition_line_ids': [
+                Command.create({
+                    'factor_percent': 100,
+                    'repartition_type': 'base',
+                }),
+                Command.create({
+                    'factor_percent': 100,
+                    'repartition_type': 'tax',
+                    'tag_ids': caba_tag.ids,
+                }),
+            ]
         })
 
         expense_sheet = self.env['hr.expense.sheet'].create({
@@ -1588,6 +1603,7 @@ class TestExpenses(TestExpenseCommon):
         moves = expense_sheet.account_move_ids
         tax_lines = moves.line_ids.filtered(lambda line: line.tax_line_id == caba_tax)
         self.assertNotEqual(tax_lines.account_id, caba_transition_account, "The tax should not be on the transition account")
+        self.assertEqual(tax_lines.tax_tag_ids, caba_tag, "The tax should still retrieve its tags")
 
     def test_expense_mandatory_analytic_plan_product_category(self):
         """
@@ -1683,3 +1699,28 @@ class TestExpenses(TestExpenseCommon):
 
         # Validate the acction_date value after subitting and approving
         self.assertTrue(expense_sheet.accounting_date, date(2024, 5, 30))
+
+    def test_expense_set_total_amount_to_0(self):
+        """Checks that amount fields are correctly updating when setting total_amount to 0"""
+        expense = self.env['hr.expense'].create({
+            'name': 'Expense with amount',
+            'employee_id': self.expense_employee.id,
+            'product_id': self.product_c.id,
+            'total_amount_currency': 100.0,
+            'tax_ids': self.tax_purchase_a.ids,
+        })
+        expense.total_amount_currency = 0.0
+        self.assertTrue(expense.currency_id.is_zero(expense.tax_amount))
+        self.assertTrue(expense.company_currency_id.is_zero(expense.total_amount))
+
+    def test_expense_set_quantity_to_0(self):
+        """Checks that amount fields except for unit_amount are correctly updating when setting quantity to 0"""
+        expense = self.env['hr.expense'].create({
+            'name': 'Expense with amount',
+            'employee_id': self.expense_employee.id,
+            'product_id': self.product_b.id,
+            'quantity': 10
+        })
+        expense.quantity = 0
+        self.assertTrue(expense.currency_id.is_zero(expense.total_amount_currency))
+        self.assertEqual(expense.company_currency_id.compare_amounts(expense.price_unit, self.product_b.standard_price), 0)

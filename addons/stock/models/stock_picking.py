@@ -150,6 +150,10 @@ class PickingType(models.Model):
         compute_sudo=True, string='Show Operation in Overview'
     )
     kanban_dashboard_graph = fields.Text(compute='_compute_kanban_dashboard_graph')
+    move_type = fields.Selection([
+        ('direct', 'As soon as possible'), ('one', 'When all products are ready')],
+        'Shipping Policy', default='direct', required=True,
+        help="It specifies goods to be transferred partially or all at once")
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -581,7 +585,7 @@ class Picking(models.Model):
 
     move_type = fields.Selection([
         ('direct', 'As soon as possible'), ('one', 'When all products are ready')], 'Shipping Policy',
-        default='direct', required=True,
+        compute='_compute_move_type', store=True, required=True, readonly=False, precompute=True,
         help="It specifies goods to be deliver partially or all at once")
     state = fields.Selection([
         ('draft', 'Draft'),
@@ -721,6 +725,12 @@ class Picking(models.Model):
     def _compute_has_tracking(self):
         for picking in self:
             picking.has_tracking = any(m.has_tracking != 'none' for m in picking.move_ids)
+
+    @api.depends('picking_type_id')
+    def _compute_move_type(self):
+        for record in self:
+            if not record.group_id.move_type:
+                record.move_type = record.picking_type_id.move_type
 
     @api.depends('date_deadline', 'scheduled_date')
     def _compute_has_deadline_issue(self):
@@ -944,22 +954,20 @@ class Picking(models.Model):
                 continue
             picking = picking.with_company(picking.company_id)
             if picking.picking_type_id:
+                # To be removed in 17.3+, as default location src/dest are now required.
+                location_dest, location_src = self.env['stock.warehouse']._get_partner_locations()
                 if picking.picking_type_id.default_location_src_id:
-                    location_id = picking.picking_type_id.default_location_src_id.id
-                elif picking.partner_id:
-                    location_id = picking.partner_id.property_stock_supplier.id
-                else:
-                    _customerloc, location_id = self.env['stock.warehouse']._get_partner_locations()
+                    location_src = picking.picking_type_id.default_location_src_id
+                if location_src.usage == 'supplier' and picking.partner_id:
+                    location_src = picking.partner_id.property_stock_supplier
 
                 if picking.picking_type_id.default_location_dest_id:
-                    location_dest_id = picking.picking_type_id.default_location_dest_id.id
-                elif picking.partner_id:
-                    location_dest_id = picking.partner_id.property_stock_customer.id
-                else:
-                    location_dest_id, _supplierloc = self.env['stock.warehouse']._get_partner_locations()
+                    location_dest = picking.picking_type_id.default_location_dest_id
+                if location_dest.usage == 'customer' and picking.partner_id:
+                    location_dest = picking.partner_id.property_stock_customer
 
-                picking.location_id = location_id
-                picking.location_dest_id = location_dest_id
+                picking.location_id = location_src.id
+                picking.location_dest_id = location_dest.id
 
     @api.depends('return_ids')
     def _compute_return_count(self):
@@ -1074,6 +1082,10 @@ class Picking(models.Model):
                 if picking_type.sequence_id:
                     vals['name'] = picking_type.sequence_id.next_by_id()
 
+            if 'move_type' not in vals and vals.get('group_id'):
+                procurement_group = self.env['procurement.group'].browse(vals.get('group_id'))
+                if procurement_group.move_type:
+                    vals['move_type'] = procurement_group.move_type
             # make sure to write `schedule_date` *after* the `stock.move` creation in
             # order to get a determinist execution of `_set_scheduled_date`
             scheduled_dates.append(vals.pop('scheduled_date', False))
@@ -1183,10 +1195,10 @@ class Picking(models.Model):
         view_id = self.env.ref('stock.view_stock_move_line_detailed_operation_tree').id
         return {
             'name': _('Detailed Operations'),
-            'view_mode': 'tree',
+            'view_mode': 'list',
             'type': 'ir.actions.act_window',
             'res_model': 'stock.move.line',
-            'views': [(view_id, 'tree')],
+            'views': [(view_id, 'list')],
             'domain': [('id', 'in', self.move_line_ids.ids)],
             'context': {
                 'default_picking_id': self.id,
@@ -1213,7 +1225,7 @@ class Picking(models.Model):
             'name': _('Next Transfers'),
             "type": "ir.actions.act_window",
             "res_model": "stock.picking",
-            "views": [[False, "tree"], [False, "form"]],
+            "views": [[False, "list"], [False, "form"]],
             "domain": [('id', 'in', next_transfers.ids)],
         }
 
@@ -1877,7 +1889,7 @@ class Picking(models.Model):
     def action_picking_move_tree(self):
         action = self.env["ir.actions.actions"]._for_xml_id("stock.stock_move_action")
         action['views'] = [
-            (self.env.ref('stock.view_picking_move_tree').id, 'tree'),
+            (self.env.ref('stock.view_picking_move_tree').id, 'list'),
         ]
         action['context'] = self.env.context
         action['domain'] = [('picking_id', 'in', self.ids)]
@@ -1941,7 +1953,7 @@ class Picking(models.Model):
             'name': _('Returns'),
             "type": "ir.actions.act_window",
             "res_model": "stock.picking",
-            "views": [[False, "tree"], [False, "form"]],
+            "views": [[False, "list"], [False, "form"]],
             "domain": [('id', 'in', self.return_ids.ids)],
         }
 

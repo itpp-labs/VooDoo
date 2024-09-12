@@ -7,16 +7,27 @@ from collections import defaultdict
 from odoo import api, fields, models, _, _lt
 from odoo.osv import expression
 from odoo.tools import Query, SQL
+from odoo.tools.misc import unquote
 
 
 class ProjectProject(models.Model):
     _inherit = 'project.project'
 
+    def _domain_sale_line_id(self):
+        domain = expression.AND([
+            self.env['sale.order.line']._sellable_lines_domain(),
+            self.env['sale.order.line']._domain_sale_line_service(),
+            [
+                ('order_partner_id', '=?', unquote("partner_id")),
+            ],
+        ])
+        return str(domain)
+
     allow_billable = fields.Boolean("Billable")
     sale_line_id = fields.Many2one(
         'sale.order.line', 'Sales Order Item', copy=False,
         compute="_compute_sale_line_id", store=True, readonly=False, index='btree_not_null',
-        domain=lambda self: self.env['sale.order.line']._domain_sale_line_service_str("[('order_partner_id', '=?', partner_id)]"),
+        domain=_domain_sale_line_id,
         help="Sales order item that will be selected by default on the tasks and timesheets of this project,"
             " except if the employee set on the timesheets is explicitely linked to another sales order item on the project.\n"
             "It can be modified on each task and timesheet entry individually if necessary.")
@@ -158,7 +169,7 @@ class ProjectProject(models.Model):
             action_window.update({
                 'domain': [('id', 'in', all_sale_order_lines.ids)],
                 'views': [
-                    (self.env.ref('sale_project.view_order_line_tree_with_create').id, 'tree'),
+                    (self.env.ref('sale_project.view_order_line_tree_with_create').id, 'list'),
                     (self.env.ref('sale_project.sale_order_line_view_form_editable').id, 'form'),
                 ],
             })
@@ -193,7 +204,7 @@ class ProjectProject(models.Model):
         else:
             action_window.update({
                 "domain": [('id', 'in', all_sale_orders.ids)],
-                "views": [[False, "tree"], [False, "kanban"], [False, "calendar"], [False, "pivot"],
+                "views": [[False, "list"], [False, "kanban"], [False, "calendar"], [False, "pivot"],
                            [False, "graph"], [False, "activity"], [False, "form"]],
             })
         return action_window
@@ -201,7 +212,7 @@ class ProjectProject(models.Model):
     def action_get_list_view(self):
         action = super().action_get_list_view()
         if self.allow_billable:
-            action['views'] = [(self.env.ref('sale_project.project_milestone_view_tree').id, 'tree'), (False, 'form')]
+            action['views'] = [(self.env.ref('sale_project.project_milestone_view_tree').id, 'list'), (False, 'form')]
         return action
 
     def action_profitability_items(self, section_name, domain=None, res_id=False):
@@ -272,7 +283,7 @@ class ProjectProject(models.Model):
             'name': _('Invoices'),
             'type': 'ir.actions.act_window',
             'res_model': 'account.move',
-            'views': [[False, 'tree'], [False, 'form'], [False, 'kanban']],
+            'views': [[False, 'list'], [False, 'form'], [False, 'kanban']],
             'domain': [('id', 'in', invoice_ids)],
             'context': {
                 'default_move_type': 'out_invoice',
@@ -822,7 +833,7 @@ class ProjectProject(models.Model):
             'name': _('Vendor Bills'),
             'type': 'ir.actions.act_window',
             'res_model': 'account.move',
-            'views': [[False, 'tree'], [False, 'form'], [False, 'kanban']],
+            'views': [[False, 'list'], [False, 'form'], [False, 'kanban']],
             'domain': [('id', 'in', vendor_bill_ids)],
             'context': {
                 'default_move_type': 'in_invoice',

@@ -1225,7 +1225,11 @@
                         t-att-data-image_width="website.product_page_image_width"
                         t-att-data-image_layout="website.product_page_image_layout">
                         <t t-set="image_cols" t-value="website._get_product_page_proportions()"/>
-                        <div t-attf-class="col-lg-#{image_cols[0]} mt-lg-4 o_wsale_product_images position-relative" t-if="website.product_page_image_width != 'none'">
+                        <div
+                            t-attf-class="col-lg-#{image_cols[0]} mt-lg-4 o_wsale_product_images position-relative"
+                            t-if="website.product_page_image_width != 'none'"
+                            t-att-data-image-amount="len(product_variant._get_images() if product_variant else product._get_images())"
+                        >
                             <t t-call="website_sale.shop_product_images"/>
                         </div>
                         <div t-attf-class="col-lg-#{image_cols[1]} mt-md-4" id="product_details">
@@ -2951,27 +2955,53 @@
         <div t-if="product_image._name == 'product.image' and product_image.embed_code" t-att-class="image_classes + ' ratio ratio-16x9'">
             <t t-out="product_image.embed_code"/>
         </div>
-        <div t-elif="len(product_images) == 1 and website.product_page_image_layout != 'grid'"
-             class="position-relative d-inline-flex overflow-hidden m-auto h-100"
+        <div
+            t-elif="len(product_images) == 1 and website.product_page_image_layout != 'grid'"
+            class="position-relative d-inline-flex overflow-hidden m-auto w-100"
         >
             <span t-attf-class="o_ribbon #{ribbon._get_position_class()} z-1"
                   t-attf-style="#{text_color and ('color: %s; ' % text_color)}#{bg_color and 'background-color:' + bg_color}"
                   t-out="ribbon['name'] or ''"
             />
-            <div t-field="product_image.image_1920"
-                 name="o_img_with_max_suggested_width"
-                 class="d-flex align-items-start justify-content-center h-100 oe_unmovable"
-                 t-options='{"widget": "image", "preview_image": "image_1024", "class": "oe_unmovable product_detail_img mh-100", "alt-field": "name", "zoom": product_image.can_image_1024_be_zoomed and "image_1920"}'
+            <div
+                t-field="product_image.image_1920"
+                name="o_img_with_max_suggested_width"
+                class="d-flex align-items-start justify-content-center w-100 oe_unmovable"
+                t-options="{
+                    'widget': 'image',
+                    'preview_image': 'image_1024',
+                    'class': 'oe_unmovable product_detail_img w-100',
+                    'alt-field': 'name',
+                    'zoom': product_image.can_image_1024_be_zoomed and 'image_1920',
+                }"
             />
         </div>
-        <div t-else="" t-field="product_image.image_1920" t-att-class="image_classes + ' oe_unmovable'" t-options='{"widget": "image", "preview_image": "image_1024", "class": "oe_unmovable product_detail_img mh-100", "alt-field": "name", "zoom": product_image.can_image_1024_be_zoomed and "image_1920"}'/>
+        <div
+            t-else=""
+            t-field="product_image.image_1920"
+            t-att-class="image_classes + ' oe_unmovable'"
+            t-options="{
+                'widget': 'image',
+                'preview_image': 'image_1024',
+                'class': 'oe_unmovable product_detail_img w-100 mh-100',
+                'alt-field': 'name',
+                'zoom': product_image.can_image_1024_be_zoomed and 'image_1920',
+            }"
+        />
     </template>
 
     <!-- Product page images: Carousel -->
     <template id="website_sale.shop_product_carousel" name="Shop Product Carousel">
         <t t-set="product_carousel_block_name">Product Carousel</t>
-        <div id="o-carousel-product" class="carousel slide position-sticky mb-3 overflow-hidden" data-bs-ride="true" t-att-data-name="product_carousel_block_name">
-            <div class="o_carousel_product_outer carousel-outer position-relative flex-grow-1 overflow-hidden">
+        <div
+            id="o-carousel-product"
+            t-attf-class="#{len(product_images) > 1 and 'o_carousel_not_single'} carousel slide position-sticky mb-3 overflow-hidden"
+            data-bs-ride="true"
+            t-att-data-name="product_carousel_block_name"
+        >
+            <div
+                class="o_carousel_product_outer carousel-outer position-relative d-flex align-items-center w-100 overflow-hidden"
+            >
                 <span t-if="len(product_images) > 1"
                       t-attf-class="o_ribbon #{ribbon._get_position_class()} z-1"
                       t-attf-style="#{text_color and ('color: %s; ' % text_color)}#{bg_color and 'background-color:' + bg_color}"
@@ -2987,14 +3017,68 @@
                 </div>
                 <t t-if="len(product_images) > 1">
                     <a class="carousel-control-prev" href="#o-carousel-product" role="button" data-bs-slide="prev">
-                        <span class="oi oi-chevron-left fa-2x oe_unmovable" role="img" aria-label="Previous" title="Previous"/>
+                        <i
+                            class="oi oi-chevron-left oe_unmovable border bg-white text-900"
+                            role="img"
+                            aria-label="Previous"
+                            title="Previous"
+                        />
                     </a>
                     <a class="carousel-control-next" href="#o-carousel-product" role="button" data-bs-slide="next">
-                        <span class="oi oi-chevron-right fa-2x oe_unmovable" role="img" aria-label="Next" title="Next"/>
+                        <i
+                            class="oi oi-chevron-right oe_unmovable border bg-white text-900"
+                            role="img"
+                            aria-label="Next"
+                            title="Next"
+                        />
                     </a>
                 </t>
             </div>
         </div>
+    </template>
+
+    <template
+        id="products_carousel_4x3"
+        name="carousel_img_ratio_4x3"
+        inherit_id="website_sale.shop_product_carousel"
+        active="False"
+    >
+        <xpath expr="//div[hasclass('o_carousel_product_outer')]" position="attributes">
+            <attribute name="class" add="o_wsale_carousel_ratio_4x3" separator=" "/>
+        </xpath>
+    </template>
+
+    <template
+        id="products_carousel_4x5"
+        name="carousel_img_ratio_4x5"
+        inherit_id="website_sale.shop_product_carousel"
+        active="False"
+    >
+        <xpath expr="//div[hasclass('o_carousel_product_outer')]" position="attributes">
+            <attribute name="class" add="o_wsale_carousel_ratio_4x5" separator=" "/>
+        </xpath>
+    </template>
+
+    <template
+        id="products_carousel_16x9"
+        name="carousel_img_ratio_16x9"
+        inherit_id="website_sale.shop_product_carousel"
+        active="False"
+    >
+        <xpath expr="//div[hasclass('o_carousel_product_outer')]" position="attributes">
+            <attribute name="class" add="o_wsale_carousel_ratio_16x9" separator=" "/>
+        </xpath>
+    </template>
+
+    <template
+        id="products_carousel_21x9"
+        name="carousel_img_ratio_21x9"
+        inherit_id="website_sale.shop_product_carousel"
+        active="False"
+    >
+        <xpath expr="//div[hasclass('o_carousel_product_outer')]" position="attributes">
+            <attribute name="class" add="o_wsale_carousel_ratio_21x9" separator=" "/>
+        </xpath>
     </template>
 
     <template id="carousel_product_indicators_bottom" inherit_id="website_sale.shop_product_carousel" name="Carousel Product Indicators Bottom">
@@ -3012,19 +3096,36 @@
             </t>
         </xpath>
         <xpath expr="//div[@id='o-carousel-product']" position="attributes">
-            <attribute name="class" add="o_carousel_product_left_indicators d-flex" separator=" "/>
+            <attribute name="t-attf-class" add="o_carousel_product_left_indicators d-flex" separator=" "/>
         </xpath>
     </template>
 
     <template id="carousel_product_indicators" name="Carousel Product">
-        <div t-ignore="True" t-attf-class="o_carousel_product_indicators {{indicators_div_class}}">
-            <ol t-if="len(product_images) > 1" t-attf-class="carousel-indicators {{indicators_list_class}} position-static pt-2 pt-lg-0 mx-auto my-0 text-start">
-                <li t-foreach="product_images" t-as="product_image"
+        <div
+            t-if="len(product_images) > 1"
+            t-ignore="True"
+            t-attf-class="o_carousel_product_indicators {{indicators_div_class}}"
+        >
+            <ol
+                t-att-class="'carousel-indicators '
+                    + (indicators_list_class or '')
+                    + ('justify-content-center ' if website.product_page_image_width == '100_pc' else '')
+                    + ' position-static pt-2 pt-lg-0 mx-auto my-0'"
+            >
+                <li
+                    t-foreach="product_images" t-as="product_image"
                     t-attf-class="align-top position-relative {{'active' if product_image_first else ''}}"
                     data-bs-target="#o-carousel-product"
-                    t-att-data-bs-slide-to="str(product_image_index)">
-                    <div t-field="product_image.image_128" t-options='{"widget": "image", "qweb_img_responsive": False, "class": "o_image_64_cover", "alt-field": "name"}'/>
-                    <i t-if="product_image._name == 'product.image' and product_image.embed_code" class="fa fa-2x fa-play-circle o_product_video_thumb bg-black-50 text-center"/>
+                    t-att-data-bs-slide-to="str(product_image_index)"
+                >
+                    <div
+                        t-field="product_image.image_128"
+                        t-options="{'widget': 'image', 'qweb_img_responsive': False, 'class': 'o_image_64_cover', 'alt-field': 'name'}"
+                    />
+                    <i
+                        t-if="product_image._name == 'product.image' and product_image.embed_code"
+                        class="fa fa-2x fa-play-circle o_product_video_thumb bg-black-50 text-center"
+                    />
                 </li>
             </ol>
         </div>
@@ -3032,7 +3133,13 @@
 
     <!-- Product page images: Grid -->
     <template id="website_sale.shop_product_grid" name="Shop Product Grid">
-        <div id="o-grid-product" class="o_wsale_product_page_grid mb-3" data-name="Product Grid" t-att-data-image_spacing="website.product_page_image_spacing" t-att-data-grid_columns="website.product_page_grid_columns">
+        <div
+            id="o-grid-product"
+            class="mb-3"
+            data-name="Product Grid"
+            t-att-data-image_spacing="website.product_page_image_spacing"
+            t-att-data-grid_columns="website.product_page_grid_columns"
+        >
             <div class="container position-relative overflow-hidden">
                 <span t-attf-class="o_ribbon #{ribbon._get_position_class()}"
                       t-attf-style="#{text_color and ('color: %s; ' % text_color)}#{bg_color and 'background-color:' + bg_color}"
@@ -3040,17 +3147,37 @@
                 />
                 <!-- One row for every two images -->
                 <t t-set="image_classes" t-value="'w-100'"/>
-                <t t-set="col_classes" t-value="website._get_product_page_grid_image_classes()"/>
-                <t t-foreach="range(ceil(len(product_images) / website.product_page_grid_columns))" t-as="row_idx">
-                    <div class="row m-0">
-                        <t t-foreach="range(row_idx * website.product_page_grid_columns, (row_idx + 1) * website.product_page_grid_columns)" t-as="image_idx">
-                            <t t-set="product_image" t-value="image_idx &lt; len(product_images) and product_images[image_idx] or False"/>
-                            <div t-if="product_image" t-att-class="col_classes">
-                                <t t-call="website_sale.shop_product_image"/>
-                            </div>
-                        </t>
-                    </div>
-                </t>
+                <div class="row">
+                    <t t-foreach="website.product_page_grid_columns" t-as="col_idx">
+                        <t t-set="col_feed_counter" t-value="0"/>
+
+                        <div
+                            t-if="col_idx_index &lt; len(product_images)"
+                            class="col o_wsale_product_page_grid_column d-flex flex-column px-0"
+                        >
+                            <t t-foreach="len(product_images)" t-as="image_idx">
+                                <t
+                                    t-set="product_image"
+                                    t-value="image_idx &lt; len(product_images) and product_images[image_idx] or False"
+                                />
+                                <t
+                                    t-set="image_classes"
+                                    t-value="website._get_product_page_grid_image_spacing_classes()"
+                                />
+                                <t
+                                    t-if="product_image and col_idx == col_feed_counter"
+                                    t-call="website_sale.shop_product_image"
+                                />
+                                <t t-if="col_feed_counter == (website.product_page_grid_columns - 1)">
+                                    <t t-set="col_feed_counter" t-value="0"/>
+                                </t>
+                                <t t-else="">
+                                    <t t-set="col_feed_counter" t-value="col_feed_counter + 1"/>
+                                </t>
+                            </t>
+                        </div>
+                    </t>
+                </div>
             </div>
         </div>
     </template>

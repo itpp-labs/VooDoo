@@ -209,7 +209,6 @@
                                                     class="form-control s_website_form_input"
                                                     name="partner_name" required=""
                                                     data-fill-with="name"/>
-                                                <div class="alert alert-warning mt-2 d-none" id="name-message"></div>
                                             </div>
                                         </div>
                                     </div>
@@ -225,7 +224,6 @@
                                                     class="form-control s_website_form_input"
                                                     name="email_from" required=""
                                                     data-fill-with="email"/>
-                                                <div class="alert alert-warning mt-2 d-none" id="email-message"></div>
                                             </div>
                                         </div>
                                     </div>
@@ -241,7 +239,6 @@
                                                     class="form-control s_website_form_input"
                                                     name="partner_phone" required=""
                                                     data-fill-with="phone"/>
-                                                <div class="alert alert-warning mt-2 d-none" id="phone-message"></div>
                                             </div>
                                         </div>
                                     </div>
@@ -287,7 +284,7 @@
                                                 <textarea id="recruitment5"
                                                     class="form-control s_website_form_input"
                                                     placeholder="Optional introduction, or any question you might have about the job…"
-                                                    name="description" rows="5"></textarea>
+                                                    name="applicant_notes"  rows="5"></textarea>
                                             </div>
                                         </div>
                                     </div>
@@ -316,6 +313,7 @@
                                         </div>
                                     </div>
                                     <div class="col-12 s_website_form_submit mb64" data-name="Submit Button">
+                                        <div class="alert alert-warning mt-2 d-none" id="warning-message"></div>
                                         <div style="width: 200px" class="s_website_form_label"/>
                                         <a href="#" role="button" class="btn btn-primary btn-lg s_website_form_send" id="apply-btn">I'm feeling lucky</a>
                                         <span id="s_website_form_result"></span>
@@ -358,15 +356,6 @@
             <div class="oe_structure mt-2"/>
         </div>
     </t>
-</template>
-
-<!-- Job Default Description -->
-<template id="default_description" name="Job Description">
-    <p>
-        Perform assigned responsibilities, collaborate with team members, and adhere to company policies.
-        Strong communication, problem-solving, and work ethic required.
-        Adaptability, initiative, and willingness to learn are valued.
-    </p>
 </template>
 
 <template id="default_website_description">

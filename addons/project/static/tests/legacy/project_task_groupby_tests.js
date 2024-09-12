@@ -49,14 +49,14 @@ QUnit.module("Project", (hooks) => {
         assert.expect(1);
 
         const views = {
-            "project.task,false,list": `<tree js_class="project_task_list"/>`,
+            "project.task,false,list": `<list js_class="project_task_list"/>`,
         };
         const { openView } = await start({
             serverData: { views },
         });
         await openView({
             res_model: "project.task",
-            views: [[false, "tree"]],
+            views: [[false, "list"]],
             context: { group_by: ["project_id"] },
         });
 
@@ -66,14 +66,14 @@ QUnit.module("Project", (hooks) => {
         assert.expect(1);
 
         const views = {
-            "project.task,false,list": `<tree js_class="project_task_list"/>`,
+            "project.task,false,list": `<list js_class="project_task_list"/>`,
         };
         const { openView } = await start({
             serverData: { views },
         });
         await openView({
             res_model: "project.task",
-            views: [[false, "tree"]],
+            views: [[false, "list"]],
             context: { group_by: ["user_ids"] },
         });
 
@@ -84,14 +84,14 @@ QUnit.module("Project", (hooks) => {
         assert.expect(1);
 
         const views = {
-            "project.task,false,list": `<tree js_class="project_task_list"/>`,
+            "project.task,false,list": `<list js_class="project_task_list"/>`,
         };
         const { openView } = await start({
             serverData: { views },
         });
         await openView({
             res_model: "project.task",
-            views: [[false, "tree"]],
+            views: [[false, "list"]],
             context: { group_by: ["date_deadline"] },
         });
 
@@ -104,7 +104,7 @@ QUnit.module("Project", (hooks) => {
         const views = {
             "project.task,false,kanban": `<kanban js_class="project_task_kanban" default_group_by="project_id">
                     <templates>
-                        <t t-name="kanban-box"/>
+                        <t t-name="kanban-card"/>
                     </templates>
                 </kanban>`,
         };
@@ -125,7 +125,7 @@ QUnit.module("Project", (hooks) => {
         const views = {
             "project.task,false,kanban": `<kanban js_class="project_task_kanban" default_group_by="user_ids">
                     <templates>
-                        <t t-name="kanban-box"/>
+                        <t t-name="kanban-card"/>
                     </templates>
                 </kanban>`,
         };
@@ -146,7 +146,7 @@ QUnit.module("Project", (hooks) => {
         const views = {
             "project.task,false,kanban": `<kanban js_class="project_task_kanban" default_group_by="date_deadline">
                     <templates>
-                        <t t-name="kanban-box"/>
+                        <t t-name="kanban-card"/>
                     </templates>
                 </kanban>`,
         };

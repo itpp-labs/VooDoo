@@ -994,7 +994,7 @@ class account_journal(models.Model):
         action['domain'] = (action['domain'] or []) + [('journal_id', '=', self.id)]
         return action
 
-    def open_payments_action(self, payment_type=False, mode='tree'):
+    def open_payments_action(self, payment_type=False, mode='list'):
         if payment_type == 'outbound':
             action_ref = 'account.action_account_payments_payable'
         elif payment_type == 'transfer':
@@ -1052,6 +1052,21 @@ class account_journal(models.Model):
             }
         return action
 
+    def _show_sequence_holes(self, domain):
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Journal Entries"),
+            'res_model': 'account.move',
+            'search_view_id': (self.env.ref('account.view_account_move_with_gaps_in_sequence_filter').id, 'search'),
+            'view_mode': 'list,form',
+            'domain': domain,
+            'context': {
+                'search_default_group_by_sequence_prefix': 1,
+                'search_default_irregular_sequences': 1,
+                'expand': 1,
+            }
+        }
+
     def show_sequence_holes(self):
         has_sequence_holes = self._query_has_sequence_holes()
         domain = expression.OR(
@@ -1062,20 +1077,9 @@ class account_journal(models.Model):
             ]
             for journal_id, prefix in has_sequence_holes
         )
-        return {
-            'type': 'ir.actions.act_window',
-            'name': _("Journal Entries"),
-            'res_model': 'account.move',
-            'search_view_id': (self.env.ref('account.view_account_move_with_gaps_in_sequence_filter').id, 'search'),
-            'view_mode': 'list,form',
-            'domain': domain,
-            'context': {
-                **self._get_move_action_context(),
-                'search_default_group_by_sequence_prefix': 1,
-                'search_default_irregular_sequences': 1,
-                'expand': 1,
-            }
-        }
+        action = self._show_sequence_holes(domain)
+        action['context'] = {**self._get_move_action_context(), **action['context']}
+        return action
 
     def show_unhashed_entries(self):
         self.ensure_one()
@@ -1086,7 +1090,7 @@ class account_journal(models.Model):
             'name': _('Journal Entries to Hash'),
             'res_model': 'account.move',
             'domain': [('id', 'in', moves.ids)],
-            'views': [(False, 'tree'), (False, 'form')],
+            'views': [(False, 'list'), (False, 'form')],
         }
         if len(moves.ids) == 1:
             action.update({

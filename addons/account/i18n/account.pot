@@ -799,6 +799,22 @@ msgid "<span class=\"text-danger\">High risk</span>:"
 msgstr ""
 
 #. module: account
+#: model_terms:ir.ui.view,arch_db:account.view_account_secure_entries_wizard
+msgid ""
+"<span class=\"text-muted ms-2\">\n"
+"                                <i>inclusive, to make them immutable</i>\n"
+"                            </span>"
+msgstr ""
+
+#. module: account
+#: model_terms:ir.ui.view,arch_db:account.view_account_secure_entries_wizard
+msgid ""
+"<span class=\"text-muted\">\n"
+"                                <i>Secure entries up to</i>\n"
+"                            </span>"
+msgstr ""
+
+#. module: account
 #: model_terms:ir.ui.view,arch_db:account.bill_preview
 msgid ""
 "<span class=\"text-nowrap\">$ <span "
@@ -7389,9 +7405,9 @@ msgstr ""
 #: model:ir.model.fields,help:account.field_account_move__restrict_mode_hash_table
 #: model:ir.model.fields,help:account.field_account_payment__restrict_mode_hash_table
 msgid ""
-"If ticked, when the invoice is sent, the hash chain will be computed from "
-"the last move hashed to the new move to be hashed. The hash can also be "
-"performed on demand."
+"If ticked, when an entry is posted, we retroactively hash all moves in the "
+"sequence from the entry back to the last hashed entry. The hash can also be "
+"performed on demand by the Secure Entries wizard."
 msgstr ""
 
 #. module: account
@@ -9810,6 +9826,13 @@ msgid "Not Paid"
 msgstr ""
 
 #. module: account
+#: model_terms:ir.ui.view,arch_db:account.view_account_invoice_filter
+#: model_terms:ir.ui.view,arch_db:account.view_account_move_filter
+#: model_terms:ir.ui.view,arch_db:account.view_account_move_line_filter
+msgid "Not Secured"
+msgstr ""
+
+#. module: account
 #: model:ir.model.fields.selection,name:account.selection__account_move__move_sent_values__not_sent
 #: model_terms:ir.ui.view,arch_db:account.view_account_invoice_filter
 msgid "Not Sent"
@@ -11968,6 +11991,8 @@ msgid "Reversed"
 msgstr ""
 
 #. module: account
+#. odoo-python
+#: code:addons/account/wizard/account_secure_entries_wizard.py:0
 #: model:onboarding.onboarding.step,button_text:account.onboarding_onboarding_step_chart_of_accounts
 msgid "Review"
 msgstr ""
@@ -12321,6 +12346,34 @@ msgstr ""
 #: model:ir.model.fields.selection,name:account.selection__sale_order_line__display_type__line_section
 #: model_terms:ir.ui.view,arch_db:account.view_move_form
 msgid "Section"
+msgstr ""
+
+#. module: account
+#: model:ir.ui.menu,name:account.menu_action_secure_entries
+#: model_terms:ir.ui.view,arch_db:account.view_account_secure_entries_wizard
+msgid "Secure Entries"
+msgstr ""
+
+#. module: account
+#: model:ir.actions.act_window,name:account.action_view_account_secure_entries_wizard
+#: model:ir.model,name:account.model_account_secure_entries_wizard
+#: model_terms:ir.ui.view,arch_db:account.view_account_secure_entries_wizard
+msgid "Secure Journal Entries"
+msgstr ""
+
+#. module: account
+#: model:ir.model.fields,field_description:account.field_account_bank_statement_line__secured
+#: model:ir.model.fields,field_description:account.field_account_move__secured
+#: model:ir.model.fields,field_description:account.field_account_payment__secured
+msgid "Secured"
+msgstr ""
+
+#. module: account
+#. odoo-python
+#: code:addons/account/wizard/account_secure_entries_wizard.py:0
+msgid ""
+"Securing these entries will create at least one gap in the sequence: "
+"%(gap_info)s"
 msgstr ""
 
 #. module: account
@@ -14535,8 +14588,22 @@ msgstr ""
 
 #. module: account
 #. odoo-python
+#: code:addons/account/wizard/account_secure_entries_wizard.py:0
+msgid ""
+"There are entries that cannot be hashed. They can be protected by the "
+"Hard Lock Date."
+msgstr ""
+
+#. module: account
+#. odoo-python
 #: code:addons/account/wizard/account_validate_account_move.py:0
 msgid "There are no journal items in the draft state to post."
+msgstr ""
+
+#. module: account
+#. odoo-python
+#: code:addons/account/wizard/account_secure_entries_wizard.py:0
+msgid "There are still draft entries before the selected date."
 msgstr ""
 
 #. module: account
@@ -14545,6 +14612,15 @@ msgstr ""
 msgid ""
 "There are still draft entries in the period you want to lock. You should "
 "either post or delete them."
+msgstr ""
+
+#. module: account
+#. odoo-python
+#: code:addons/account/wizard/account_secure_entries_wizard.py:0
+msgid ""
+"There are still unreconciled bank statement lines before the selected date. "
+"The entries from journal prefixes containing them will not be secured: "
+"%(prefix_info)s"
 msgstr ""
 
 #. module: account
@@ -14808,7 +14884,7 @@ msgstr ""
 #. module: account
 #. odoo-python
 #: code:addons/account/models/account_move.py:0
-msgid "This move has been locked."
+msgid "This journal entry has been secured."
 msgstr ""
 
 #. module: account

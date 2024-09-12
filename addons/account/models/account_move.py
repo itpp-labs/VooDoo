@@ -14,7 +14,7 @@ import psycopg2
 import re
 from textwrap import shorten
 
-from odoo import api, fields, models, _, Command, SUPERUSER_ID
+from odoo import api, fields, models, _, Command, SUPERUSER_ID, modules, tools
 from odoo.tools.sql import column_exists, create_column
 from odoo.addons.account.tools import format_structured_reference_iso
 from odoo.addons.base_import.models.base_import import FILE_TYPE_DICT
@@ -282,6 +282,11 @@ class AccountMove(models.Model):
     restrict_mode_hash_table = fields.Boolean(related='journal_id.restrict_mode_hash_table')
     secure_sequence_number = fields.Integer(string="Inalterability No Gap Sequence #", readonly=True, copy=False, index=True)
     inalterable_hash = fields.Char(string="Inalterability Hash", readonly=True, copy=False, index='btree_not_null')
+    secured = fields.Boolean(
+        compute="_compute_secured",
+        search='_search_secured',
+        help="The entry is secured with an inalterable hash."
+    )
 
     # ==============================================================================================
     #                                          INVOICE
@@ -891,6 +896,18 @@ class AccountMove(models.Model):
         for record in self:
             record.type_name = type_name_mapping[record.move_type]
 
+    @api.depends('inalterable_hash')
+    def _compute_secured(self):
+        for move in self:
+            move.secured = bool(move.inalterable_hash)
+
+    def _search_secured(self, operator, value):
+        if operator not in ['=', '!='] or value not in [True, False]:
+            raise UserError(_('Operation not supported'))
+
+        want_secured = (operator == '=') == value
+        return [('inalterable_hash', '!=' if want_secured else '=', False)]
+
     @api.depends('line_ids.account_id.account_type')
     def _compute_always_tax_exigible(self):
         for record in self.with_context(prefetch_fields=False):
@@ -928,9 +945,11 @@ class AccountMove(models.Model):
     @api.depends('bank_partner_id')
     def _compute_partner_bank_id(self):
         for move in self:
+            # This will get the bank account from the partner in an order with the trusted first
             bank_ids = move.bank_partner_id.bank_ids.filtered(
-                lambda bank: not bank.company_id or bank.company_id == move.company_id)
-            move.partner_bank_id = bank_ids[0] if bank_ids else False
+                lambda bank: not bank.company_id or bank.company_id == move.company_id
+            ).sorted(lambda bank: not bank.allow_out_payment)
+            move.partner_bank_id = bank_ids[:1]
 
     @api.depends('partner_id')
     def _compute_invoice_payment_term_id(self):
@@ -1531,11 +1550,12 @@ class AccountMove(models.Model):
         for move in self:
             move.has_reconciled_entries = len(move.line_ids._reconciled_lines()) > 1
 
-    @api.depends('restrict_mode_hash_table', 'state', 'is_move_sent')
+    @api.depends('restrict_mode_hash_table', 'state', 'inalterable_hash')
     def _compute_show_reset_to_draft_button(self):
         for move in self:
             move.show_reset_to_draft_button = (
                 not self._is_move_restricted(move) \
+                and not move.inalterable_hash
                 and (move.state == 'cancel' or (move.state == 'posted' and not move.need_cancel_request))
             )
 
@@ -2905,8 +2925,6 @@ class AccountMove(models.Model):
 
                 if vals.get('state') == 'posted':
                     self.flush_recordset()  # Ensure that the name is correctly computed
-
-                if vals.get('is_move_sent'):
                     self._hash_moves()
 
             self._synchronize_business_models(set(vals.keys()))
@@ -3449,28 +3467,99 @@ class AccountMove(models.Model):
 
     @api.model
     def _get_move_hash_domain(self, common_domain=False, force_hash=False):
+        """
+        Returns a search domain on model account.move checking whether they should be hashed.
+        :param common_domain: a search domain that will be included in the returned domain in any case
+        :param force_hash: if True, we'll check all moves posted, independently of journal settings
+        """
         common_domain = expression.AND([
             common_domain or [],
-            [('restrict_mode_hash_table', '=', True)]
+            [('state', '=', 'posted')],
         ])
         if force_hash:
-            return expression.AND([common_domain, [('state', '=', 'posted')]])
+            return common_domain
         return expression.AND([
             common_domain,
-            [('move_type', 'in', self.get_sale_types(include_receipts=True)), ('is_move_sent', '=', True)]
+            [('restrict_mode_hash_table', '=', True)],
         ])
 
     @api.model
     def _is_move_restricted(self, move, force_hash=False):
+        """
+        Returns whether a move should be hashed (depending on journal settings)
+        :param move: the account.move we check
+        :param force_hash: if True, we'll check all moves posted, independently of journal settings
+        """
         return move.filtered_domain(self._get_move_hash_domain(force_hash=force_hash))
 
-    def _hash_moves(self, force_hash=False):
-        chains_to_hash = self._get_chains_to_hash(force_hash=force_hash)
+    def _hash_moves(self, **kwargs):
+        chains_to_hash = self._get_chains_to_hash(**kwargs)
         for chain in chains_to_hash:
             move_hashes = chain['moves']._calculate_hashes(chain['previous_hash'])
             for move, move_hash in move_hashes.items():
                 move.inalterable_hash = move_hash
-            chain['moves']._message_log_batch(bodies={m.id: _("This move has been locked.") for m in chain['moves']})
+            chain['moves']._message_log_batch(bodies={m.id: _("This journal entry has been secured.") for m in chain['moves']})
+
+    def _get_chain_info(self, force_hash=False, include_pre_last_hash=False, early_stop=False):
+        """All records in `self` must belong to the same journal and sequence_prefix
+        """
+        if not self:
+            return False
+        last_move_in_chain = max(self, key=lambda m: m.sequence_number)
+        journal = last_move_in_chain.journal_id
+        if not self._is_move_restricted(last_move_in_chain, force_hash=force_hash):
+            return False
+
+        common_domain = [
+            ('journal_id', '=', journal.id),
+            ('sequence_prefix', '=', last_move_in_chain.sequence_prefix),
+        ]
+        last_move_hashed = self.env['account.move'].search([
+            *common_domain,
+            ('inalterable_hash', '!=', False),
+        ], order='sequence_number desc', limit=1)
+
+        domain = self.env['account.move']._get_move_hash_domain([
+            *common_domain,
+            ('sequence_number', '<=', last_move_in_chain.sequence_number),
+            ('inalterable_hash', '=', False),
+        ], force_hash=True)
+        if last_move_hashed and not include_pre_last_hash:
+            # Hash moves only after the last hashed move, not the ones that may have been posted before the journal was set on restrict mode
+            domain.extend([('sequence_number', '>', last_move_hashed.sequence_number)])
+
+        # On the accounting dashboard, we are only interested on whether there are documents to hash or not
+        # so we can stop the computation early if we find at least one document to hash
+        if early_stop:
+            return self.env['account.move'].sudo().search_count(domain, limit=1)
+        moves_to_hash = self.env['account.move'].sudo().search(domain, order='sequence_number')
+        warnings = set()
+        if moves_to_hash:
+            # gap warning
+            if last_move_hashed:
+                first = last_move_hashed.sequence_number
+                difference = len(moves_to_hash)
+            else:
+                first = moves_to_hash[0].sequence_number
+                difference = len(moves_to_hash) - 1
+            last = moves_to_hash[-1].sequence_number
+            if first + difference != last:
+                warnings.add('gap')
+
+            # unreconciled warning
+            unreconciled = False in moves_to_hash.statement_line_ids.mapped('is_reconciled')
+            if unreconciled:
+                warnings.add('unreconciled')
+        else:
+            warnings.add('no_document')
+        moves = moves_to_hash.sudo(False)
+        return {
+            'previous_hash': last_move_hashed.inalterable_hash,
+            'last_move_hashed': last_move_hashed,
+            'moves': moves,
+            'remaining_moves': self - moves,
+            'warnings': warnings,
+        }
 
     def _get_chains_to_hash(self, force_hash=False, raise_if_gap=True, raise_if_no_document=True, include_pre_last_hash=False, early_stop=False):
         """
@@ -3478,60 +3567,39 @@ class AccountMove(models.Model):
         into account the last move of each chain of the recordset.
         So if we have INV/1, INV/2, INV/3, INV4 that are not hashed yet in the database
         but self contains INV/2, INV/3, we will return INV/1, INV/2 and INV/3. Not INV/4.
-        :param force_hash: if True, we'll check all moves posted, independently of whether they were sent or not
+        :param force_hash: if True, we'll check all moves posted, independently of journal settings
         :param raise_if_gap: if True, we'll raise an error if a gap is detected in the sequence
         :param raise_if_no_document: if True, we'll raise an error if no document needs to be hashed
         :param include_pre_last_hash: if True, we'll include the moves not hashed that are previous to the last hashed move
         :param early_stop: if True, we'll stop the computation as soon as we find at least one document to hash
+        :return bool when early_stop else a list of dictionaries (each dict generated by `_get_chain_info`)
         """
-        res = []  # List of dict {'previous_hash': str, 'moves': recordset}
+        res = []
         for journal, journal_moves in self.grouped('journal_id').items():
             for chain_moves in journal_moves.grouped('sequence_prefix').values():
-                last_move_in_chain = chain_moves.sorted('sequence_number')[-1]
-                if not self._is_move_restricted(last_move_in_chain, force_hash=force_hash):
+                chain_info = chain_moves._get_chain_info(
+                    force_hash=force_hash, include_pre_last_hash=include_pre_last_hash, early_stop=early_stop
+                )
+
+                if chain_info is False:
                     continue
+                if early_stop and chain_info:
+                    return True
 
-                common_domain = [
-                    ('journal_id', '=', journal.id),
-                    ('sequence_prefix', '=', last_move_in_chain.sequence_prefix),
-                ]
-                last_move_hashed = self.env['account.move'].search([
-                    *common_domain,
-                    ('inalterable_hash', '!=', False),
-                ], order='sequence_number desc', limit=1)
+                if 'unreconciled' in chain_info['warnings']:
+                    raise UserError(_("An error occurred when computing the inalterability. All entries have to be reconciled."))
 
-                domain = self.env['account.move']._get_move_hash_domain([
-                    *common_domain,
-                    ('sequence_number', '<=', last_move_in_chain.sequence_number),
-                    ('inalterable_hash', '=', False),
-                    ('date', '>', last_move_in_chain.company_id._get_user_fiscal_lock_date(journal)),
-                ], force_hash=True)
-                if last_move_hashed and not include_pre_last_hash:
-                    # Hash moves only after the last hashed move, not the ones that may have been posted before the journal was set on restrict mode
-                    domain.extend([('sequence_number', '>', last_move_hashed.sequence_number)])
-
-                # On the accounting dashboard, we are only interested on whether there are documents to hash or not
-                # so we can stop the computation early if we find at least one document to hash
-                if early_stop:
-                    if self.env['account.move'].sudo().search_count(domain, limit=1):
-                        return True
-                    continue
-                moves_to_hash = self.env['account.move'].sudo().search(domain, order='sequence_number')
-                if not moves_to_hash and force_hash and raise_if_no_document:
+                if raise_if_no_document and 'no_document' in chain_info['warnings']:
                     raise UserError(_(
-                        "This move could not be locked either because:\n"
-                        "- some move with the same sequence prefix has a higher number. You may need to resequence it.\n"
-                        "- the move's date is anterior to the lock date"
+                        "This move could not be locked either because "
+                        "some move with the same sequence prefix has a higher number. You may need to resequence it."
                     ))
-                if raise_if_gap and moves_to_hash and moves_to_hash[0].sequence_number + len(moves_to_hash) - 1 != moves_to_hash[-1].sequence_number:
+                if raise_if_gap and 'gap' in chain_info['warnings']:
                     raise UserError(_(
                         "An error occurred when computing the inalterability. A gap has been detected in the sequence."
                     ))
 
-                res.append({
-                    'previous_hash': last_move_hashed.inalterable_hash,
-                    'moves': moves_to_hash.sudo(False),
-                })
+                res.append(chain_info)
         if early_stop:
             return False
         return res
@@ -4622,7 +4690,7 @@ class AccountMove(models.Model):
             'res_model': 'account.move',
             'view_mode': 'form',
             'domain': [('id', 'in', self.tax_cash_basis_created_move_ids.ids)],
-            'views': [(self.env.ref('account.view_move_tree').id, 'tree'), (False, 'form')],
+            'views': [(self.env.ref('account.view_move_tree').id, 'list'), (False, 'form')],
         }
 
     def action_switch_move_type(self):
@@ -4680,7 +4748,6 @@ class AccountMove(models.Model):
         return {
             'name': _("Print & Send"),
             'type': 'ir.actions.act_window',
-            'view_type': 'form',
             'view_mode': 'form',
             'res_model': 'account.move.send',
             'target': 'new',
@@ -4824,7 +4891,7 @@ class AccountMove(models.Model):
                 # (we need both, as tax_cash_basis_origin_move_id did not exist in older versions).
                 raise UserError(_('You cannot reset to draft a tax cash basis journal entry.'))
             if move.inalterable_hash:
-                raise UserError(_('You cannot modify a sent entry of this journal because it is in strict mode.'))
+                raise UserError(_('You cannot reset to draft a locked journal entry.'))
 
     def button_hash(self):
         self._hash_moves(force_hash=True)
@@ -5214,11 +5281,12 @@ class AccountMove(models.Model):
         """
         self.ensure_one()
         filename = self._get_invoice_proforma_pdf_report_filename()
-        content, _ = self.env['ir.actions.report']._pre_render_qweb_pdf('account.account_invoices', self.ids, data={'proforma': True})
+        content, report_type = self.env['ir.actions.report']._pre_render_qweb_pdf('account.account_invoices', self.ids, data={'proforma': True})
+        content_by_id = self.env['ir.actions.report']._get_splitted_report('account.account_invoices', content, report_type)
         return {
             'filename': filename,
             'filetype': 'pdf',
-            'content': content[self.id],
+            'content': content_by_id[self.id],
         }
 
     def _get_invoice_legal_documents(self, filetype, allow_fallback=False):
@@ -5685,3 +5753,11 @@ class AccountMove(models.Model):
             'description': _('PDF'),
             **self.action_invoice_download_pdf()
         }]
+
+    @staticmethod
+    def _can_commit():
+        """ Helper to know if we can commit the current transaction or not.
+
+        :returns: True if commit is acceptable, False otherwise.
+        """
+        return not tools.config['test_enable'] and not modules.module.current_test
