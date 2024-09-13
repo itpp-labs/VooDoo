@@ -50,6 +50,15 @@ export class PaymentScreen extends Component {
     }
 
     onMounted() {
+        const order = this.pos.get_order();
+
+        for (const payment of order.payment_ids) {
+            const pmid = payment.payment_method_id.id;
+            if (!this.pos.config.payment_method_ids.map((pm) => pm.id).includes(pmid)) {
+                payment.delete({ backend: true });
+            }
+        }
+
         if (this.payment_methods_from_config.length == 1) {
             this.addNewPaymentLine(this.payment_methods_from_config[0]);
         }
@@ -339,6 +348,7 @@ export class PaymentScreen extends Component {
                 );
 
                 if (printResult && this.pos.config.iface_print_skip_screen) {
+                    this.currentOrder.set_screen_data({ name: "ReceiptScreen" });
                     this.pos.add_new_order();
                     nextScreen = "ProductScreen";
                 }

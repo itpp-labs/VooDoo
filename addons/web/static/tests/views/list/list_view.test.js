@@ -3301,10 +3301,12 @@ test(`selection box: grouped list, all groups folded`, async () => {
     expect(`.o_data_row`).toHaveCount(0);
     expect(`.o_searchview`).toHaveCount(1);
     expect(`.o_control_panel_actions .o_list_selection_box`).toHaveCount(0);
+    expect(`.o_control_panel_breadcrumbs_actions .o_cp_action_menus`).toHaveCount(1);
 
     // click on the checkbox in the thead
     await contains(`thead .o_list_record_selector input`).click();
     expect(`.o_control_panel_actions .o_list_selection_box`).toHaveCount(1);
+    expect(`.o_control_panel_breadcrumbs_actions .o_cp_action_menus`).toHaveCount(0);
     expect(`.o_searchview`).toHaveCount(0);
     expect(`.o_list_selection_box`).toHaveText("All 4 selected");
 
@@ -3364,13 +3366,14 @@ test(`selection box: grouped list, select domain, open group`, async () => {
     expect(".o_data_row").toHaveCount(0);
     expect(".o_control_panel_actions .o_list_selection_box").toHaveCount(0);
 
-    // open first group and select all domain
+    // select all domain by ticking the thead checkbox
+    await contains(`thead .o_list_record_selector input`).click();
+    expect(`.o_list_selection_box`).toHaveText("All 4 selected");
+
+    // open first group
     await contains(".o_group_header").click();
-    await contains("thead .o_list_record_selector input").click();
-    await contains(".o_list_selection_box .o_list_select_domain").click();
     expect(".o_data_row").toHaveCount(2);
-    expect(".o_control_panel_actions .o_list_selection_box").toHaveCount(1);
-    expect(".o_list_selection_box").toHaveText("All 4 selected");
+    expect(".o_data_row .o_list_record_selector input:checked").toHaveCount(2);
 
     // open another group
     await contains(queryAll(".o_group_header")[1]).click();
@@ -3378,7 +3381,7 @@ test(`selection box: grouped list, select domain, open group`, async () => {
     expect(".o_data_row .o_list_record_selector input:checked").toHaveCount(3);
 });
 
-test(`selection box: grouped list, select domain, use pager`, async () => {
+test(`selection box: grouped list, select domain, use pager (inside group)`, async () => {
     await mountView({
         resModel: "foo",
         type: "list",
@@ -3407,6 +3410,64 @@ test(`selection box: grouped list, select domain, use pager`, async () => {
     expect(".o_list_selection_box").toHaveText("All 4 selected");
 });
 
+test(`selection box: grouped list, select domain, use main pager`, async () => {
+    await mountView({
+        resModel: "foo",
+        type: "list",
+        arch: '<list groups_limit="2"><field name="foo"/><field name="bar"/></list>',
+        groupBy: ["foo"],
+    });
+
+    expect(".o_group_header").toHaveCount(2);
+    expect(".o_data_row").toHaveCount(0);
+    expect(".o_control_panel_actions .o_list_selection_box").toHaveCount(0);
+
+    // select all domain by ticking the thead checkbox
+    await contains(`thead .o_list_record_selector input`).click();
+    expect(`.o_list_selection_box`).toHaveText("All 4 selected");
+
+    // go to second page
+    await contains(".o_pager_next").click();
+    expect(".o_group_header").toHaveCount(1);
+    expect(".o_data_row").toHaveCount(0);
+    expect(`.o_list_selection_box`).toHaveText("All 4 selected");
+
+    // open a group
+    await contains(".o_group_header").click();
+    expect(".o_data_row").toHaveCount(1);
+    expect(".o_data_row .o_list_record_selector input:checked").toHaveCount(1);
+
+    // go to previous page and come back, to check that selection is still ok
+    await contains(".o_pager_previous").click();
+    await contains(".o_pager_next").click();
+    expect(".o_data_row").toHaveCount(1);
+    expect(".o_data_row .o_list_record_selector input:checked").toHaveCount(1);
+    expect(`.o_list_selection_box`).toHaveText("All 4 selected");
+});
+
+test(`selection box: grouped list, select domain, reduce limit`, async () => {
+    await mountView({
+        resModel: "foo",
+        type: "list",
+        arch: '<list><field name="foo"/><field name="bar"/></list>',
+        groupBy: ["foo"],
+    });
+
+    expect(".o_group_header").toHaveCount(3);
+    expect(".o_data_row").toHaveCount(0);
+    expect(".o_control_panel_actions .o_list_selection_box").toHaveCount(0);
+
+    // select all domain by ticking the thead checkbox
+    await contains(`thead .o_list_record_selector input`).click();
+    expect(`.o_list_selection_box`).toHaveText("All 4 selected");
+
+    // reduce limit to 2
+    await contains(".o_pager_value").click();
+    await contains("input.o_pager_value").edit("1-2");
+    expect(".o_group_header").toHaveCount(2);
+    expect(`.o_list_selection_box`).toHaveText("All 4 selected");
+});
+
 test(`selection box is displayed as first action button`, async () => {
     await mountView({
         resModel: "foo",
@@ -3433,6 +3494,36 @@ test(`selection box is displayed as first action button`, async () => {
         message: "last element should selection box",
     });
     expect(`.o_list_selection_box`).toHaveText("1\nselected");
+});
+
+test(`selection box: select domain, then untick a record`, async () => {
+    await mountView({
+        resModel: "foo",
+        type: "list",
+        arch: `<list limit="2"><field name="foo"/><field name="bar"/></list>`,
+    });
+    expect(`.o_data_row`).toHaveCount(2);
+    expect(`.o_control_panel_actions .o_list_selection_box`).toHaveCount(0);
+
+    // select all records of first page
+    await contains(`thead .o_list_record_selector input`).click();
+    expect(`.o_control_panel_actions .o_list_selection_box`).toHaveCount(1);
+    expect(`.o_list_selection_box .o_list_select_domain`).toHaveCount(1);
+    expect(queryOne(".o_list_selection_box").innerText.replace(/\s+/g, " ").trim()).toBe(
+        "2 selected Select all 4"
+    );
+
+    // select domain
+    await contains(`.o_list_selection_box .o_list_select_domain`).click();
+    expect(`.o_list_selection_box`).toHaveText("All 4 selected");
+
+    // untick a record
+    await contains(`.o_data_row .o_list_record_selector input`).click();
+    expect(`.o_list_selection_box .o_list_select_domain`).toHaveCount(0);
+    expect(queryOne(`.o_list_selection_box`).innerText.replace(/\s+/g, " ").trim()).toBe(
+        "1 selected"
+    );
+    expect(`thead .o_list_record_selector input`).not.toBeChecked();
 });
 
 test(`selection box is not removed after multi record edition`, async () => {
@@ -10896,6 +10987,10 @@ test(`list view move to previous page when all records from last page archive/un
 });
 
 test(`list should ask to scroll to top on page changes`, async () => {
+    // add records to be able to scroll
+    for (let i = 5; i < 55; i++) {
+        Foo._records.push({ id: i, foo: "foo" });
+    }
     patchWithCleanup(ListController.prototype, {
         onPageChangeScroll() {
             super.onPageChangeScroll(...arguments);
@@ -10916,16 +11011,21 @@ test(`list should ask to scroll to top on page changes`, async () => {
 
     // change the limit (should not ask to scroll)
     await contains(`.o_pager_value`).click();
-    await contains(`.o_pager_value`).edit("1-2");
+    await contains(`.o_pager_value`).edit("1-25");
     await animationFrame();
-    expect(getPagerValue()).toEqual([1, 2]);
+    expect(getPagerValue()).toEqual([1, 25]);
     // should not ask to scroll when changing the limit
     expect.verifySteps([]);
+
+    await contains(".o_list_renderer").scroll({ top: 250 });
+    expect(".o_list_renderer").toHaveProperty("scrollTop", 250);
 
     // switch pages again (should still ask to scroll)
     await pagerNext();
     // this is still working after a limit change
     expect.verifySteps(["scroll"]);
+    // Should effectively reset the scroll position
+    expect(".o_list_renderer").toHaveProperty("scrollTop", 0);
 });
 
 test(`list with handle field, override default_get, bottom when inline`, async () => {

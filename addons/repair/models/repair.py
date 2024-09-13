@@ -65,6 +65,16 @@ class Repair(models.Model):
         'Under Warranty',
         help='If ticked, the sales price will be set to 0 for all products transferred from the repair order.')
     schedule_date = fields.Datetime("Scheduled Date", default=fields.Datetime.now, index=True, required=True, copy=False)
+    search_date_category = fields.Selection([
+        ('before', 'Before'),
+        ('yesterday', 'Yesterday'),
+        ('today', 'Today'),
+        ('day_1', 'Tomorrow'),
+        ('day_2', 'The day after tomorrow'),
+        ('after', 'After')],
+        string='Date Category', store=False,
+        search='_search_date_category', readonly=True
+    )
 
     # Product To Repair
     move_id = fields.Many2one(  # Generated in 'action_repair_done', needed for traceability
@@ -167,6 +177,7 @@ class Repair(models.Model):
     picking_product_id = fields.Many2one(related="picking_id.product_id")
     allowed_lot_ids = fields.One2many('stock.lot', compute='_compute_allowed_lot_ids')
     # UI Fields
+    has_uncomplete_moves = fields.Boolean(compute='_compute_has_uncomplete_moves')
     unreserve_visible = fields.Boolean(
         'Allowed to Unreserve Production', compute='_compute_unreserve_visible',
         help='Technical field to check when we can unreserve')
@@ -280,6 +291,11 @@ class Repair(models.Model):
         returned = self.filtered(lambda r: r.picking_id and r.picking_id.state == 'done')
         returned.is_returned = True
 
+    @api.depends('move_ids.quantity', 'move_ids.product_uom_qty', 'move_ids.product_uom.rounding')
+    def _compute_has_uncomplete_moves(self):
+        for repair in self:
+            repair.has_uncomplete_moves = any(not move.picked or float_compare(move.quantity, move.product_uom_qty, precision_rounding=move.product_uom.rounding) < 0 for move in repair.move_ids)
+
     @api.depends('move_ids', 'state', 'move_ids.product_uom_qty')
     def _compute_unreserve_visible(self):
         for repair in self:
@@ -291,6 +307,14 @@ class Repair(models.Model):
                 repair.state in ('confirmed', 'under_repair') and
                 any(not move.picked and move.product_uom_qty and move.state in ['confirmed', 'partially_available'] for move in repair.move_ids)
             )
+
+    def _search_date_category(self, operator, value):
+        if operator != '=':
+            raise NotImplementedError(_('Operation not supported'))
+        search_domain = self.env['stock.picking'].date_category_to_domain(value)
+        return expression.AND([
+            [('schedule_date', operator, value)] for operator, value in search_domain
+        ])
 
     @api.onchange('product_uom')
     def onchange_product_uom(self):
@@ -505,19 +529,6 @@ class Repair(models.Model):
                 partial_moves.add(move.id)
             if move.picked:
                 picked_moves.add(move.id)
-        if partial_moves or picked_moves and len(picked_moves) < len(self.move_ids):
-            ctx = dict(self.env.context or {})
-            ctx['default_repair_ids'] = self.ids
-            return {
-                'name': _('Uncomplete Move(s)'),
-                'type': 'ir.actions.act_window',
-                'view_mode': 'form',
-                'views': [(False, 'form')],
-                'res_model': 'repair.warn.uncomplete.move',
-                'target': 'new',
-                'context': ctx,
-            }
-
         return self.action_repair_done()
 
     def action_repair_start(self):

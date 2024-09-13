@@ -1,7 +1,7 @@
 /** @odoo-module **/
 
 import { _t } from "@web/core/l10n/translation";
-import { scrollTo } from "@web/core/utils/scrolling";
+import { scrollTo } from "@web_editor/js/common/scrolling";
 import publicWidget from "@web/legacy/js/public/public_widget";
 import { share } from "./contentshare";
 
@@ -37,7 +37,7 @@ publicWidget.registry.websiteBlog = publicWidget.Widget.extend({
         const recordCoverContainerEl = ev.currentTarget.querySelector(".o_record_cover_container");
         const classes = nexInfo.size.split(" ");
         recordCoverContainerEl.classList.add(...classes, nexInfo.textContent);
-        ev.currentTarget.querySelector(".o_wblog_toggle").classList.toggle("d-none");
+        ev.currentTarget.querySelectorAll(".o_wblog_toggle").forEach(el => el.classList.toggle("d-none"));
         // Appending a placeholder so that the cover can scroll to the top of the
         // screen, regardless of its height.
         const placeholder = document.createElement('div');
@@ -98,7 +98,7 @@ publicWidget.registry.websiteBlog = publicWidget.Widget.extend({
      * @param {Integer} duration - scroll animation duration
      * @param {Function} callback - to be executed after the scroll is performed
      */
-    _forumScrollAction: function (el, callback) {
-        scrollTo(el, { behavior: "smooth" }).then(() => callback());
+    _forumScrollAction: function (el, duration, callback) {
+        scrollTo(el, { duration: duration }).then(() => callback());
     },
 });

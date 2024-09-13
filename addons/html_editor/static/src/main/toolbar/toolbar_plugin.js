@@ -78,10 +78,7 @@ export class ToolbarPlugin extends Plugin {
             case "CONTENT_UPDATED":
                 if (this.overlay.isOpen) {
                     const selectionData = this.shared.getSelectionData();
-                    if (
-                        !selectionData.documentSelectionIsInEditable ||
-                        selectionData.editableSelection.isCollapsed
-                    ) {
+                    if (selectionData.editableSelection.isCollapsed) {
                         this.overlay.close();
                     } else {
                         this.updateButtonsStates(selectionData.editableSelection);
@@ -132,7 +129,7 @@ export class ToolbarPlugin extends Plugin {
         const isCollapsed = selectionData.editableSelection.isCollapsed;
 
         if (this.overlay.isOpen) {
-            if (!inEditable || isCollapsed) {
+            if (!inEditable || isCollapsed || !this.shared.getTraversedNodes().length) {
                 const preventClosing = selectionData.documentSelection?.anchorNode?.closest?.(
                     "[data-prevent-closing-overlay]"
                 );
