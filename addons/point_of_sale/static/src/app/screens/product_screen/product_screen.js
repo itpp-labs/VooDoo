@@ -55,7 +55,7 @@ export class ProductScreen extends Component {
             currentOffset: 0,
         });
         onMounted(() => {
-            this.pos.openCashControl();
+            this.pos.openOpeningControl();
 
             // Call `reset` when the `onMounted` callback in `numberBuffer.use` is done.
             // We don't do this in the `mounted` lifecycle method because it is called before
@@ -312,7 +312,7 @@ export class ProductScreen extends Component {
         let list = [];
 
         if (this.searchWord !== "") {
-            list = this.getProductsBySearchWord(this.searchWord);
+            list = this.addMainProductsToDisplay(this.getProductsBySearchWord(this.searchWord));
         } else if (this.pos.selectedCategory?.id) {
             list = this.getProductsByCategory(this.pos.selectedCategory);
         } else {
@@ -343,6 +343,16 @@ export class ProductScreen extends Component {
         return fuzzyLookup(unaccent(searchWord, false), this.products, (product) =>
             unaccent(product.searchString, false)
         );
+    }
+
+    addMainProductsToDisplay(products) {
+        const uniqueProducts = new Set(products);
+        for (const product of products) {
+            if (product.id in this.pos.mainProductVariant) {
+                uniqueProducts.add(this.pos.mainProductVariant[product.id]);
+            }
+        }
+        return Array.from(uniqueProducts);
     }
 
     getProductsByCategory(category) {

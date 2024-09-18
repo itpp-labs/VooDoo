@@ -3,7 +3,7 @@
 
 from datetime import datetime
 
-from odoo import api, fields, models, _
+from odoo import api, fields, models
 
 
 class MailTracking(models.Model):
@@ -46,7 +46,7 @@ class MailTracking(models.Model):
             if not tracking.field_id:
                 return env.is_system()
             model_field = env[tracking.field_id.model]._fields.get(tracking.field_id.name)
-            return model_field.is_accessible(env)
+            return model_field.is_accessible(env) if model_field else False
 
         return self.filtered(has_field_access)
 
@@ -176,7 +176,7 @@ class MailTracking(models.Model):
         # generate dict of field information, if available
         fields_col_info = (
             tracked_fields.get(tracking.field_id.name) or {
-                'string': tracking.field_info['desc'] if tracking.field_info else _('Unknown'),
+                'string': tracking.field_info['desc'] if tracking.field_info else self.env._('Unknown'),
                 'type': tracking.field_info['type'] if tracking.field_info else 'char',
             } for tracking in self
         )

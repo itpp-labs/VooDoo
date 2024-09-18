@@ -1,7 +1,9 @@
 from bisect import bisect_left
 from collections import defaultdict
+import contextlib
 import itertools
 import re
+import json
 
 from odoo import api, fields, models, _, Command
 from odoo.osv import expression
@@ -46,6 +48,7 @@ class AccountAccount(models.Model):
     company_currency_id = fields.Many2one('res.currency', compute='_compute_company_currency_id')
     company_fiscal_country_code = fields.Char(compute='_compute_company_fiscal_country_code')
     code = fields.Char(string="Code", size=64, tracking=True, compute='_compute_code', search='_search_code', inverse='_inverse_code')
+    placeholder_code = fields.Char(string="Display code", compute='_compute_placeholder_code')
     deprecated = fields.Boolean(default=False, tracking=True)
     used = fields.Boolean(compute='_compute_used', search='_search_used')
     account_type = fields.Selection(
@@ -371,6 +374,18 @@ class AccountAccount(models.Model):
             for record in self
         }
         self.env['ir.property'].with_company(self.env.company.root_id).sudo()._set_multi('code', 'account.account', values)
+
+    @api.depends_context('company')
+    @api.depends('code')
+    def _compute_placeholder_code(self):
+        self.placeholder_code = False
+        for record in self:
+            if record.code:
+                record.placeholder_code = record.code
+            elif authorized_companies := (record.company_ids & self.env['res.company'].browse(self.env.user._get_company_ids())):
+                company = authorized_companies[0]
+                if code := record.with_company(company).code:
+                    record.placeholder_code = f'{code} ({company.name})'
 
     @api.depends_context('company')
     @api.depends('code')
@@ -808,16 +823,16 @@ class AccountAccount(models.Model):
                     cache[company.id].add(new_code)
 
             if 'name' not in default:
-                vals['name'] = _("%s (copy)", account.name or '')
+                vals['name'] = self.env._("%s (copy)", account.name or '')
 
         return vals_list
 
     def copy_translations(self, new, excluded=()):
         super().copy_translations(new, excluded=tuple(excluded)+('name',))
-        if new.name == _('%s (copy)', self.name):
+        if new.name == self.env._('%s (copy)', self.name):
             name_field = self._fields['name']
             self.env.cache.update_raw(new, name_field, [{
-                lang: _('%s (copy)', tr)
+                lang: self.env._('%s (copy)', tr)
                 for lang, tr in name_field._get_stored_translations(self).items()
             }], dirty=True)
 
@@ -1040,194 +1055,281 @@ class AccountAccount(models.Model):
     def _merge_method(self, destination, source):
         raise UserError(_("You cannot merge accounts."))
 
-    def action_merge(self):
-        """ Merge the accounts in `self`:
-            - the first one is extended to each company of the accounts in `self`, keeping their codes and names;
-            - the others are deleted; and
-            - journal items and other references are retargeted to the first account.
+    def action_unmerge(self):
+        """ Split the account `self` into several accounts, one per company.
+        The original account's codes are assigned respectively to the account created in each company.
 
-            If the companies of several accounts overlap, this is an accounting operation, so we check that no impacted entries are in a locked period.
-            If the companies don't overlap, from an accounting perspective, each company still has its own independent view of the account.
-        """
-        # Step 1: Perform checks and get account to merge into.
-        account_to_merge_into, code_by_company = self._check_action_merge_possible()
+        From an accounting perspective, this does not change anything to the journal items, since their
+        account codes will remain unchanged. """
 
-        # Step 2: If needed, ask the user for confirmation.
-        self._action_merge_get_user_confirmation(account_to_merge_into)
+        self._check_action_unmerge_possible()
 
-        # Step 3: Perform merge.
-        self._action_merge(account_to_merge_into, code_by_company)
+        self._action_unmerge_get_user_confirmation()
 
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'type': 'success',
-                'sticky': False,
-                'message': _("Accounts successfully merged!"),
-                'next': {'type': 'ir.actions.act_window_close'},
-            }
-        }
+        self._action_unmerge()
 
-    def _check_action_merge_possible(self):
-        """ Perform checks to determine whether the accounts in `self` can be merged,
-        and return an account to merge the others into.
+        return {'type': 'ir.actions.client', 'tag': 'soft_reload'}
 
-        :return: (account_to_merge_into, code_by_company)
-        where account_to_merge_into is the account that other accounts should be merged into,
-        and code_by_company is a dict of the codes that should be given to the merged account.
-        """
-        if len(self) < 2:
-            raise UserError(_("You must select at least 2 accounts to merge."))
+    def _check_action_unmerge_possible(self):
+        """ Raises an error if the recordset `self` cannot be unmerged. """
+        if len(self) != 1:
+            raise UserError(_("You must select a single account to un-merge."))
 
-        for field in ['currency_id', 'deprecated', 'account_type', 'reconcile', 'non_trade']:
-            if len(set(self.mapped(field))) > 1:
-                raise UserError(_(
-                    "You may only merge accounts that have the same account type, currency, deprecated status, "
-                    "reconciliation status, and trade/non-trade receivable status."
-                ))
+        if len(self.company_ids) == 1:
+            raise UserError(_(
+                "Account %s cannot be unmerged as it already belongs to a single company. "
+                "The unmerge operation only splits an account based on its companies.",
+                self.display_name,
+            ))
 
-        # If there are hashed entries in an account, then the merge must preserve that account's.
-        accounts_with_hashed_entries = self.filtered(
-            lambda a: self.env['account.move.line'].sudo().search_count([
-                ('account_id', '=', a.id),
-                ('parent_state', '=', 'posted'),
-                ('move_id.inalterable_hash', '!=', False)
-            ], limit=1)
-        )
-
-        match len(accounts_with_hashed_entries):
-            case 0:
-                account_to_merge_into = None
-                code_by_company = {}
-            case 1:
-                # If exactly one of the accounts contains hashed entries, we must merge the other ones into it,
-                # otherwise the hash will be broken.
-                account_to_merge_into = accounts_with_hashed_entries
-                code_by_company = {company: account_to_merge_into.with_company(company).sudo().code for company in account_to_merge_into.company_ids}
-            case _:
-                raise UserError(_(
-                    "Accounts %s contain hashed entries, so cannot be merged.",
-                    ", ".join(accounts_with_hashed_entries.mapped('display_name'))
-                ))
-
-        # If there are locked entries in an account, then the merge must preserve that account's code in the companies of those locked entries.
-        accounts_by_company = defaultdict(lambda: self.env['account.account'])
-        for account in self:
-            for company in account.company_ids:
-                accounts_by_company[company] |= account
-
-        for company, accounts in accounts_by_company.items():
-            if len(accounts) > 1 and (user_lock_date := max(company.user_fiscalyear_lock_date, company.user_hard_lock_date)):
-                locked_accounts = accounts.filtered(
-                    lambda a: self.env['account.move.line'].sudo().search_count([
-                        ('account_id', '=', a.id),
-                        ('company_id', '=', company.id),
-                        ('parent_state', '=', 'posted'),
-                        ('date', '<=', user_lock_date),
-                    ], limit=1)
-                )
-                if not locked_accounts:
-                    pass
-                elif company in code_by_company and locked_accounts != account_to_merge_into:
-                    raise UserError(_(
-                        "Company %(company_name)s (lock date %(lock_date)s): "
-                        "cannot merge account %(hashed_account_name)s that contains hashed entries "
-                        "with accounts %(locked_account_names)s that contain locked entries.",
-                        company_name=company.name,
-                        lock_date=user_lock_date,
-                        hashed_account_name=account_to_merge_into.display_name,
-                        locked_account_names=", ".join(a.display_name for a in locked_accounts - account_to_merge_into),
-                    ))
-                elif len(locked_accounts) == 1:
-                    code_by_company[company] = locked_accounts.with_company(company).sudo().code
-                else:
-                    raise UserError(_(
-                        "Company %(company_name)s (lock date %(lock_date)s): "
-                        "cannot merge accounts %(locked_account_names)s that both contain locked entries.",
-                        company_name=company.name,
-                        lock_date=user_lock_date,
-                        locked_account_names=", ".join(account.display_name for account in locked_accounts),
-                    ))
-            else:
-                code_by_company[company] = accounts[0].with_company(company).sudo().code
-
-        return account_to_merge_into or self[0], code_by_company
-
-    def _action_merge_get_user_confirmation(self, account_to_merge_into):
+    def _action_unmerge_get_user_confirmation(self):
         """ Open a RedirectWarning asking the user whether to proceed with the merge. """
-        if self.env.context.get('account_merge_confirm'):
+        if self.env.context.get('account_unmerge_confirm'):
             return
 
-        is_irreversible = len(self.company_ids) != sum(len(account.company_ids) for account in self)
-        accounts_to_remove = self - account_to_merge_into
+        msg = _(
+            "Are you sure? This will split the account into one account per company:",
+            account=self.display_name,
+            num_accounts=len(self.company_ids),
+        )
+        msg += ''.join(f'\n    - {company.name}: {self.with_company(company).display_name}' for company in self.company_ids)
+        action = self.env['ir.actions.actions']._for_xml_id('account.action_unmerge_accounts')
+        raise RedirectWarning(msg, action, _("Unmerge"), additional_context={**self.env.context, 'account_unmerge_confirm': True})
 
-        msg = _("Are you sure? This will perform the following operations:\n")
-        for account in accounts_to_remove:
-            msg += _(
-                "- %(account_1)s (company: %(companies_1)s) will be merged into %(account_2)s (company: %(companies_2)s)\n",
-                account_1=account.with_company(account.company_ids[:1]).display_name,
-                companies_1=",".join(account.company_ids.mapped('name')),
-                account_2=account_to_merge_into.with_company(account_to_merge_into.company_ids[:1]).display_name,
-                companies_2=",".join(account_to_merge_into.company_ids.mapped('name')),
-            )
-        if is_irreversible:
-            msg += _(
-                "This cannot be undone because you are merging accounts belonging to the same company.\n"
-                "After merging, we won't be able to separate journal items based on which account they originally referenced."
-            )
-        action = self.env['ir.actions.actions']._for_xml_id('account.action_merge_accounts')
-        raise RedirectWarning(msg, action, _("Merge"), additional_context={**self.env.context, 'account_merge_confirm': True})
-
-    def _action_merge(self, account_to_merge_into, code_by_company):
-        """ Perform the merge of the accounts in `self` into `account_to_merge_into`.
-        This will update the account codes of `account_to_merge_into` based on those of `self`,
-        and update keys in DB from `self` to `account_to_merge_into`.
-        This method expects checks to already have been performed.
+    def _action_unmerge(self):
+        """ Unmerge `self` into one account per company in `self.company_ids`.
+        This will modify:
+            - the many2many and company-dependent fields on `self`
+            - the records with relational fields pointing to `self`
         """
-        # Step 1: Keep track of the company_ids we should write on the account.
-        # We will do so only at the end, to avoid triggering the constraint that prevents duplicate codes.
-        # Writing the codes will be handled by the update of ir_property.
-        company_ids_to_write = self.sudo().company_ids
 
-        # Step 2: Check that we have write access to all the accounts and access to all the companies
-        # of these accounts.
-        self.check_access_rights('write')
-        self.check_access_rule('write')
-        if forbidden_companies := (self.sudo().company_ids - self.env.user.company_ids):
+        def _get_query_company_id(model):
+            """ Get a query giving the `company_id` of a model.
+
+                Uses _field_to_sql, so works even in some cases where `company_id`
+                isn't stored, e.g. if it is a related field.
+
+                Returns None if we cannot identify the company_id that corresponds to
+                each record, (e.g. if there is no company_id field, or company_id
+                is computed non-stored and _field_to_sql isn't implemented for it).
+            """
+            if model == 'res.company':
+                company_id_field = 'id'
+            elif 'company_id' in self.env[model]:
+                company_id_field = 'company_id'
+            else:
+                return
+            # We would get a ValueError if the _field_to_sql is not implemented. In that case, we return None.
+            with contextlib.suppress(ValueError):
+                query = Query(self.env, self.env[model]._table, self.env[model]._table_sql)
+                return query.select(
+                    SQL('%s AS id', self.env[model]._field_to_sql(query.table, 'id')),
+                    SQL('%s AS company_id', self.env[model]._field_to_sql(query.table, company_id_field, query)),
+                )
+
+        # Step 1: Check access rights.
+        self.check_access('write')
+        if forbidden_companies := (self.sudo().company_ids - self.env.companies):
             raise UserError(_(
                 "You do not have the right to perform this operation as you do not have access to the following companies: %s.",
                 ", ".join(c.name for c in forbidden_companies)
             ))
 
-        # Step 3: Update records in DB.
-        accounts_to_remove = self - account_to_merge_into
+        # Step 2: Create new accounts.
+        base_company = self.env.company if self.env.company in self.company_ids else self.company_ids[0]
+        companies_to_update = self.company_ids - base_company
+        check_company_fields = {fname for fname, field in self._fields.items() if field.relational and field.check_company}
+        new_account_by_company = {
+            company: self.copy(default={
+                'name': self.name,
+                'company_ids': [Command.set(company.ids)],
+                **{
+                    fname: self[fname].filtered(lambda record: record.company_id == company)
+                    for fname in check_company_fields
+                }
+            })
+            for company in companies_to_update
+        }
+        new_accounts = self.env['account.account'].union(*new_account_by_company.values())
 
-        # 3.1: Update foreign keys in DB
-        wiz = self.env['base.partner.merge.automatic.wizard'].new()
-        wiz._update_foreign_keys_generic('account.account', accounts_to_remove, account_to_merge_into)
+        # Step 3: Update foreign keys in DB.
 
-        # 3.2: Update Reference and Many2OneReference fields that reference account.account
-        wiz._update_reference_fields_generic('account.account', accounts_to_remove, account_to_merge_into)
-
-        # Step 4: Remove merged accounts
+        # Invalidate cache
         self.env.invalidate_all()
+
+        new_account_id_by_company_id = {str(company.id): new_account.id for company, new_account in new_account_by_company.items()}
+        new_account_id_by_company_id[base_company.id] = self.id  # Needed for update of xmlids
+        new_account_id_by_company_id_json = json.dumps(new_account_id_by_company_id)
+        (self | new_accounts).invalidate_recordset()
+
+        # 3.1: Update fields on other models that reference account.account
+        many2x_fields = self.env['ir.model.fields'].search([
+            ('ttype', 'in', ('many2one', 'many2many')),
+            ('relation', '=', 'account.account'),
+            ('store', '=', True)
+        ])
+        for field_to_update in many2x_fields:
+            model = field_to_update.model
+            if not self.env[model]._auto:
+                continue
+            if not (query_company_id := _get_query_company_id(model)):
+                continue
+            if field_to_update.ttype == 'many2one':
+                table = self.env[model]._table
+                account_column = field_to_update.name
+                model_column = 'id'
+            else:
+                table = field_to_update.relation_table
+                account_column = field_to_update.column2
+                model_column = field_to_update.column1
+            self.env.cr.execute(SQL(
+                """
+                 UPDATE %(table)s
+                    SET %(account_column)s = (
+                            %(new_account_id_by_company_id_json)s::jsonb->>
+                            table_with_company_id.company_id::text
+                        )::int
+                   FROM (%(query_company_id)s) table_with_company_id
+                  WHERE table_with_company_id.id = %(model_column)s
+                    AND %(table)s.%(account_column)s = %(account_id)s
+                    AND table_with_company_id.company_id IN %(company_ids_to_update)s
+                """,
+                table=SQL.identifier(table),
+                account_column=SQL.identifier(account_column),
+                new_account_id_by_company_id_json=new_account_id_by_company_id_json,
+                query_company_id=query_company_id,
+                model_column=SQL.identifier(table, model_column),
+                account_id=self.id,
+                company_ids_to_update=tuple(new_account_id_by_company_id),
+            ))
+
+        # 3.2: Update Reference fields that reference account.account
+        # Include the 'value_reference' field on ir.property that is nominally a char (used e.g. for default receivable accounts)
+        reference_fields = self.env['ir.model.fields'].search([
+            '|',
+            '&', ('ttype', '=', 'reference'), ('store', '=', True),
+            '&', ('model', '=', 'ir.property'), ('name', '=', 'value_reference'),
+        ])
+        for field_to_update in reference_fields:
+            model = field_to_update.model
+            if not self.env[model]._auto:
+                continue
+            if not (query_company_id := _get_query_company_id(model)):
+                continue
+            self.env.cr.execute(SQL(
+                """
+                 UPDATE %(table)s
+                    SET %(column)s = 'account.account,' || (%(new_account_id_by_company_id_json)s::jsonb->>table_with_company_id.company_id::text)
+                   FROM (%(query_company_id)s) table_with_company_id
+                  WHERE table_with_company_id.id = %(table)s.id
+                    AND %(column)s = %(value_to_update)s
+                    AND table_with_company_id.company_id IN %(company_ids_to_update)s
+                """,
+                table=SQL.identifier(self.env[model]._table),
+                column=SQL.identifier(field_to_update.name),
+                new_account_id_by_company_id_json=new_account_id_by_company_id_json,
+                query_company_id=query_company_id,
+                value_to_update=f'account.account,{self.id}',
+                company_ids_to_update=tuple(new_account_id_by_company_id),
+            ))
+
+        # 3.3: Update Many2OneReference fields that reference account.account
+        many2one_reference_fields = self.env['ir.model.fields'].search([
+            ('ttype', '=', 'many2one_reference'),
+            ('store', '=', True),
+            '!', '&', ('model', '=', 'studio.approval.request'),  # A weird Many2oneReference which doesn't have its model field on the model.
+                      ('name', '=', 'res_id'),
+        ])
+        for field_to_update in many2one_reference_fields:
+            model = field_to_update.model
+            model_field = self.env[model]._fields[field_to_update.name]._related_model_field
+            if not self.env[model]._auto or not self.env[model]._fields[model_field].store:
+                continue
+            if not (query_company_id := _get_query_company_id(model)):
+                continue
+            self.env.cr.execute(SQL(
+                """
+                 UPDATE %(table)s
+                    SET %(column)s = (%(new_account_id_by_company_id_json)s::jsonb->>table_with_company_id.company_id::text)::int
+                   FROM (%(query_company_id)s) table_with_company_id
+                  WHERE table_with_company_id.id = %(table)s.id
+                    AND %(column)s = %(account_id)s
+                    AND %(model_column)s = 'account.account'
+                    AND table_with_company_id.company_id IN %(company_ids_to_update)s
+                """,
+                table=SQL.identifier(self.env[model]._table),
+                column=SQL.identifier(field_to_update.name),
+                new_account_id_by_company_id_json=new_account_id_by_company_id_json,
+                query_company_id=query_company_id,
+                account_id=self.id,
+                model_column=SQL.identifier(model_field),
+                company_ids_to_update=tuple(new_account_id_by_company_id),
+            ))
+
+        # 3.4: Update ir_property.
+        # First, remove values already existing for the new accounts (e.g. their codes)
+        self.env['ir.property'].invalidate_model()
         self.env.cr.execute(SQL(
             """
-             DELETE FROM account_account
-              WHERE id IN %(account_ids_to_delete)s
+             DELETE FROM ir_property
+              WHERE res_id = %(new_account_res_ids)s
             """,
-            account_ids_to_delete=tuple(accounts_to_remove.ids),
+            new_account_res_ids=tuple(f'account.account,{new_account.id}' for new_account in new_accounts),
+        ))
+        # Then, dispatch the values of the existing account to the new accounts.
+        self.env.cr.execute(SQL(
+            """
+             UPDATE ir_property
+                SET res_id = 'account.account,' || (%(new_account_id_by_company_id_json)s::jsonb->>company_id::text)
+              WHERE res_id = %(account_res_id)s
+                AND company_id IN %(company_ids_to_update)s
+            """,
+            new_account_id_by_company_id_json=new_account_id_by_company_id_json,
+            account_res_id=f'account.account,{self.id}',
+            company_ids_to_update=tuple(new_account_id_by_company_id),
+        ))
+
+        # 3.5. Split account xmlids based on the company_id that is present within the xmlid
+        self.env['ir.model.data'].invalidate_model()
+        self.env.cr.execute(SQL(
+            """
+             UPDATE ir_model_data
+                SET res_id = (
+                        %(new_account_id_by_company_id_json)s::jsonb->>
+                        substring(name, %(xmlid_regex)s)
+                    )::int
+              WHERE module = 'account'
+                AND model = 'account.account'
+                AND res_id = %(account_id)s
+                AND name ~ %(xmlid_regex)s
+            """,
+            new_account_id_by_company_id_json=new_account_id_by_company_id_json,
+            xmlid_regex=r'([\d]+)_.*',
+            account_id=self.id,
         ))
 
         # Clear ir.model.data ormcache
         self.env.registry.clear_cache()
 
-        # Step 5: Write company_ids and codes on the account
-        for company, code in code_by_company.items():
-            account_to_merge_into.with_company(company).sudo().code = code
+        # Step 4: Change check_company fields to only keep values compatible with the account's company, and update company_ids on account.
+        write_vals = {'company_ids': [Command.set(base_company.ids)]}
+        check_company_fields = {field for field in self._fields.values() if field.relational and field.check_company}
+        for field in check_company_fields:
+            corecord = self[field.name]
+            filtered_corecord = corecord.filtered_domain(corecord._check_company_domain(base_company))
+            write_vals[field.name] = filtered_corecord.id if field.type == 'many2one' else [Command.set(filtered_corecord.ids)]
 
-        account_to_merge_into.sudo().company_ids = company_ids_to_write
+        self.write(write_vals)
+
+        # Step 5: Put a log in the chatter of the newly-created accounts
+        msg_body = _(
+            "This account was split off from %(account_name)s (%(company_name)s).",
+            account_name=self._get_html_link(title=self.display_name),
+            company_name=base_company.name,
+        )
+        new_accounts._message_log_batch(bodies={a.id: msg_body for a in new_accounts})
+
+        return new_accounts
 
 
 class AccountGroup(models.Model):

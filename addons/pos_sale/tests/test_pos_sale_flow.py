@@ -1,6 +1,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import odoo
+from uuid import uuid4
 
 from odoo.addons.point_of_sale.tests.test_frontend import TestPointOfSaleHttpCommon
 from odoo.tests import Form
@@ -58,9 +59,7 @@ class TestPoSSale(TestPointOfSaleHttpCommon):
         picking = sale_order.picking_ids
         picking.move_ids.quantity = 300
         picking.move_ids.picked = True
-        action = picking.button_validate()
-        wizard = Form(self.env[action['res_model']].with_context(action['context']))
-        wizard.save().process()
+        Form.from_action(self.env, picking.button_validate()).save().process()
 
         self.assertEqual(sale_order.order_line.qty_delivered, 1)
 
@@ -477,7 +476,8 @@ class TestPoSSale(TestPointOfSaleHttpCommon):
              {'amount': 10,
               'name': fields.Datetime.now(),
               'payment_method_id': self.main_pos_config.payment_method_ids[0].id}]],
-           'user_id': self.env.uid
+           'user_id': self.env.uid,
+           'uuid': str(uuid4()),
             }
 
         self.env['pos.order'].sync_from_ui([pos_order])

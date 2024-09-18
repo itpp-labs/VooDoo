@@ -47,29 +47,6 @@ class ProductTemplate(models.Model):
                 if combo_name:
                     raise UserError(_('You must first remove this product from the %s combo', combo_name))
 
-    def _create_variant_ids(self):
-        res = super()._create_variant_ids()
-        for template in self:
-            archived_product = self.env['product.product'].search([('product_tmpl_id', '=', template.id), ('active', '=', False)], limit=1)
-            if archived_product:
-                combo_items_to_delete = self.env['product.combo.item'].search([
-                    ('product_id', '=', archived_product.id)
-                ])
-                if combo_items_to_delete:
-                    # Delete old combo item
-                    combo_ids = combo_items_to_delete.mapped('combo_id')
-                    combo_items_to_delete.unlink()
-                    # Create new combo item (one for each new variant) in each combo
-                    new_variants = template.product_variant_ids.filtered(lambda v: v.active)
-                    self.env['product.combo.item'].create([
-                        {
-                            'product_id': variant.id,
-                            'combo_id': combo_id.id,
-                        }
-                        for variant in new_variants for combo_id in combo_ids
-                    ])
-        return res
-
 
 class ProductProduct(models.Model):
     _name = 'product.product'
@@ -195,7 +172,7 @@ class ProductProduct(models.Model):
             'available_quantity': self.with_context({'warehouse_id': w.id}).qty_available,
             'forecasted_quantity': self.with_context({'warehouse_id': w.id}).virtual_available,
             'uom': self.uom_name}
-            for w in self.env['stock.warehouse'].search([])]
+            for w in self.env['stock.warehouse'].search([('company_id', '=', config.company_id.id)])]
 
         if config.picking_type_id.warehouse_id:
             # Sort the warehouse_list, prioritizing config.picking_type_id.warehouse_id
@@ -263,6 +240,11 @@ class ProductTemplateAttributeLine(models.Model):
     def _load_pos_data_fields(self, config_id):
         return ['display_name', 'attribute_id', 'product_template_value_ids']
 
+    @api.model
+    def _load_pos_data_domain(self, data):
+        loaded_product_tmpl_ids = list({p['product_tmpl_id'] for p in data['product.product']['data']})
+        return [('product_tmpl_id', 'in', loaded_product_tmpl_ids)]
+
 
 class ProductTemplateAttributeValue(models.Model):
     _name = 'product.template.attribute.value'
@@ -270,7 +252,12 @@ class ProductTemplateAttributeValue(models.Model):
 
     @api.model
     def _load_pos_data_domain(self, data):
-        return AND([[('ptav_active', '=', True)], [('attribute_id', 'in', [attr['id'] for attr in data['product.attribute']['data']])]])
+        loaded_product_tmpl_ids = list({p['product_tmpl_id'] for p in data['product.product']['data']})
+        return AND([
+            [('ptav_active', '=', True)],
+            [('attribute_id', 'in', [attr['id'] for attr in data['product.attribute']['data']])],
+            [('product_tmpl_id', 'in', loaded_product_tmpl_ids)]
+        ])
 
     @api.model
     def _load_pos_data_fields(self, config_id):

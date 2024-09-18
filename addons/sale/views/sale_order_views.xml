@@ -533,6 +533,7 @@
                                 <field name="linked_line_id" column_invisible="1"/>
                                 <field name="virtual_id" column_invisible="1"/>
                                 <field name="linked_virtual_id" column_invisible="1"/>
+                                <field name="selected_combo_items" column_invisible="1"/>
                                 <field name="combo_item_id" column_invisible="1"/>
                                 <field
                                     name="name"
@@ -592,6 +593,7 @@
                                 <field
                                     name="price_unit"
                                     readonly="qty_invoiced &gt; 0"/>
+                                <field name="technical_price_unit" column_invisible="1"/>
                                 <field
                                     name="tax_id"
                                     widget="many2many_tags"
@@ -604,7 +606,7 @@
                                     name="discount"
                                     string="Disc.%"
                                     groups="sale.group_discount_per_so_line"
-                                    width="60px"
+                                    width="50px"
                                     optional="show"/>
                                 <field name="is_downpayment" column_invisible="True"/>
                                 <field name="price_subtotal"
@@ -925,6 +927,20 @@
         </field>
     </record>
 
+    <record id="sale_order_action_view_quotation_tree" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="sale.view_quotation_tree_with_onboarding"/>
+        <field name="act_window_id" ref="action_quotations_with_onboarding"/>
+    </record>
+
+    <record id="sale_order_action_view_quotation_kanban" model="ir.actions.act_window.view">
+        <field name="sequence" eval="2"/>
+        <field name="view_mode">kanban</field>
+        <field name="view_id" ref="sale.view_quotation_kanban_with_onboarding"/>
+        <field name="act_window_id" ref="action_quotations_with_onboarding"/>
+    </record>
+
     <record id="action_quotations" model="ir.actions.act_window">
         <field name="name">Quotations</field>
         <field name="res_model">sale.order</field>
@@ -948,18 +964,18 @@
         </field>
     </record>
 
-    <record id="sale_order_action_view_quotation_tree" model="ir.actions.act_window.view">
+    <record id="action_quotations_tree" model="ir.actions.act_window.view">
         <field name="sequence" eval="1"/>
         <field name="view_mode">list</field>
-        <field name="view_id" ref="sale.view_quotation_tree_with_onboarding"/>
-        <field name="act_window_id" ref="action_quotations_with_onboarding"/>
+        <field name="view_id" ref="sale.view_quotation_tree"/>
+        <field name="act_window_id" ref="action_quotations"/>
     </record>
 
-    <record id="sale_order_action_view_quotation_kanban" model="ir.actions.act_window.view">
+    <record id="action_quotations_kanban" model="ir.actions.act_window.view">
         <field name="sequence" eval="2"/>
         <field name="view_mode">kanban</field>
-        <field name="view_id" ref="sale.view_quotation_kanban_with_onboarding"/>
-        <field name="act_window_id" ref="action_quotations_with_onboarding"/>
+        <field name="view_id" ref="sale.view_sale_order_kanban"/>
+        <field name="act_window_id" ref="action_quotations"/>
     </record>
 
     <record id="sale_order_action_view_quotation_form" model="ir.actions.act_window.view">

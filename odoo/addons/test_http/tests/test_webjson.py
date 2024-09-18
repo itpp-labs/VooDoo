@@ -1,6 +1,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 import html
 from base64 import b64encode
+from odoo.fields import Command
 from odoo.tests import tagged
 from odoo.tools import file_open
 from .test_common import TestHttpBase
@@ -32,7 +33,7 @@ class TestHttpWebJson_18_0(TestHttpBase):
     def test_webjson_access_error_crm(self):
         action_crm = self.env['ir.actions.server'].search([('path', '=', 'crm')])
         if not action_crm:
-            self.skip("crm is not installed")
+            self.skipTest("crm is not installed")
 
         self.authenticate('demo', 'demo')
         self.url_open('/json/18.0/crm').raise_for_status()
@@ -48,6 +49,24 @@ class TestHttpWebJson_18_0(TestHttpBase):
         self.assertIn("You are not allowed to access", res.text)
         self.assertEqual(len(capture.output), 1)
         self.assertIn("You are not allowed to access", capture.output[0])
+
+    def test_webjson_access_export(self):
+        # a simple call
+        url = f'/json/18.0/test_http.stargate/{self.earth.id}'
+        self.authenticate('demo', 'demo')
+        res = self.url_open(url)
+        res.raise_for_status()
+
+        # remove export permssion
+        group_export = self.env.ref('base.group_allow_export')
+        self.user_demo.write({'groups_id': [Command.unlink(group_export.id)]})
+
+        # check that demo has no access to /json
+        with self.assertLogs('odoo.http', 'WARNING') as capture:
+            res = self.url_open(url)
+            self.assertIn("need export permissions", res.text)
+            self.assertEqual(res.status_code, 403)
+            self.assertIn("need export permissions", capture.output[0])
 
     def test_webjson_bad_stuff(self):
         self.authenticate('demo', 'demo')

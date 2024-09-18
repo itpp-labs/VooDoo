@@ -532,7 +532,7 @@ class ResCompany(models.Model):
                           (soft_lock_date_field, '<', company[soft_lock_date_field]),
                           ('company_id', '=', company.id),
                         ],
-                        order=f'{soft_lock_date_field} asc',
+                        order='lock_date asc NULLS FIRST',
                         limit=1,
                     )
                 if exception:
@@ -661,7 +661,17 @@ class ResCompany(models.Model):
                 if company.root_id._existing_accounting():
                     raise UserError(_('You cannot change the currency of the company since some journal items already exist'))
 
-        return super(ResCompany, self).write(values)
+        companies = super().write(values)
+
+        # We revoke all active exceptions affecting the changed lock dates and recreate them (with the updated lock dates)
+        changed_soft_lock_fields = [field for field in SOFT_LOCK_DATE_FIELDS if field in values]
+        for company in self:
+            active_exceptions = self.env['account.lock_exception'].search(
+                self.env['account.lock_exception']._get_active_exceptions_domain(company, changed_soft_lock_fields),
+            )
+            active_exceptions._recreate()
+
+        return companies
 
     @api.model
     def setting_init_bank_account_action(self):
@@ -853,7 +863,7 @@ class ResCompany(models.Model):
             self.env.reset()     # clear the set of environments
             env = self.env()     # get an environment that refers to the new registry
             for company in self.filtered(lambda c: c.country_id and not c.chart_template):
-                template_code = self.env['account.chart.template']._guess_chart_template(company.country_id)
+                template_code = company.parent_id.chart_template or self.env['account.chart.template']._guess_chart_template(company.country_id)
                 if template_code != 'generic_coa':
                     @self.env.cr.precommit.add
                     def try_loading(template_code=template_code, company=company):

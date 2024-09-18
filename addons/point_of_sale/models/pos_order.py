@@ -53,6 +53,7 @@ class PosOrder(models.Model):
         ], limit=1)
         if rescue_session:
             _logger.warning('reusing recovery session %s for saving order %s', rescue_session.name, order['name'])
+            rescue_session.write({'state': 'opened'})
             return rescue_session
 
         _logger.warning('attempting to create recovery session for saving order %s', order['name'])
@@ -511,6 +512,8 @@ class PosOrder(models.Model):
                     raise UserError(_('The paid amount is different from the total amount of the order.'))
                 elif totally_paid_or_more > 0 and order.state == 'paid':
                     list_line.append(_("Warning, the paid amount is higher than the total amount. (Difference: %s)", formatLang(self.env, order.amount_paid - order.amount_total, currency_obj=order.currency_id)))
+                if order.nb_print > 0 and vals.get('payment_ids'):
+                    raise UserError(_('You cannot change the payment of a printed order.'))
 
         if len(list_line) > 0:
             body = _("Payment changes:")
@@ -1007,7 +1010,7 @@ class PosOrder(models.Model):
 
     def action_pos_order_cancel(self):
         cancellable_orders = self.filtered(lambda order: order.state == 'draft')
-        return cancellable_orders.write({'state': 'cancel'})
+        cancellable_orders.write({'state': 'cancel'})
 
     def _apply_invoice_payments(self, is_reverse=False):
         receivable_account = self.env["res.partner"]._find_accounting_partner(self.partner_id).with_company(self.company_id).property_account_receivable_id
@@ -1045,8 +1048,8 @@ class PosOrder(models.Model):
             if existing_draft_order:
                 order_ids.append(self._process_order(order, existing_draft_order))
             else:
-                existing_orders = self.env['pos.order'].search([('pos_reference', '=', order.get('name', False))])
-                if all(not self._is_the_same_order(order, existing_order) for existing_order in existing_orders):
+                existing_paid_orders = self.env['pos.order'].search([('uuid', '=', order['uuid'])])
+                if not existing_paid_orders:
                     order_ids.append(self._process_order(order, False))
 
         # Sometime pos_orders_ids can be empty.
@@ -1066,28 +1069,6 @@ class PosOrder(models.Model):
             'pos.pack.operation.lot': pos_order_ids.lines.pack_lot_ids.read(pos_order_ids.lines.pack_lot_ids._load_pos_data_fields(config_id), load=False) if config_id else [],
             "product.attribute.custom.value": pos_order_ids.lines.custom_attribute_value_ids.read(pos_order_ids.lines.custom_attribute_value_ids._load_pos_data_fields(config_id), load=False) if config_id else [],
         }
-
-    def _is_the_same_order(self, data, existing_order):
-        received_payments = [(p[2]['amount'], p[2]['payment_method_id']) for p in data['payment_ids']]
-        existing_payments = [(p.amount, p.payment_method_id.id) for p in existing_order.payment_ids]
-
-        for amount, payment_method in received_payments:
-            if not any(
-                float_is_zero(amount - ex_amount, precision_rounding=existing_order.currency_id.rounding) and payment_method == ex_payment_method
-                for ex_amount, ex_payment_method in existing_payments
-            ):
-                return False
-
-        if len(data['lines']) != len(existing_order.lines):
-            return False
-
-        received_lines = sorted([(l[2]['product_id'], l[2]['price_unit']) for l in data['lines']])
-        existing_lines = sorted([(l.product_id.id, l.price_unit) for l in existing_order.lines])
-
-        if received_lines != existing_lines:
-            return False
-
-        return True
 
     @api.model
     def _get_refunded_orders(self, order):
@@ -1411,8 +1392,7 @@ class PosOrderLine(models.Model):
 
     @api.model
     def get_existing_lots(self, company_id, product_id):
-        self.check_access_rights('read')
-        self.check_access_rule('read')
+        self.check_access('read')
         existing_lots_sudo = self.sudo().env['stock.lot'].search([
             '|',
             ('company_id', '=', False),

@@ -18,6 +18,7 @@ from . import test_account_payment_duplicate
 from . import test_account_bank_statement
 from . import test_account_invoice_report
 from . import test_account_move_line_tax_details
+from . import test_account_journal_dashboard_common
 from . import test_account_journal_dashboard
 from . import test_account_lock_exception
 from . import test_audit_trail
@@ -51,3 +52,4 @@ from . import test_product
 from . import test_unexpected_invoice
 from . import test_mail_tracking_value
 from . import test_res_partner_merge
+from . import test_account_merge_wizard

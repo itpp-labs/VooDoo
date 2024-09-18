@@ -55,7 +55,8 @@ class HrAttendance(models.Model):
     in_mode = fields.Selection(string="Mode",
                                selection=[('kiosk', "Kiosk"),
                                           ('systray', "Systray"),
-                                          ('manual', "Manual")],
+                                          ('manual', "Manual"),
+                                          ('technical', 'Technical')],
                                readonly=True,
                                default='manual')
     out_latitude = fields.Float(digits=(10, 7), readonly=True, aggregator=None)
@@ -66,14 +67,22 @@ class HrAttendance(models.Model):
     out_browser = fields.Char(readonly=True)
     out_mode = fields.Selection(selection=[('kiosk', "Kiosk"),
                                            ('systray', "Systray"),
-                                           ('manual', "Manual")],
+                                           ('manual', "Manual"),
+                                           ('technical', 'Technical'),
+                                           ('auto_check_out', 'Automatic Check-Out')],
                                 readonly=True,
                                 default='manual')
+    expected_hours = fields.Float(compute="_compute_expected_hours", store=True, aggregator="sum")
+
+    @api.depends("worked_hours", "overtime_hours")
+    def _compute_expected_hours(self):
+        for attendance in self:
+            attendance.expected_hours = attendance.worked_hours - attendance.overtime_hours
 
     def _compute_color(self):
         for attendance in self:
             if attendance.check_out:
-                attendance.color = 1 if attendance.worked_hours > 16 else 0
+                attendance.color = 1 if attendance.worked_hours > 16 or attendance.out_mode == 'technical' else 0
             else:
                 attendance.color = 1 if attendance.check_in < (datetime.today() - timedelta(days=1)) else 10
 
@@ -481,13 +490,7 @@ class HrAttendance(models.Model):
             return True
         # This record only exists if the scenario has been already launched
         demo_tag = self.env.ref('hr_attendance.resource_calendar_std_38h', raise_if_not_found=False)
-        if demo_tag:
-            return True
-        return bool(self.env['ir.module.module'].search_count([
-            '&',
-                ('state', 'in', ['installed', 'to upgrade', 'uninstallable']),
-                ('demo', '=', True)
-        ]))
+        return bool(demo_tag) or bool(self.env['ir.module.module'].search_count([('demo', '=', True)]))
 
     def _load_demo_data(self):
         if self.has_demo_data():
@@ -652,3 +655,74 @@ class HrAttendance(models.Model):
         self.write({
             'overtime_status': 'refused'
         })
+
+    def _cron_auto_check_out(self):
+        to_verify = self.env['hr.attendance'].search(
+            [('check_out', '=', False),
+             ('employee_id.company_id.auto_check_out', '=', True)]
+        )
+
+        if not to_verify:
+            return
+
+        previous_duration = self.env['hr.attendance']._read_group(
+            domain=[
+                ('employee_id', 'in', to_verify.mapped('employee_id').ids),
+                ('check_in', '>', (fields.Datetime.now() - relativedelta(days=1)).replace(hour=0, minute=0, second=0)),
+                ('check_out', '!=', False)], groupby=['check_in:day', 'employee_id'], aggregates=['worked_hours:sum'])
+
+        mapped_previous_duration = defaultdict(lambda: defaultdict(float))
+        for rec in previous_duration:
+            mapped_previous_duration[rec[1]][rec[0].date()] += rec[2]
+
+        all_companies = to_verify.employee_id.company_id
+
+        for company in all_companies:
+            max_tol = company.auto_check_out_tolerance
+            to_verify_company = to_verify.filtered(lambda a: a.employee_id.company_id.id == company.id)
+
+            # Attendances where Last open attendance worked time + previously worked time on that day + tolerance greater than the planned worked hours in his calendar
+            to_check_out = to_verify_company.filtered(lambda a: (fields.Datetime.now() - a.check_in).seconds + mapped_previous_duration[a.employee_id][a.check_in.date()] - max_tol > (sum(a.employee_id.resource_calendar_id.attendance_ids.filtered(lambda att: att.dayofweek == str(a.check_in.weekday())).mapped('duration_hours'))))
+            body = _('This attendance was automatically checked out because the employee exceeded the allowed time for their scheduled work hours.')
+
+            for att in to_check_out:
+                delta_duration = max(1, (sum(att.employee_id.resource_calendar_id.attendance_ids.filtered(lambda a: a.dayofweek == str(att.check_in.weekday())).mapped('duration_hours')) + max_tol - mapped_previous_duration[att.employee_id][att.check_in.date()]) * 3600)
+                att.write({
+                    "check_out": att.check_in + relativedelta(seconds=delta_duration),
+                    "out_mode": "auto_check_out"
+                })
+                att.message_post(body=body)
+
+    def _cron_absence_detection(self):
+        """
+        Objective is to create technical attendances on absence days to have negative overtime created for that day
+        """
+        yesterday = datetime.today().replace(hour=0, minute=0, second=0) - relativedelta(days=1)
+        companies = self.env['res.company'].search([('absence_management', '=', True)])
+        if not companies:
+            return
+
+        checked_in_employees = self.env['hr.attendance.overtime'].search([('date', '=', yesterday),
+                                                                          ('adjustment', '=', False)]).employee_id
+
+        technical_attendances_vals = []
+        absent_employees = self.env['hr.employee'].search([('id', 'not in', checked_in_employees.ids),
+                                                           ('company_id', 'in', companies.ids)])
+        for emp in absent_employees:
+            local_day_start = pytz.utc.localize(yesterday).astimezone(pytz.timezone(emp._get_tz()))
+            technical_attendances_vals.append({
+                'check_in': local_day_start.strftime('%Y-%m-%d %H:%M:%S'),
+                'check_out': (local_day_start + relativedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S'),
+                'in_mode': 'technical',
+                'out_mode': 'technical',
+                'employee_id': emp.id
+            })
+
+        technical_attendances = self.env['hr.attendance'].create(technical_attendances_vals)
+        to_unlink = technical_attendances.filtered(lambda a: a.overtime_hours == 0)
+
+        body = _('This attendance was automatically created to cover an unjustified absence on that day.')
+        for technical_attendance in technical_attendances - to_unlink:
+            technical_attendance.message_post(body=body)
+
+        to_unlink.unlink()

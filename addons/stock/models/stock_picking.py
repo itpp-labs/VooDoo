@@ -461,9 +461,6 @@ class PickingType(models.Model):
     def get_action_picking_tree_ready(self):
         return self._get_action('stock.action_picking_tree_ready')
 
-    def get_action_picking_type_operations(self):
-        return self._get_action('stock.action_get_picking_type_operations')
-
     def get_action_picking_type_moves_analysis(self):
         action = self.env["ir.actions.actions"]._for_xml_id('stock.stock_move_action')
         action['domain'] = expression.AND([
@@ -495,7 +492,7 @@ class PickingType(models.Model):
         # Make sure that all picking type IDs are represented, even if empty
         picking_type_id_to_dates = {i: [] for i in self.ids}
         picking_type_id_to_dates.update({r[0].id: r[1] for r in records})
-        return [(i, d, _('Transfers')) for i, d in picking_type_id_to_dates.items()]
+        return [(i, d, self.env._('Transfers')) for i, d in picking_type_id_to_dates.items()]
 
     def _prepare_graph_data(self, summaries):
         """

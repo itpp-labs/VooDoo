@@ -156,8 +156,11 @@ export class AddPageTemplatePreview extends Component {
             const fullHeight = getComputedStyle(document.querySelector(".o_action_manager")).height;
             const halfHeight = `${Math.round(parseInt(fullHeight) / 2)}px`;
             const css = `
-                #wrapwrap {
+                html, body {
+                    /* Needed to prevent scrollbar to appear on chrome */
                     overflow: hidden;
+                }
+                #wrapwrap {
                     padding-right: 0px;
                     padding-left: 0px;
                     --snippet-preview-height: 340px;
@@ -210,6 +213,10 @@ export class AddPageTemplatePreview extends Component {
             // Restore image lazy loading.
             for (const imgEl of lazyLoadedImgEls) {
                 imgEl.setAttribute("loading", "lazy");
+            }
+            if (!this.previewRef.el) {
+                // Stop the process when preview is removed
+                return;
             }
             // Wait for fonts.
             await iframeEl.contentDocument.fonts.ready;

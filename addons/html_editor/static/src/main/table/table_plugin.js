@@ -1,12 +1,19 @@
 import { Plugin } from "@html_editor/plugin";
 import { isBlock } from "@html_editor/utils/blocks";
 import { removeClass } from "@html_editor/utils/dom";
-import { getDeepestPosition, isProtected, isProtecting } from "@html_editor/utils/dom_info";
+import {
+    getDeepestPosition,
+    isProtected,
+    isProtecting,
+    isEmptyBlock,
+} from "@html_editor/utils/dom_info";
 import { ancestors, closestElement, descendants, lastLeaf } from "@html_editor/utils/dom_traversal";
 import { parseHTML } from "@html_editor/utils/html";
-import { DIRECTIONS, leftPos, rightPos } from "@html_editor/utils/position";
+import { DIRECTIONS, leftPos, rightPos, nodeSize } from "@html_editor/utils/position";
 import { findInSelection } from "@html_editor/utils/selection";
 import { getColumnIndex, getRowIndex } from "@html_editor/utils/table";
+
+export const BORDER_SENSITIVITY = 5;
 
 const tableInnerComponents = new Set(["THEAD", "TBODY", "TFOOT", "TR", "TH", "TD"]);
 function isUnremovableTableComponent(element, root) {
@@ -41,6 +48,12 @@ export class TablePlugin extends Plugin {
         considerNodeFullySelected: (node) => !!closestElement(node, ".o_selected_td"),
     });
 
+    setup() {
+        this.addDomListener(this.editable, "mousedown", this.onMousedown);
+        this.addDomListener(this.editable, "mouseup", this.onMouseup);
+        this.onMousemove = this.onMousemove.bind(this);
+    }
+
     handleCommand(command, payload) {
         switch (command) {
             case "INSERT_TABLE":
@@ -69,6 +82,9 @@ export class TablePlugin extends Plugin {
                 break;
             case "DELETE_TABLE":
                 this.deleteTable(payload);
+                break;
+            case "RESET_TABLE_SELECTION":
+                this.resetTableSelection();
                 break;
             case "CLEAN":
             case "CLEAN_FOR_SAVE":
@@ -471,6 +487,82 @@ export class TablePlugin extends Plugin {
         }
     }
 
+    onMousedown(ev) {
+        this._currentMouseState = ev.type;
+        this._lastMousedownPosition = [ev.x, ev.y];
+        if (this.isPointerInsideCell(ev)) {
+            this.editable.addEventListener("mousemove", this.onMousemove);
+        }
+        this.deselectTable();
+    }
+
+    onMouseup(ev) {
+        this._currentMouseState = ev.type;
+        this.editable.removeEventListener("mousemove", this.onMousemove);
+    }
+
+    /**
+     * Checks if mouse is effectively inside the cell and not overlapping
+     * the cell borders to prevent cell selection while resizing table.
+     *
+     * @param {MouseEvent} ev
+     * @returns {Boolean}
+     */
+    isPointerInsideCell(ev) {
+        const td = closestElement(ev.target, "td");
+        if (td) {
+            const targetRect = td.getBoundingClientRect();
+            if (
+                ev.clientX > targetRect.x + BORDER_SENSITIVITY &&
+                ev.clientX < targetRect.x + td.clientWidth - BORDER_SENSITIVITY &&
+                ev.clientY > targetRect.y + BORDER_SENSITIVITY &&
+                ev.clientY < targetRect.y + td.clientHeight - BORDER_SENSITIVITY
+            ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    onMousemove(ev) {
+        if (this._currentMouseState !== "mousedown") {
+            return;
+        }
+        const selection = this.shared.getEditableSelection();
+        const docSelection = this.document.getSelection();
+        const range = docSelection.rangeCount && docSelection.getRangeAt(0);
+        const startTd = closestElement(selection.startContainer, "td");
+        const endTd = closestElement(selection.endContainer, "td");
+        if (startTd && startTd === endTd && !isProtected(startTd) && !isProtecting(startTd)) {
+            const selectedNodes = this.shared.getSelectedNodes();
+            const cellContents = descendants(startTd);
+            const areCellContentsFullySelected = cellContents
+                .filter((d) => !isBlock(d))
+                .every((child) => selectedNodes.includes(child));
+            if (areCellContentsFullySelected) {
+                const SENSITIVITY = 5;
+                const rangeRect = range.getBoundingClientRect();
+                const isMovingAwayFromSelection =
+                    ev.clientX > rangeRect.x + rangeRect.width + SENSITIVITY || // moving right
+                    ev.clientX < rangeRect.x - SENSITIVITY; // moving left
+                if (isMovingAwayFromSelection) {
+                    // A cell is fully selected and the mouse is moving away
+                    // from the selection, within said cell -> select the cell.
+                    this.selectTableCells(selection);
+                }
+            } else if (
+                cellContents.filter(isBlock).every(isEmptyBlock) &&
+                Math.abs(
+                    ev.clientX -
+                        (this._lastMousedownPosition ? this._lastMousedownPosition[0] : ev.clientX)
+                ) >= 20
+            ) {
+                // Handle selecting an empty cell.
+                this.selectTableCells(selection);
+            }
+        }
+    }
+
     selectTableCells(selection) {
         const table = closestElement(selection.commonAncestorContainer, "table");
         table.classList.toggle("o_selected_table", true);
@@ -555,5 +647,20 @@ export class TablePlugin extends Plugin {
             }
         }
         return modifiedTraversedNodes;
+    }
+
+    resetTableSelection() {
+        const selection = this.shared.getEditableSelection({ deep: true });
+        const anchorTD = closestElement(selection.anchorNode, ".o_selected_td");
+        if (!anchorTD) {
+            return;
+        }
+        this.deselectTable();
+        this.shared.setSelection({
+            anchorNode: anchorTD.firstChild,
+            anchorOffset: 0,
+            focusNode: anchorTD.lastChild,
+            focusOffset: nodeSize(anchorTD.lastChild),
+        });
     }
 }

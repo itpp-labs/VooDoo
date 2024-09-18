@@ -266,7 +266,7 @@
                                     <field name="price_unit" readonly="qty_invoiced != 0"/>
                                     <button name="action_purchase_history" type="object" icon="fa-history" title="Purchase History" invisible="not id"/>
                                     <field name="taxes_id" widget="many2many_tags" domain="[('type_tax_use', '=', 'purchase'), ('company_id', 'parent_of', parent.company_id), ('country_id', '=', parent.tax_country_id), ('active', '=', True)]" context="{'default_type_tax_use': 'purchase', 'search_view_ref': 'account.account_tax_view_search'}" options="{'no_create': True}" optional="show" readonly="is_downpayment"/>
-                                    <field name="discount" string="Disc.%" readonly="qty_invoiced != 0" optional="hide"/>
+                                    <field name="discount" string="Disc.%" width="50px" readonly="qty_invoiced != 0" optional="hide"/>
                                     <field name="price_subtotal" string="Amount"/>
                                 </list>
                                 <form string="Purchase Order Line">
@@ -488,7 +488,7 @@
                             </div>
                             <footer class="fs-6 pt-0">
                                 <div class="d-flex">
-                                    <field name="name" class="me-1"/> <t t-esc="record.date_order.value and record.date_order.value.split(' ')[0] or False"/>
+                                    <field name="name" class="me-1"/> <field name="date_order" options="{'show_time': false}"/>
                                     <field name="activity_ids" widget="kanban_activity" class="ms-1"/>
                                 </div>
                                 <field name="state" widget="label_selection" options="{'classes': {'draft': 'default', 'cancel': 'default', 'done': 'success', 'approved': 'warning'}}" class="ms-auto"/>

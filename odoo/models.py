@@ -36,7 +36,7 @@ import re
 import uuid
 import warnings
 from collections import defaultdict, deque
-from collections.abc import MutableMapping, Iterable
+from collections.abc import MutableMapping, Callable
 from contextlib import closing
 from inspect import getmembers
 from operator import attrgetter, itemgetter
@@ -63,7 +63,7 @@ from .tools import (
 )
 from .tools.lru import LRU
 from .tools.misc import LastOrderedSet, ReversedIterable, unquote
-from .tools.translate import _, _lt
+from .tools.translate import _, LazyTranslate
 
 import typing
 if typing.TYPE_CHECKING:
@@ -72,6 +72,7 @@ if typing.TYPE_CHECKING:
     from odoo.api import Self, ValuesType, IdType
 
 
+_lt = LazyTranslate('base')
 _logger = logging.getLogger(__name__)
 _unlink = logging.getLogger(__name__ + '.unlink')
 
@@ -152,7 +153,7 @@ regex_private = re.compile(r'^(_.*|init)$')
 def check_method_name(name):
     """ Raise an ``AccessError`` if ``name`` is a private method name. """
     if regex_private.match(name):
-        raise AccessError(_('Private methods (such as %s) cannot be called remotely.', name))
+        raise AccessError(_lt('Private methods (such as %s) cannot be called remotely.', name))
 
 
 def check_property_field_value_name(property_name):
@@ -1840,7 +1841,7 @@ class BaseModel(metaclass=MetaModel):
         :rtype: list
         :raise AccessError: if user is not allowed to access requested information
         """
-        self.check_access_rights('read')
+        self.browse().check_access('read')
 
         if expression.is_false(self, domain):
             if not groupby:
@@ -3142,7 +3143,7 @@ class BaseModel(metaclass=MetaModel):
         :param full_name: Name of the field / property
             (e.g. "property.integer")
         """
-        self.check_access_rights("read")
+        self.browse().check_access("read")
         field_name, property_name = full_name.split(".")
         check_property_field_value_name(property_name)
         if field_name not in self._fields:
@@ -3724,9 +3725,8 @@ class BaseModel(metaclass=MetaModel):
         """
         self.ensure_one()
 
-        self.check_access_rights('write')
+        self.check_access('write')
         self.check_field_access_rights('write', [field_name])
-        self.check_access_rule('write')
 
         valid_langs = set(code for code, _ in self.env['res.lang'].get_installed()) | {'en_US'}
         source_lang = source_lang or 'en_US'
@@ -3967,34 +3967,21 @@ class BaseModel(metaclass=MetaModel):
 
         fields_to_fetch = self._determine_fields_to_fetch(field_names, ignore_when_in_cache=True)
 
-        if not fields_to_fetch:
-            # there is nothing to fetch, but we expect an error anyway in case
-            # self is not accessible
-            self.check_access_rights('read')
-            try:
-                self.check_access_rule('read')
-            except MissingError:
-                # Method fetch() should never raise a MissingError, but method
-                # check_access_rule() can, because it must read fields on self.
-                # So we restrict 'self' to existing records (to avoid an extra
-                # exists() at the end of the method).
-                self.exists().check_access_rule('read')
-            return
-
         # first determine a query that satisfies the domain and access rules
         if any(field.column_type for field in fields_to_fetch):
             query = self.with_context(active_test=False)._search([('id', 'in', self.ids)])
         else:
-            self.check_access_rights('read')
             try:
-                self.check_access_rule('read')
+                self.check_access('read')
             except MissingError:
                 # Method fetch() should never raise a MissingError, but method
-                # check_access_rule() can, because it must read fields on self.
+                # check_access() can, because it must read fields on self.
                 # So we restrict 'self' to existing records (to avoid an extra
                 # exists() at the end of the method).
                 self = self.exists()
-                self.check_access_rule('read')
+                self.check_access('read')
+            if not fields_to_fetch:
+                return
             query = self._as_query(ordered=False)
 
         # fetch the fields
@@ -4268,6 +4255,66 @@ class BaseModel(metaclass=MetaModel):
                 })
             raise UserError("\n".join(lines))
 
+    def check_access(self, operation: str) -> None:
+        """ Verify that the current user is allowed to perform ``operation`` on
+        all the records in ``self``. The method raises an :class:`AccessError`
+        if the operation is forbidden on the model in general, or on any record
+        in ``self``.
+
+        In particular, when ``self`` is empty, the method checks whether the
+        current user has some permission to perform ``operation`` on the model
+        in general::
+
+            # check that user has some minimal permission on the model
+            records.browse().check_access(operation)
+
+        """
+        if not self.env.su and (result := self._check_access(operation)):
+            raise result[1]()
+
+    def has_access(self, operation: str) -> bool:
+        """ Return whether the current user is allowed to perform ``operation``
+        on all the records in ``self``. The method is fully consistent with
+        method :meth:`check_access` but returns a boolean instead.
+        """
+        return self.env.su or not self._check_access(operation)
+
+    def _filtered_access(self, operation: str):
+        """ Return the subset of ``self`` for which the current user is allowed
+        to perform ``operation``. The method is fully equivalent to::
+
+            self.filtered(lambda record: record.has_access(operation))
+
+        """
+        if self and not self.env.su and (result := self._check_access(operation)):
+            return self - result[0]
+        return self
+
+    def _check_access(self, operation: str) -> tuple[Self, Callable] | None:
+        """ Return ``None`` if the current user has permission to perform
+        ``operation`` on the records ``self``. Otherwise, return a pair
+        ``(records, function)`` where ``records`` are the forbidden records, and
+        ``function`` can be used to create some corresponding exception.
+
+        This method provides the base implementation of
+        methods :meth:`check_access`, :meth:`has_access`
+        and :meth:`_filtered_access`. The method may be overridden in order to
+        restrict the access to ``self``.
+        """
+        Access = self.env['ir.model.access']
+        if not Access.check(self._name, operation, raise_exception=False):
+            return self, functools.partial(Access._make_access_error, self._name, operation)
+
+        # we only check access rules on real records, which should not be mixed
+        # with new records
+        if any(self._ids):
+            Rule = self.env['ir.rule']
+            domain = Rule._compute_domain(self._name, operation)
+            if domain and (forbidden := self - self.sudo().filtered_domain(domain)):
+                return forbidden, functools.partial(Rule._make_access_error, operation, forbidden)
+
+        return None
+
     @api.model
     def check_access_rights(self, operation, raise_exception=True):
         """ Verify that the given operation is allowed for the current user accord to ir.model.access.
@@ -4278,7 +4325,13 @@ class BaseModel(metaclass=MetaModel):
         :rtype: bool
         :raise AccessError: if the operation is forbidden and raise_exception is True
         """
-        return self.env['ir.model.access'].check(self._name, operation, raise_exception)
+        warnings.warn(
+            "check_access_rights() is deprecated since 18.0; use check_access() instead.",
+            DeprecationWarning, 1,
+        )
+        if raise_exception:
+            return self.browse().check_access(operation)
+        return self.browse().has_access(operation)
 
     def check_access_rule(self, operation):
         """ Verify that the given operation is allowed for the current user according to ir.rules.
@@ -4287,65 +4340,26 @@ class BaseModel(metaclass=MetaModel):
         :return: None if the operation is allowed
         :raise UserError: if current ``ir.rules`` do not permit this operation.
         """
-        if self.env.su:
-            return
-
-        # SQL Alternative if computing in-memory is too slow for large dataset
-        # invalid = self - self._filter_access_rules(operation)
-        invalid = self - self._filter_access_rules_python(operation)
-        if not invalid:
-            return
-
-        forbidden = invalid.exists()
-        if forbidden:
-            # the invalid records are (partially) hidden by access rules
-            raise self.env['ir.rule']._make_access_error(operation, forbidden)
-
-        # If we get here, the invalid records are not in the database.
-        if operation in ('read', 'unlink'):
-            # No need to warn about deleting an already deleted record.
-            # And no error when reading a record that was deleted, to prevent spurious
-            # errors for non-transactional search/read sequences coming from clients.
-            return
-        _logger.info('Failed operation on deleted record(s): %s, uid: %s, model: %s', operation, self._uid, self._name)
-        raise MissingError(
-            _(
-                'One of the documents you are trying to access has been deleted, please try again after refreshing.\n\n'
-                'Document type: %(document_type)s, Operation: %(operation)s, Records: %(records)s, User: %(user)s',
-                document_type=self._name,
-                operation=operation,
-                records=invalid.ids[:6],
-                user=self._uid,
-            )
+        warnings.warn(
+            "check_access_rule() is deprecated since 18.0; use check_access() instead.",
+            DeprecationWarning, 1,
         )
+        self.check_access(operation)
 
     def _filter_access_rules(self, operation):
         """ Return the subset of ``self`` for which ``operation`` is allowed. """
-        if self.env.su:
-            return self
-
-        if not self._ids:
-            return self
-
-        query = Query(self.env, self._table, self._table_sql)
-        self._apply_ir_rules(query, operation)
-        if not query.where_clause:
-            return self
-
-        # determine ids in database that satisfy ir.rules
-        query.add_where(SQL("%s IN %s", SQL.identifier(self._table, 'id'), tuple(self.ids)))
-        valid_ids = set(query)
-
-        # return new ids without origin and ids with origin in valid_ids
-        return self.browse([
-            it
-            for it in self._ids
-            if not (it or it.origin) or (it or it.origin) in valid_ids
-        ])
+        warnings.warn(
+            "_filter_access_rules() is deprecated since 18.0; use _filtered_access() instead.",
+            DeprecationWarning, 1,
+        )
+        return self._filtered_access(operation)
 
     def _filter_access_rules_python(self, operation):
-        dom = self.env['ir.rule']._compute_domain(self._name, operation)
-        return self.sudo().filtered_domain(dom or [])
+        warnings.warn(
+            "_filter_access_rules_python() is deprecated since 18.0; use _filtered_access() instead.",
+            DeprecationWarning, 1,
+        )
+        return self._filtered_access(operation)
 
     def unlink(self):
         """ unlink()
@@ -4358,8 +4372,7 @@ class BaseModel(metaclass=MetaModel):
         if not self:
             return True
 
-        self.check_access_rights('unlink')
-        self.check_access_rule('unlink')
+        self.check_access('unlink')
 
         from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
         for func in self._ondelete_methods:
@@ -4494,9 +4507,8 @@ class BaseModel(metaclass=MetaModel):
         if not self:
             return True
 
-        self.check_access_rights('write')
+        self.check_access('write')
         self.check_field_access_rights('write', vals.keys())
-        self.check_access_rule('write')
         env = self.env
 
         bad_names = {'id', 'parent_path'}
@@ -4745,7 +4757,7 @@ class BaseModel(metaclass=MetaModel):
             return self.browse()
 
         self = self.browse()
-        self.check_access_rights('create')
+        self.check_access('create')
 
         new_vals_list = self._prepare_create_values(vals_list)
 
@@ -5068,7 +5080,7 @@ class BaseModel(metaclass=MetaModel):
 
         # check Python constraints for stored fields
         records._validate_fields(name for data in data_list for name in data['stored'])
-        records.check_access_rule('create')
+        records.check_access('create')
         return records
 
     def _compute_field_value(self, field):
@@ -5545,7 +5557,7 @@ class BaseModel(metaclass=MetaModel):
         default the returned query object is not actually executed, and it can
         be injected as a value in a domain in order to generate sub-queries.
         """
-        self.check_access_rights('read')
+        self.browse().check_access('read')
 
         if expression.is_false(self, domain):
             # optimization: no need to query, as no record satisfies the domain
@@ -7348,17 +7360,20 @@ def itemgetter_tuple(items):
         return lambda gettable: (gettable[items[0]],)
     return operator.itemgetter(*items)
 
+
 def convert_pgerror_not_null(model, fields, info, e):
+    env = model.env
     if e.diag.table_name != model._table:
-        return {'message': _("Missing required value for the field '%(name)s' on a linked model [%(linked_model)s]", name=e.diag.column_name, linked_model=e.diag.table_name)}
+        return {'message': env._("Missing required value for the field '%(name)s' on a linked model [%(linked_model)s]", name=e.diag.column_name, linked_model=e.diag.table_name)}
 
     field_name = e.diag.column_name
     field = fields[field_name]
-    message = _("Missing required value for the field '%(name)s' (%(technical_name)s)", name=field['string'], technical_name=field_name)
+    message = env._("Missing required value for the field '%(name)s' (%(technical_name)s)", name=field['string'], technical_name=field_name)
     return {
         'message': message,
         'field': field_name,
     }
+
 
 def convert_pgerror_unique(model, fields, info, e):
     # new cursor since we're probably in an error handler in a blown
@@ -7386,7 +7401,7 @@ def convert_pgerror_unique(model, fields, info, e):
     if len(ufields) == 1:
         field_name = ufields[0]
         field = fields[field_name]
-        message = _(
+        message = model.env._(
             "The value for the field '%(field)s' already exists (this is probably '%(other_field)s' in the current model).",
             field=field_name,
             other_field=field['string'],
@@ -7396,7 +7411,7 @@ def convert_pgerror_unique(model, fields, info, e):
             'field': field_name,
         }
     field_strings = [fields[fname]['string'] for fname in ufields]
-    message = _(
+    message = model.env._(
         "The values for the fields '%(fields)s' already exist (they are probably '%(other_fields)s' in the current model).",
         fields=format_list(model.env, ufields),
         other_fields=format_list(model.env, field_strings),
@@ -7406,19 +7421,23 @@ def convert_pgerror_unique(model, fields, info, e):
         # no field, unclear which one we should pick and they could be in any order
     }
 
+
 def convert_pgerror_constraint(model, fields, info, e):
     sql_constraints = dict([(('%s_%s') % (e.diag.table_name, x[0]), x) for x in model._sql_constraints])
     if e.diag.constraint_name in sql_constraints.keys():
         return {'message': "'%s'" % sql_constraints[e.diag.constraint_name][2]}
     return {'message': tools.exception_to_unicode(e)}
 
+
 PGERROR_TO_OE = defaultdict(
     # shape of mapped converters
-    lambda: (lambda model, fvg, info, pgerror: {'message': tools.exception_to_unicode(pgerror)}), {
-    '23502': convert_pgerror_not_null,
-    '23505': convert_pgerror_unique,
-    '23514': convert_pgerror_constraint,
-})
+    lambda: (lambda model, fvg, info, pgerror: {'message': tools.exception_to_unicode(pgerror)}),
+    {
+        '23502': convert_pgerror_not_null,
+        '23505': convert_pgerror_unique,
+        '23514': convert_pgerror_constraint,
+    },
+)
 
 # keep those imports here to avoid dependency cycle errors
 # pylint: disable=wrong-import-position

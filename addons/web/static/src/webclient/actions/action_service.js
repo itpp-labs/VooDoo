@@ -217,31 +217,13 @@ export function makeActionManager(env, router = _router) {
         if (state.action && state.resId && controllers.at(-1)?.action?.id === state.action) {
             // When loading the state on a form view, we will need to load the action for it,
             // and this will give us the display name of the corresponding multi-record view in
-            // the breadcrumb. By calling _loadAction preemptively, we can in some cases avoid
+            // the breadcrumb.
+            // By marking the last controller as a lazyController, we can in some cases avoid
             // _loadBreadcrumbs from doing any network request as the breadcrumbs may only contain
             // the form view and the multi-record view.
-            const { actionRequest, options } = _getActionParams();
-            const [bcControllers, action] = await Promise.all([
-                _loadBreadcrumbs(controllers.slice(0, -1)),
-                _loadAction(actionRequest, options.additionalContext).then((action) =>
-                    _preprocessAction(action, options.additionalContext)
-                ),
-            ]);
-
-            // If the current action is a Window action and has a multi-record view, we add the last
-            // controller to the breadcrumb controllers.
-            if (
-                action.type === "ir.actions.act_window" &&
-                action.views.some((view) => view[1] !== "form" && view[1] !== "search")
-            ) {
-                controllers.at(-1).displayName = action.display_name || action.name || "";
-                controllers.at(-1).action = action;
-                return [...bcControllers, controllers.at(-1)];
-            }
-
-            // If the current action doesn't have a multi-record view, or is not a Window action,
-            // we don't need to add the last controller to the breadcrumb controllers
-            return bcControllers;
+            const bcControllers = await _loadBreadcrumbs(controllers.slice(0, -1));
+            controllers.at(-1).lazy = true;
+            return [...bcControllers, controllers.at(-1)];
         }
         return _loadBreadcrumbs(controllers);
     }
@@ -268,7 +250,7 @@ export function makeActionManager(env, router = _router) {
             const key = JSON.stringify(actionInfo);
             keys.push(key);
             if (displayName) {
-                breadcrumbCache[key] = displayName;
+                breadcrumbCache[key] = { display_name: displayName };
             }
             if (key in breadcrumbCache) {
                 continue;
@@ -285,19 +267,19 @@ export function makeActionManager(env, router = _router) {
                 });
             }
         }
-        const displayNames = await Promise.all(keys.map((k) => breadcrumbCache[k]));
+        const results = await Promise.all(keys.map((k) => breadcrumbCache[k]));
         const controllersToRemove = [];
-        for (const [controller, displayName] of zip(controllers, displayNames)) {
-            if (typeof displayName === "string") {
-                controller.displayName = displayName;
+        for (const [controller, res] of zip(controllers, results)) {
+            if ("display_name" in res) {
+                controller.displayName = res.display_name;
             } else {
                 controllersToRemove.push(controller);
-                if (displayName?.error) {
+                if ("error" in res) {
                     console.warn(
                         "The following element was removed from the breadcrumb and from the url.\n",
                         controller.state,
                         "\nThis could be because the action wasn't found or because the user doesn't have the right to access to the record, the original error is :\n",
-                        displayName.error
+                        res.error
                     );
                 }
             }
@@ -446,6 +428,9 @@ export function makeActionManager(env, router = _router) {
                     jsId: controller.jsId,
                     get name() {
                         return controller.displayName;
+                    },
+                    get isFormView() {
+                        return controller.props?.type === "form";
                     },
                     get url() {
                         return stateToUrl(controller.state);
@@ -895,6 +880,10 @@ export function makeActionManager(env, router = _router) {
                     // This occurs when clicking on a breadcrumbs.
                     return restore(controllerStack[index - 1].jsId);
                 }
+                if (index === 0) {
+                    // No previous controller to restore, so do nothing but display the error
+                    return;
+                }
                 const lastController = controllerStack.at(-1);
                 if (lastController) {
                     if (lastController.jsId !== controller.jsId) {
@@ -1149,6 +1138,25 @@ export function makeActionManager(env, router = _router) {
             ..._getViewInfo(view, action, views, options.props),
         };
         action.controllers[view.type] = controller;
+
+        const newStackLastController = options.newStack?.at(-1);
+        if (newStackLastController?.lazy) {
+            const multiView = action.views.find(
+                (view) => view[1] !== "form" && view[1] !== "search"
+            );
+            if (multiView) {
+                // If the current action has a multi-record view, we add the last
+                // controller to the breadcrumb controllers.
+                delete newStackLastController.lazy;
+                newStackLastController.displayName = action.display_name || action.name || "";
+                newStackLastController.action = action;
+                newStackLastController.props.type = multiView[1];
+            } else {
+                // If the current action doesn't have a multi-record view,
+                // we don't need to add the last controller to the breadcrumb controllers
+                options.newStack.splice(-1);
+            }
+        }
 
         return _updateUI(controller, options);
     }

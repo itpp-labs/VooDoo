@@ -9066,19 +9066,21 @@ test.tags("desktop")("create and edit on m2o in o2m, and press ESCAPE", async ()
     expect(".o_selected_row [name=turtle_trululu] input").toBeFocused();
 });
 
-test("one2many add a line should not crash if orderedResIDs is not set", async () => {
-    mockService("action", {
-        doActionButton(args) {
-            return Promise.reject();
-        },
-    });
+test.tags("desktop")(
+    "one2many add a line should not crash if orderedResIDs is not set on desktop",
+    async () => {
+        mockService("action", {
+            doActionButton(args) {
+                return Promise.reject();
+            },
+        });
 
-    Partner._records[0].turtles = [];
+        Partner._records[0].turtles = [];
 
-    await mountView({
-        type: "form",
-        resModel: "partner",
-        arch: `
+        await mountView({
+            type: "form",
+            resModel: "partner",
+            arch: `
             <form>
                 <header>
                     <button name="post" type="object" string="Validate" class="oe_highlight"/>
@@ -9089,12 +9091,47 @@ test("one2many add a line should not crash if orderedResIDs is not set", async (
                     </list>
                 </field>
             </form>`,
-    });
+        });
 
-    await contains('button[name="post"]').click();
-    await contains(".o_field_x2many_list_row_add a").click();
-    expect(".o_data_row.o_selected_row").toHaveCount(1);
-});
+        await contains('button[name="post"]').click();
+        await contains(".o_field_x2many_list_row_add a").click();
+        expect(".o_data_row.o_selected_row").toHaveCount(1);
+    }
+);
+
+test.tags("mobile")(
+    "one2many add a line should not crash if orderedResIDs is not set on mobile",
+    async () => {
+        mockService("action", {
+            doActionButton(args) {
+                return Promise.reject();
+            },
+        });
+
+        Partner._records[0].turtles = [];
+
+        await mountView({
+            type: "form",
+            resModel: "partner",
+            arch: `
+            <form>
+                <header>
+                    <button name="post" type="object" string="Validate" class="oe_highlight"/>
+                </header>
+                <field name="turtles">
+                    <list editable="bottom">
+                        <field name="turtle_foo"/>
+                    </list>
+                </field>
+            </form>`,
+        });
+
+        await contains(`.o_cp_action_menus button:has(.fa-cog)`).click();
+        await contains('button[name="post"]').click();
+        await contains(".o_field_x2many_list_row_add a").click();
+        expect(".o_data_row.o_selected_row").toHaveCount(1);
+    }
+);
 
 test("one2many shortcut tab should not crash when there is no input widget", async () => {
     // create a one2many view which has no input (only 1 textarea in this case)
@@ -11338,7 +11375,7 @@ test("open a one2many record containing a one2many", async () => {
     });
 
     expect.verifySteps([
-        "localStorage getItem pwa.installationState", // from install_prompt service
+        "localStorage getItem pwaService.installationState",
         "localStorage getItem optional_fields,partner,form,123456789,p,list,name",
         "localStorage getItem debug_open_view,partner,form,123456789,p,list,name",
     ]);
@@ -11770,6 +11807,43 @@ test.tags("desktop")(
         expect(".o_x2m_control_panel .o_pager_counter").toHaveCount(0);
     }
 );
+
+test("new record, receive more create commands than limit", async () => {
+    Partner._fields.sequence = fields.Integer();
+    Partner._onChanges = {
+        p: function (obj) {
+            obj.p = [
+                [0, 0, { sequence: 1, display_name: "Record 1" }],
+                [0, 0, { sequence: 2, display_name: "Record 2" }],
+                [0, 0, { sequence: 3, display_name: "Record 3" }],
+                [0, 0, { sequence: 4, display_name: "Record 4" }],
+            ];
+        },
+    };
+    await mountView({
+        type: "form",
+        resModel: "partner",
+        arch: `
+            <form>
+                <group>
+                    <field name="p">
+                        <list limit="2">
+                            <field name="sequence"/>
+                            <field name="display_name"/>
+                        </list>
+                    </field>
+                </group>
+            </form>`,
+    });
+
+    expect(queryAllTexts(".o_data_cell.o_list_char")).toEqual([
+        "Record 1",
+        "Record 2",
+        "Record 3",
+        "Record 4",
+    ]);
+    expect(".o_x2m_control_panel .o_pager").toHaveCount(0);
+});
 
 test("active actions are passed to o2m field", async () => {
     Partner._records[0].turtles = [1, 2, 3];

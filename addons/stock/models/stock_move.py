@@ -394,7 +394,9 @@ class StockMove(models.Model):
     def _set_quantity(self):
         def _process_decrease(move, quantity):
             mls_to_unlink = set()
-            for ml in move.move_line_ids:
+            # Since the move lines might have been created in a certain order to respect
+            # a removal strategy, they need to be unreserved in the opposite order
+            for ml in reversed(move.move_line_ids.sorted('id')):
                 if float_is_zero(quantity, precision_rounding=move.product_uom.rounding):
                     break
                 qty_ml_dec = min(ml.quantity, ml.product_uom_id._compute_quantity(quantity, ml.product_uom_id, round=False))
@@ -2329,7 +2331,7 @@ Please change the quantity done or the rounding precision of your unit of measur
         """
         self.ensure_one()
         source = self.picking_id
-        if source and source.check_access_rights('read', raise_exception=False):
+        if source and source.browse().has_access('read'):
             return {
                 'res_model': source._name,
                 'type': 'ir.actions.act_window',

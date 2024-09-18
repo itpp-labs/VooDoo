@@ -19,11 +19,11 @@ class PortalAccount(CustomerPortal):
             values['overdue_invoice_count'] = self._get_overdue_invoice_count()
         if 'invoice_count' in counters:
             invoice_count = request.env['account.move'].search_count(self._get_invoices_domain('out'), limit=1) \
-                if request.env['account.move'].check_access_rights('read', raise_exception=False) else 0
+                if request.env['account.move'].has_access('read') else 0
             values['invoice_count'] = invoice_count
         if 'bill_count' in counters:
             bill_count = request.env['account.move'].search_count(self._get_invoices_domain('in'), limit=1) \
-                if request.env['account.move'].check_access_rights('read', raise_exception=False) else 0
+                if request.env['account.move'].has_access('read') else 0
             values['bill_count'] = bill_count
         return values
 
@@ -33,13 +33,16 @@ class PortalAccount(CustomerPortal):
 
     def _get_overdue_invoice_count(self):
         overdue_invoice_count = request.env['account.move'].search_count(self._get_overdue_invoices_domain()) \
-            if request.env['account.move'].check_access_rights('read', raise_exception=False) else 0
+            if request.env['account.move'].has_access('read') else 0
         return overdue_invoice_count
 
     def _invoice_get_page_view_values(self, invoice, access_token, **kwargs):
+        custom_amount = None
+        if kwargs.get('amount'):
+            custom_amount = float(kwargs['amount'])
         values = {
             'page_name': 'invoice',
-            **invoice._get_invoice_portal_extra_values(),
+            **invoice._get_invoice_portal_extra_values(custom_amount=custom_amount),
         }
         return self._get_page_view_values(invoice, access_token, values, 'my_invoices_history', False, **kwargs)
 
@@ -127,14 +130,14 @@ class PortalAccount(CustomerPortal):
                         domain, order=order, limit=self._items_per_page, offset=pager_offset
                     )
                 ]
-                if AccountInvoice.check_access_rights('read', raise_exception=False) else
+                if AccountInvoice.has_access('read') else
                 AccountInvoice
             ),
             'page_name': 'invoice',
             'pager': {  # vals to define the pager.
                 "url": url,
                 "url_args": {'date_begin': date_begin, 'date_end': date_end, 'sortby': sortby},
-                "total": AccountInvoice.search_count(domain) if AccountInvoice.check_access_rights('read', raise_exception=False) else 0,
+                "total": AccountInvoice.search_count(domain) if AccountInvoice.has_access('read') else 0,
                 "page": page,
                 "step": self._items_per_page,
             },

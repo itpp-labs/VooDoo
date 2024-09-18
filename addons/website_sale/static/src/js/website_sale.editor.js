@@ -52,6 +52,13 @@ options.registry.WebsiteSaleGridLayout = options.Class.extend({
     /**
      * @see this.selectClass for params
      */
+    setGap: function (previewMode, widgetValue, params) {
+        this.gap = widgetValue;
+        return rpc('/shop/config/website', { 'shop_gap': this.gap });
+    },
+    /**
+     * @see this.selectClass for params
+     */
     setDefaultSort: function (previewMode, widgetValue, params) {
         this.default_sort = widgetValue;
         return rpc('/shop/config/website', { 'shop_default_sort': this.default_sort });
@@ -107,6 +114,7 @@ options.registry.WebsiteSaleProductsItem = options.Class.extend({
     willStart: async function () {
         const _super = this._super.bind(this);
         this.ppr = this.$target.closest('[data-ppr]').data('ppr');
+        this.defaultSort = this.$target[0].closest('[data-default-sort]').dataset.defaultSort
         this.productTemplateID = parseInt(this.$target.find('[data-oe-model="product.template"]').data('oe-id'));
         this.ribbonPositionClasses = {'left': 'o_ribbon_left', 'right': 'o_ribbon_right'};
         this.ribbons = await new Promise(resolve => this.trigger_up('get_ribbons', {callback: resolve}));
@@ -232,8 +240,8 @@ options.registry.WebsiteSaleProductsItem = options.Class.extend({
     updateUI: async function () {
         await this._super.apply(this, arguments);
 
-        var sizeX = parseInt(this.$target.attr('colspan') || 1);
-        var sizeY = parseInt(this.$target.attr('rowspan') || 1);
+        let sizeX = parseInt(this.$target[0].dataset.colspan || 1);
+        let sizeY = parseInt(this.$target[0].dataset.rowspan || 1);
 
         var $size = this.$el.find('.o_wsale_soptions_menu_sizes');
         $size.find('tr:nth-child(-n + ' + sizeY + ') td:nth-child(-n + ' + sizeX + ')')
@@ -301,8 +309,12 @@ options.registry.WebsiteSaleProductsItem = options.Class.extend({
      * @override
      */
     async _computeWidgetVisibility(widgetName, params) {
+        const isDefaultSortFeatured = this.defaultSort === 'website_sequence asc';
+
         if (widgetName === 'create_ribbon_opt') {
             return !this.ribbonEditMode;
+        } else if (widgetName === 'o_wsale_change_sequence_widget'){
+            return isDefaultSortFeatured;
         }
         return this._super(...arguments);
     },

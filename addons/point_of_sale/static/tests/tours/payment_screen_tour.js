@@ -10,6 +10,7 @@ registry.category("web_tour.tours").add("PaymentScreenTour", {
     test: true,
     steps: () =>
         [
+            Chrome.startPoS(),
             ProductScreen.addOrderline("Letter Tray", "10"),
             ProductScreen.selectedOrderlineHas("Letter Tray", "10.0"),
             ProductScreen.clickPayButton(),
@@ -66,8 +67,12 @@ registry.category("web_tour.tours").add("PaymentScreenTour2", {
     test: true,
     steps: () =>
         [
+            Chrome.startPoS(),
             ProductScreen.addOrderline("Letter Tray", "1", "10"),
             ProductScreen.clickPayButton(),
+
+            // check that ship later button is present
+            { trigger: ".payment-buttons button:contains('Ship Later')" },
 
             PaymentScreen.enterPaymentLineAmount("Bank", "99"),
             // trying to put 99 as an amount should throw an error. We thus confirm the dialog.
@@ -80,7 +85,8 @@ registry.category("web_tour.tours").add("PaymentScreenRoundingUp", {
     test: true,
     steps: () =>
         [
-            Dialog.confirm("Open session"),
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
             ProductScreen.addOrderline("Product Test", "1"),
             ProductScreen.clickPayButton(),
 
@@ -102,7 +108,8 @@ registry.category("web_tour.tours").add("PaymentScreenRoundingDown", {
     test: true,
     steps: () =>
         [
-            Dialog.confirm("Open session"),
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
             ProductScreen.addOrderline("Product Test", "1"),
             ProductScreen.clickPayButton(),
 
@@ -124,7 +131,8 @@ registry.category("web_tour.tours").add("PaymentScreenRoundingHalfUp", {
     test: true,
     steps: () =>
         [
-            Dialog.confirm("Open session"),
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
             ProductScreen.addOrderline("Product Test 1.2", "1"),
             ProductScreen.clickPayButton(),
 
@@ -168,7 +176,8 @@ registry.category("web_tour.tours").add("PaymentScreenRoundingHalfUpCashAndBank"
     test: true,
     steps: () =>
         [
-            Dialog.confirm("Open session"),
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
             ProductScreen.addOrderline("Product Test 40", "1"),
             ProductScreen.clickPartnerButton(),
             ProductScreen.clickCustomer("Partner Test 1"),
@@ -208,6 +217,7 @@ registry.category("web_tour.tours").add("PaymentScreenTotalDueWithOverPayment", 
     test: true,
     steps: () =>
         [
+            Chrome.startPoS(),
             ProductScreen.addOrderline("Product Test", "1"),
             ProductScreen.clickPayButton(),
 
@@ -222,9 +232,9 @@ registry.category("web_tour.tours").add("PaymentScreenTotalDueWithOverPayment", 
 
 registry.category("web_tour.tours").add("InvoiceShipLaterAccessRight", {
     test: true,
-    url: "/pos/ui",
     steps: () =>
         [
+            Chrome.startPoS(),
             ProductScreen.confirmOpeningPopup(),
             ProductScreen.clickHomeCategory(),
             ProductScreen.addOrderline("Whiteboard Pen", "1"),
@@ -242,7 +252,8 @@ registry.category("web_tour.tours").add("CashRoundingPayment", {
     test: true,
     steps: () =>
         [
-            Dialog.confirm("Open session"),
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
             ProductScreen.addOrderline("Magnetic Board", "1"),
             ProductScreen.clickPayButton(),
 

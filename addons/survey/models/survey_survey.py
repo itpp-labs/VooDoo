@@ -429,7 +429,7 @@ class Survey(models.Model):
             check the responsible is part of the list."""
         surveys_to_check = self.filtered(lambda s: bool(s.user_id - s.restrict_user_ids))
         if surveys_to_check:
-            valid_surveys = surveys_to_check._filter_access_rules_python("write")
+            valid_surveys = surveys_to_check._filtered_access("write")
             failing_surveys_sudo = (self - valid_surveys).sudo()
             if failing_surveys_sudo:
                 raise ValidationError(
@@ -496,7 +496,7 @@ class Survey(models.Model):
 
     def copy_data(self, default=None):
         vals_list = super().copy_data(default=default)
-        return [dict(vals, title=_("%s (copy)", survey.title)) for survey, vals in zip(self, vals_list)]
+        return [dict(vals, title=self.env._("%s (copy)", survey.title)) for survey, vals in zip(self, vals_list)]
 
     def toggle_active(self):
         super(Survey, self).toggle_active()
@@ -516,8 +516,7 @@ class Survey(models.Model):
                        public user in which case an email is welcomed;
           :param email: email of the person asking the token is no user exists;
         """
-        self.check_access_rights('read')
-        self.check_access_rule('read')
+        self.check_access('read')
 
         user_inputs = self.env['survey.user_input']
         for survey in self:
@@ -575,8 +574,7 @@ class Survey(models.Model):
         self.ensure_one()
         if test_entry:
             try:
-                self.with_user(user).check_access_rights('read')
-                self.with_user(user).check_access_rule('read')
+                self.with_user(user).check_access('read')
             except AccessError:
                 raise exceptions.UserError(_('Creating test token is not allowed for you.'))
 

@@ -24,6 +24,7 @@ export class ComboConfiguratorDialog extends Component {
         company_id: { type: Number, optional: true },
         pricelist_id: { type: Number, optional: true },
         date: String,
+        price_info: { type: String, optional: true },
         edit: { type: Boolean, optional: true },
         save: Function,
         discard: Function,
@@ -40,6 +41,7 @@ export class ComboConfiguratorDialog extends Component {
             selectedComboItems: new Map(),
             quantity: this.props.quantity,
             basePrice: this.props.price,
+            isLoading: false,
         });
         if (this.props.edit) this._initSelectedComboItems();
         this._selectSingleComboItems();
@@ -79,6 +81,7 @@ export class ComboConfiguratorDialog extends Component {
                     this.state.selectedComboItems.set(comboId, selectedComboItem);
                 },
                 discard: () => {},
+                ...this._getAdditionalDialogProps(),
             });
         } else {
             this.state.selectedComboItems.set(comboId, comboItem.deepCopy());
@@ -99,6 +102,7 @@ export class ComboConfiguratorDialog extends Component {
             date: this.props.date,
             company_id: this.props.company_id,
             pricelist_id: this.props.pricelist_id,
+            ...this._getAdditionalRpcParams(),
         });
     }
 
@@ -143,7 +147,10 @@ export class ComboConfiguratorDialog extends Component {
     }
 
     async confirm(options) {
-        await this.props.save(this._comboProductData, this._selectedComboItems, options);
+        this.state.isLoading = true;
+        await this.props.save(this._comboProductData, this._selectedComboItems, options).finally(
+            () => this.state.isLoading = false
+        )
         this.props.close();
     }
 
@@ -180,8 +187,9 @@ export class ComboConfiguratorDialog extends Component {
     }
 
     get _totalPrice() {
-        const extraPrice = this.state.selectedComboItems.values().map(
-            comboItem => comboItem.extra_price + comboItem.product.selectedNoVariantPtavsPriceExtra
+        const extraPrice = Array.from(
+            this.state.selectedComboItems.values(),
+            comboItem => comboItem.extra_price + comboItem.product.selectedNoVariantPtavsPriceExtra,
         ).reduce((price, comboItemExtraPrice) => price + comboItemExtraPrice, 0);
         return this.state.quantity * (this.state.basePrice + extraPrice);
     }
@@ -202,5 +210,23 @@ export class ComboConfiguratorDialog extends Component {
      */
     get _selectedComboItems() {
         return Array.from(this.state.selectedComboItems.values());
+    }
+
+    /**
+     * Hook to append additional RPC params in overriding modules.
+     *
+     * @return {Object} The additional RPC params.
+     */
+    _getAdditionalRpcParams() {
+        return {};
+    }
+
+    /**
+     * Hook to append additional props in overriding modules.
+     *
+     * @return {Object} The additional props.
+     */
+    _getAdditionalDialogProps() {
+        return {};
     }
 }

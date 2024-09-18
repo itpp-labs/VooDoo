@@ -70,7 +70,7 @@
                             <field name="sale_ok"/>
                             <label for="sale_ok"/>
                         </span>
-                        <span class="d-inline-block">
+                        <span class="d-inline-block" invisible="type == 'combo'">
                             <field name="purchase_ok"/>
                             <label for="purchase_ok"/>
                         </span>
@@ -105,18 +105,18 @@
                                             class="oe_inline"
                                             widget="monetary"
                                             options="{'currency_field': 'currency_id', 'field_digits': True}"/>
-                                            <span
-                                                name="uom_span"
-                                                groups="uom.group_uom"
-                                                invisible="type == 'combo'"
-                                            >
-                                                per
-                                                <field
-                                                    name="uom_id"
-                                                    class="oe_inline" style="max-width:136px"
-                                                    options="{'no_create': True}"
-                                                />
-                                            </span>
+                                        <span
+                                            name="uom_span"
+                                            groups="uom.group_uom"
+                                            invisible="type == 'combo'"
+                                        >
+                                            per
+                                            <field
+                                                name="uom_id"
+                                                class="oe_inline" style="max-width:136px"
+                                                options="{'no_create': True}"
+                                            />
+                                        </span>
                                     </div>
                                     <label
                                         for="standard_price"
@@ -158,12 +158,12 @@
                         <page string="Sales" name="sales" invisible="1 or not sale_ok">
                             <group name="sale">
                                 <group string="Upsell &amp; Cross-Sell" name="upsell" invisible="1"/>
-                                <group name="tags" string="Extra Info">
+                                <group name="extra_info" string="Extra Info">
                                     <field name="product_tag_ids" widget="many2many_tags" context="{'product_template_id': id}"/>
                                 </group>
                             </group>
                             <group>
-                                <group string="Sales Description" name="description">
+                                <group string="Quotation Description" name="description">
                                     <field colspan="2" name="description_sale" nolabel="1" placeholder="This note is added to sales orders and invoices."/>
                                 </group>
                             </group>
@@ -225,6 +225,7 @@
                 <separator/>
                 <filter string="Services" name="services" domain="[('type','=','service')]"/>
                 <filter string="Goods" name="goods" domain="[('type', '=', 'consu')]"/>
+                <filter string="Combo" name="combo" domain="[('type', '=', 'combo')]"/>
                 <separator/>
                 <filter string="Sales" name="filter_to_sell" domain="[('sale_ok','=',True)]"/>
                 <filter string="Purchase" name="filter_to_purchase" domain="[('purchase_ok', '=', True)]"/>

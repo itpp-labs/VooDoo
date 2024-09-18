@@ -14,11 +14,10 @@ import { usePos } from "@point_of_sale/app/store/pos_hook";
 import { Component, useState, onMounted } from "@odoo/owl";
 import { Numpad, enhancedButtons } from "@point_of_sale/app/generic_components/numpad/numpad";
 import { floatIsZero, roundPrecision as round_pr } from "@web/core/utils/numbers";
-import { OrderReceipt } from "@point_of_sale/app/screens/receipt_screen/receipt/order_receipt";
 import { ask } from "@point_of_sale/app/store/make_awaitable_dialog";
 import { handleRPCError } from "@point_of_sale/app/errors/error_handlers";
-import { getUTCString } from "@point_of_sale/utils";
 import { sprintf } from "@web/core/utils/strings";
+import { serializeDateTime } from "@web/core/l10n/dates";
 
 export class PaymentScreen extends Component {
     static template = "point_of_sale.PaymentScreen";
@@ -257,7 +256,7 @@ export class PaymentScreen extends Component {
             this.hardwareProxy.openCashbox();
         }
 
-        this.currentOrder.date_order = getUTCString(luxon.DateTime.now());
+        this.currentOrder.date_order = serializeDateTime(luxon.DateTime.now());
         for (const line of this.paymentLines) {
             if (!line.amount === 0) {
                 this.currentOrder.remove_paymentline(line);
@@ -330,7 +329,7 @@ export class PaymentScreen extends Component {
 
         if (
             nextScreen === "ReceiptScreen" &&
-            !this.currentOrder._printed &&
+            this.currentOrder.nb_print === 0 &&
             this.pos.config.iface_print_auto
         ) {
             const invoiced_finalized = this.currentOrder.is_to_invoice()
@@ -338,17 +337,11 @@ export class PaymentScreen extends Component {
                 : true;
 
             if (invoiced_finalized) {
-                const printResult = await this.printer.print(
-                    OrderReceipt,
-                    {
-                        data: this.pos.orderExportForPrinting(this.pos.get_order()),
-                        formatCurrency: this.env.utils.formatCurrency,
-                    },
-                    { webPrintFallback: true }
-                );
+                const printResult = await this.pos.printReceipt();
 
                 if (printResult && this.pos.config.iface_print_skip_screen) {
-                    this.currentOrder.set_screen_data({ name: "ReceiptScreen" });
+                    this.currentOrder.uiState.screen_data["value"] = "";
+                    this.currentOrder.uiState.locked = true;
                     this.pos.add_new_order();
                     nextScreen = "ProductScreen";
                 }

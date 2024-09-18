@@ -69,7 +69,7 @@ class MailController(http.Controller):
         suggested_company = record_sudo._get_redirect_suggested_company()
         # the record has a window redirection: check access rights
         if uid is not None:
-            if not RecordModel.with_user(uid).check_access_rights('read', raise_exception=False):
+            if not RecordModel.with_user(uid).has_access('read'):
                 return cls._redirect_to_messaging()
             try:
                 # We need here to extend the "allowed_company_ids" to allow a redirection
@@ -78,7 +78,7 @@ class MailController(http.Controller):
                 cids_str = request.cookies.get('cids', str(user.company_id.id))
                 cids = [int(cid) for cid in cids_str.split('-')]
                 try:
-                    record_sudo.with_user(uid).with_context(allowed_company_ids=cids).check_access_rule('read')
+                    record_sudo.with_user(uid).with_context(allowed_company_ids=cids).check_access('read')
                 except AccessError:
                     # In case the allowed_company_ids from the cookies (i.e. the last user configuration
                     # on their browser) is not sufficient to avoid an ir.rule access error, try to following
@@ -92,7 +92,7 @@ class MailController(http.Controller):
                     if not suggested_company:
                         raise AccessError('')
                     cids = cids + [suggested_company.id]
-                    record_sudo.with_user(uid).with_context(allowed_company_ids=cids).check_access_rule('read')
+                    record_sudo.with_user(uid).with_context(allowed_company_ids=cids).check_access('read')
                     request.future_response.set_cookie('cids', '-'.join([str(cid) for cid in cids]))
             except AccessError:
                 return cls._redirect_to_messaging()
@@ -184,11 +184,7 @@ class MailController(http.Controller):
 
         display_link = True
         if request.session.uid:
-            try:
-                record.check_access_rights('read')
-                record.check_access_rule('read')
-            except AccessError:
-                display_link = False
+            display_link = record.has_access('read')
 
         return request.render('mail.message_document_unfollowed', {
             'name': record_sudo.display_name,
@@ -219,17 +215,8 @@ class MailController(http.Controller):
             else:
                 raise Unauthorized()
 
-        url_params = {
-            'highlight_message_id': message_id,
-        }
         if message.model == 'discuss.channel':
-            url_params['active_id'] = message.res_id
-            url_params['action'] = 'mail.action_discuss'
+            url = f'/odoo/action-mail.action_discuss?active_id={message.res_id}&highlight_message_id={message_id}'
         else:
-            url_params.update({
-                'model': message.model,
-                'id': message.res_id,
-                'view_type': 'form',
-            })
-        url = '/web#%s' % url_encode(url_params)
+            url = f'/odoo/{message.model}/{message.res_id}?highlight_message_id={message_id}'
         return request.redirect(url)

@@ -340,24 +340,30 @@ class MrpProduction(models.Model):
             production.location_src_id = production.picking_type_id.default_location_src_id.id or fallback_loc.id
             production.location_dest_id = production.picking_type_id.default_location_dest_id.id or fallback_loc.id
 
+    @api.model
     def _search_components_availability_state(self, operator, value):
+        if operator not in ('=', '!=', 'in', 'not in'):
+            raise UserError(_('Operation not supported'))
 
-        def _get_comparison_date(move):
-            return move.raw_material_production_id.date_start
+        states = ['available', 'expected', 'late', 'unavailable']
+        if operator in ('=', '!='):
+            value = [value]
+        if operator in ('not in', '!='):
+            value = filter(lambda state: state not in value, states)
+        if not all(state in states for state in value):
+            raise UserError(_('Selection not supported.'))
 
-        if operator == '!=' and not value:
-            raise UserError(_('Operator not supported without a value.'))
-        elif operator == '=' and not value:
-            raw_stock_moves = self.env['stock.move'].search([
-                ('raw_material_production_id', '!=', False),
-                ('raw_material_production_id.state', 'in', ('cancel', 'done', 'draft'))])
-            return [('move_raw_ids', 'in', raw_stock_moves.ids)]
+        current_productions = self.search([('state', 'in', ('confirmed', 'progress', 'to_close'))])
 
-        selected_production_ids = []
-        for prod in self.env['mrp.production'].search([('state', 'not in', ('done', 'cancel', 'draft'))]):
-            if prod.move_raw_ids._match_searched_availability(operator, value, _get_comparison_date):
-                selected_production_ids.append(prod.id)
-        return [('id', 'in', selected_production_ids)]
+        productions_by_availability = dict.fromkeys(states, self.env['mrp.production'])
+        for production in current_productions:
+            productions_by_availability[production.components_availability_state] |= production
+
+        matching_production_ids = []
+        for state in value:
+            matching_production_ids.extend(productions_by_availability[state].ids)
+
+        return [('id', 'in', matching_production_ids)]
 
     @api.depends('state', 'reservation_state', 'date_start', 'move_raw_ids', 'move_raw_ids.forecast_availability', 'move_raw_ids.forecast_expected_date')
     def _compute_components_availability(self):
@@ -875,8 +881,10 @@ class MrpProduction(models.Model):
                 location_source = self.env['stock.location'].browse(vals.get('location_src_id'))
                 warehouse_id = location_source.warehouse_id.id
             for move_vals in vals[move_str]:
-                command, _id, field_values = move_vals
-                if command == Command.CREATE and not field_values.get('warehouse_id', False):
+                if move_vals[0] != Command.CREATE:
+                    continue
+                _command, _id, field_values = move_vals
+                if not field_values.get('warehouse_id'):
                     field_values['warehouse_id'] = warehouse_id
 
         if vals.get('picking_type_id'):
@@ -951,6 +959,12 @@ class MrpProduction(models.Model):
                 and vals.get('date_finished')
                 and rec.move_finished_ids[0].date != vals['date_finished']):
                 rec.move_finished_ids.write({'date': vals['date_finished']})
+            elif (rec.move_finished_ids
+                  and rec.date_finished
+                  and rec.move_finished_ids[0].date != rec.date_finished
+                  and not vals.get('date_finished')):
+                # if no value is specified, do take the workorder duration (etc) into account
+                rec.move_finished_ids.write({'date': rec.date_finished})
         return res
 
     def unlink(self):
@@ -2867,20 +2881,27 @@ class MrpProduction(models.Model):
         entity = self[child_field].filtered(lambda line: line.product_id.id == product_id)
         if entity:
             if quantity != 0:
-                entity.product_uom_qty = quantity
+                self._update_catalog_line_quantity(entity, quantity, **kwargs)
             else:
                 entity.unlink()
         elif quantity > 0:
-            command = Command.create({
-                'product_uom_qty': quantity,
-                'product_id': product_id,
-            })
+            new_line = self._get_new_catalog_line_values(product_id, quantity, **kwargs)
+            command = Command.create(new_line)
             self.write({child_field: [command]})
 
         return self.env['product.product'].browse(product_id).standard_price
 
     def _get_product_catalog_domain(self):
         return expression.AND([super()._get_product_catalog_domain(), [('id', '!=', self.product_id.id)]])
+
+    def _update_catalog_line_quantity(self, line, quantity, **kwargs):
+        line.product_uom_qty = quantity
+
+    def _get_new_catalog_line_values(self, product_id, quantity, **kwargs):
+        return {
+            'product_id': product_id,
+            'product_uom_qty': quantity,
+        }
 
     def _post_run_manufacture(self, post_production_values):
         note_subtype_id = self.env['ir.model.data']._xmlid_to_res_id('mail.mt_note')

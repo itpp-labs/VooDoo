@@ -173,6 +173,12 @@ class AccountMove(models.Model):
         check_company=True,
         domain="[('id', 'in', suitable_journal_ids)]",
     )
+    journal_group_id = fields.Many2one(
+        'account.journal.group',
+        string='Ledger',
+        store=False,
+        search='_search_journal_group_id',
+    )
     company_id = fields.Many2one(
         comodel_name='res.company',
         string='Company',
@@ -1887,6 +1893,14 @@ class AccountMove(models.Model):
             )
 
     # -------------------------------------------------------------------------
+    # SEARCH METHODS
+    # -------------------------------------------------------------------------
+
+    def _search_journal_group_id(self, operator, value):
+        field = 'name' if 'like' in operator else 'id'
+        journal_groups = self.env['account.journal.group'].search([(field, operator, value)])
+        return [('journal_id', 'not in', journal_groups.excluded_journal_ids.ids)]
+    # -------------------------------------------------------------------------
     # INVERSE METHODS
     # -------------------------------------------------------------------------
 
@@ -3498,7 +3512,7 @@ class AccountMove(models.Model):
             move_hashes = chain['moves']._calculate_hashes(chain['previous_hash'])
             for move, move_hash in move_hashes.items():
                 move.inalterable_hash = move_hash
-            chain['moves']._message_log_batch(bodies={m.id: _("This journal entry has been secured.") for m in chain['moves']})
+            chain['moves']._message_log_batch(bodies={m.id: self.env._("This journal entry has been secured.") for m in chain['moves']})
 
     def _get_chain_info(self, force_hash=False, include_pre_last_hash=False, early_stop=False):
         """All records in `self` must belong to the same journal and sequence_prefix
@@ -4992,6 +5006,7 @@ class AccountMove(models.Model):
         :param job_count: maximum number of jobs to process if specified.
         """
         def get_account_notification(moves, is_success: bool):
+            _ = self.env._
             return [
                 'account_notification',
                 {
@@ -5094,42 +5109,95 @@ class AccountMove(models.Model):
         term_lines = self.line_ids.filtered(lambda l: l.display_type == 'payment_term')
         return term_lines._get_installments_data()
 
-    def get_next_installment_due(self):
+    def _get_invoice_next_payment_values(self, custom_amount=None):
         self.ensure_one()
-        return next((x for x in self._get_installments_data() if not x['reconciled']), None)
+        if self.currency_id.is_zero(self.amount_residual):
+            payment_state = 'fully_paid'
+        elif self.currency_id.is_zero(self.amount_total - self.amount_residual):
+            payment_state = 'not_paid'
+        else:
+            payment_state = 'partially_paid'
 
-    def get_amount_overdue(self):
-        self.ensure_one()
-        return sum(
-            x['amount_residual_currency_unsigned']
-            for x in self._get_installments_data()
-            if x['type'] == 'overdue'
-        )
+        term_lines = self.line_ids.filtered(lambda line: line.display_type == 'payment_term')
+        installments = term_lines._get_installments_data()
+        not_reconciled_installments = [x for x in installments if not x['reconciled']]
+        overdue_installments = [x for x in not_reconciled_installments if x['type'] == 'overdue']
+        # Early payment discounts can only have one installment at most
+        epd_installment = next((installment for installment in installments if installment['type'] == 'early_payment_discount'), {})
+        show_installments = len(installments) > 1
+        additional_info = {}
 
-    def _get_invoice_portal_extra_values(self):
+        if show_installments and overdue_installments:
+            installment_state = 'overdue'
+            amount_due = self.amount_residual
+            next_amount_to_pay = sum(x['amount_residual_currency_unsigned'] for x in overdue_installments)
+            next_payment_reference = f"{self.name}-{overdue_installments[0]['number']}"
+            next_due_date = overdue_installments[0]['date_maturity']
+        elif show_installments and not_reconciled_installments:
+            installment_state = 'next'
+            amount_due = self.amount_residual
+            next_amount_to_pay = not_reconciled_installments[0]['amount_residual_currency_unsigned']
+            next_payment_reference = f"{self.name}-{not_reconciled_installments[0]['number']}"
+            next_due_date = not_reconciled_installments[0]['date_maturity']
+        elif epd_installment:
+            installment_state = 'epd'
+            amount_due = epd_installment['amount_residual_currency_unsigned']
+            next_amount_to_pay = self.amount_residual
+            next_payment_reference = self.name
+            next_due_date = epd_installment['date_maturity']
+            discount_date = epd_installment['line'].discount_date
+            discount_amount_currency = epd_installment['discount_amount_currency']
+            days_left = (discount_date - fields.Date.context_today(self)).days  # should never be lower than 0 since epd is valid
+            discount_msg = _(
+                "Discount of %(amount)s if paid %(when)s",
+                amount=self.currency_id.format(discount_amount_currency),
+                when=_("within %(days)s days", days=days_left) if days_left > 0 else _("today"),
+            )
+
+            additional_info.update({
+                'epd_discount_amount_currency': discount_amount_currency,
+                'epd_discount_amount': epd_installment['discount_amount'],
+                'discount_date': fields.Date.to_string(discount_date),
+                'epd_days_left': days_left,
+                'epd_line': epd_installment['line'],
+                'epd_discount_msg': discount_msg,
+            })
+        else:
+            installment_state = None
+            amount_due = self.amount_residual
+            next_amount_to_pay = self.amount_residual
+            next_payment_reference = self.name
+            next_due_date = self.invoice_date_due
+
+        if custom_amount is not None:
+            is_custom_amount_same_as_next_amount = self.currency_id.is_zero(custom_amount - next_amount_to_pay)
+            is_custom_amount_same_as_epd_discounted_amount = installment_state == 'epd' and self.currency_id.is_zero(custom_amount - amount_due)
+            if not is_custom_amount_same_as_next_amount and not is_custom_amount_same_as_epd_discounted_amount:
+                installment_state = 'next'
+                next_amount_to_pay = custom_amount
+                next_payment_reference = self.name
+                next_due_date = installments[0]['date_maturity']
+
+        return {
+            'payment_state': payment_state,
+            'installment_state': installment_state,
+            'next_amount_to_pay': next_amount_to_pay,
+            'next_payment_reference': next_payment_reference,
+            'amount_paid': self.amount_total - self.amount_residual,
+            'amount_due': amount_due,
+            'next_due_date': next_due_date,
+            'due_date': self.invoice_date_due,
+            'not_reconciled_installments': not_reconciled_installments,
+            'is_last_installment': len(not_reconciled_installments) == 1,
+            **additional_info,
+        }
+
+    def _get_invoice_portal_extra_values(self, custom_amount=None):
         self.ensure_one()
-        installment = self.get_next_installment_due()
-        amount_overdue = self.get_amount_overdue()
-        show_payment_info = (
-            self.payment_state not in ('paid', 'in_payment', 'reversed') and self.move_type == 'out_invoice'
-        )
-        show_amount_overdue = show_payment_info and amount_overdue and amount_overdue != self.amount_residual
-        show_installment = (
-            show_payment_info
-            and installment
-            and installment['type'] != 'early_payment_discount'
-            and installment['amount_residual_currency_unsigned'] != self.amount_residual
-        )
         return {
             'invoice': self,
-            'amount_paid': self.amount_total - self.amount_residual,
-            'amount_due': self.amount_residual,
-            'show_installment': show_installment or show_amount_overdue,
-            'show_payment_info': show_payment_info,
-            'amount_next_installment': installment['amount_residual_currency_unsigned'] if show_installment else 0.0,
-            'date_next_installment': installment['date_maturity'] if show_installment else None,
-            'name_next_installment': f"{self.name}-{installment['number']}" if show_installment else "",
-            'amount_overdue': amount_overdue if show_amount_overdue else 0.0,
+            'currency': self.currency_id,
+            **self._get_invoice_next_payment_values(custom_amount=custom_amount),
         }
 
     def _get_accounting_date(self, invoice_date, has_tax, lock_dates=None):

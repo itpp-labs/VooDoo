@@ -216,7 +216,7 @@ class StockMove(models.Model):
     product_virtual_available = fields.Float('Product Forecasted Quantity', related='product_id.virtual_available', depends=['product_id'])
     description_bom_line = fields.Char('Kit', compute='_compute_description_bom_line')
     manual_consumption = fields.Boolean(
-        'Manual Consumption', compute='_compute_manual_consumption', store=True,
+        'Manual Consumption', compute='_compute_manual_consumption', store=True, readonly=False,
         help="When activated, then the registration of consumption for that component is recorded manually exclusively.\n"
              "If not activated, and any of the components consumption is edited manually on the manufacturing order, Odoo assumes manual consumption also.")
 
@@ -226,7 +226,7 @@ class StockMove(models.Model):
             # when computed for new_id in onchange, use value from _origin
             if move != move._origin:
                 move.manual_consumption = move._origin.manual_consumption
-            else:
+            elif not move.manual_consumption:
                 move.manual_consumption = move._is_manual_consumption()
 
     @api.depends('raw_material_production_id', 'raw_material_production_id.location_dest_id', 'production_id', 'production_id.location_dest_id')
@@ -712,7 +712,7 @@ class StockMove(models.Model):
     def action_open_reference(self):
         res = super().action_open_reference()
         source = self.production_id or self.raw_material_production_id
-        if source and source.check_access_rights('read', raise_exception=False):
+        if source and source.browse().has_access('read'):
             return {
                 'res_model': source._name,
                 'type': 'ir.actions.act_window',

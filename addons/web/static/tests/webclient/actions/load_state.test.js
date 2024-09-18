@@ -27,7 +27,7 @@ import { redirect } from "@web/core/utils/urls";
 import { ControlPanel } from "@web/search/control_panel/control_panel";
 import { _t } from "@web/core/l10n/translation";
 import { user } from "@web/core/user";
-import { queryAllTexts, queryFirst } from "@odoo/hoot-dom";
+import { queryAllAttributes, queryAllTexts, queryFirst } from "@odoo/hoot-dom";
 
 describe.current.tags("desktop");
 
@@ -1046,6 +1046,61 @@ describe(`new urls`, () => {
         expect.verifySteps(["action: 2"]);
     });
 
+    test("server action returning act_window", async () => {
+        defineActions([
+            {
+                id: 2000,
+                xml_id: "action_2000",
+                type: "ir.actions.server",
+                path: "my-path",
+            },
+        ]);
+        onRpc("/web/action/run", async (request) => {
+            const { params } = await request.json();
+            expect.step(`action: ${params.action_id}`);
+            return {
+                name: "Partners",
+                res_model: "partner",
+                type: "ir.actions.act_window",
+                views: [
+                    [false, "list"],
+                    [false, "form"],
+                ],
+            };
+        });
+        redirect("/odoo/my-path/2");
+        logHistoryInteractions();
+        await mountWebClient();
+        expect(browser.location.href).toBe("http://example.com/odoo/my-path/2", {
+            message: "url did not change",
+        });
+        expect(router.current).toEqual({
+            action: "my-path",
+            actionStack: [
+                {
+                    action: "my-path",
+                    displayName: "Partners",
+                    view_type: "list",
+                },
+                {
+                    action: "my-path",
+                    displayName: "Second record",
+                    resId: 2,
+                    view_type: "form",
+                },
+            ],
+            resId: 2,
+        });
+        expect(queryAllTexts(".breadcrumb-item, .o_breadcrumb .active")).toEqual([
+            "Partners",
+            "Second record",
+        ]);
+        expect.verifySteps([
+            "action: 2000",
+            "Update the state without updating URL, nextState: actionStack,resId,action", // "pushState was not called"
+        ]);
+    });
+
     test(`state with integer active_ids should not crash`, async () => {
         redirect("/odoo/action-2?active_ids=3");
         logHistoryInteractions();
@@ -1233,6 +1288,14 @@ describe(`new urls`, () => {
             "Second record",
             "Partners Action 28",
             "First record",
+        ]);
+        expect(`.o-overlay-container .dropdown-menu a`).toHaveAttribute(
+            "data-tooltip",
+            'Back to "Partners Action 27"'
+        );
+        expect(queryAllAttributes(".o_breadcrumb li.breadcrumb-item a", "data-tooltip")).toEqual([
+            'Back to "Second record" form',
+            'Back to "Partners Action 28"',
         ]);
     });
 

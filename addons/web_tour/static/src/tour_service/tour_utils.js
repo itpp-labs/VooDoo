@@ -132,11 +132,9 @@ export const stepUtils = {
         steps.push(
             {
                 isActive: ["auto", "mobile"],
-                trigger: ".o_statusbar_buttons",
+                trigger: ".o_cp_action_menus",
                 run: (actions) => {
-                    const node = hoot.queryFirst(
-                        ".o_statusbar_buttons .btn.dropdown-toggle:contains(Action)"
-                    );
+                    const node = hoot.queryFirst(".o_cp_action_menus .fa-cog");
                     if (node) {
                         hoot.click(node);
                     }
@@ -239,6 +237,15 @@ export const stepUtils = {
         return {
             content: "Wait until the iframe is ready",
             trigger: `iframe[is-ready=true]:iframe html`,
+        };
+    },
+
+    goToUrl(url) {
+        return {
+            isActive: ["auto"],
+            content: `Navigate to ${url}`,
+            trigger: "body",
+            run: `goToUrl ${url}`,
         };
     },
 };

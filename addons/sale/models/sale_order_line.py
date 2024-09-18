@@ -5,11 +5,12 @@ from datetime import timedelta
 
 from markupsafe import Markup
 
-from odoo import _, _lt, api, fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from odoo.fields import Command
 from odoo.osv import expression
 from odoo.tools import float_compare, float_is_zero, format_date, groupby
+from odoo.tools.translate import _
 
 
 class SaleOrderLine(models.Model):
@@ -143,12 +144,14 @@ class SaleOrderLine(models.Model):
     linked_line_ids = fields.One2many(
         string="Linked Order Lines", comodel_name='sale.order.line', inverse_name='linked_line_id',
     )
-    # `virtual_id` uniquely identifies the sale order line before the record is saved in the DB,
-    # i.e. before the record has an `id`.
+    # Uniquely identifies this sale order line before the record is saved in the DB, i.e. before the
+    # record has an `id`.
     virtual_id = fields.Char()
-    # `linked_virtual_id` allows to link this sale order line to another sale order line, via its
-    # `virtual_id`.
+    # Links this sale order line to another sale order line, via its `virtual_id`.
     linked_virtual_id = fields.Char()
+    # Local storage of this sale order line's selected combo items, iff this is a combo product
+    # line.
+    selected_combo_items = fields.Char(store=False)
     combo_item_id = fields.Many2one(comodel_name='product.combo.item')
 
     # Pricing fields
@@ -170,6 +173,7 @@ class SaleOrderLine(models.Model):
         compute='_compute_price_unit',
         digits='Product Price',
         store=True, readonly=False, required=True, precompute=True)
+    technical_price_unit = fields.Float()
 
     discount = fields.Float(
         string="Discount (%)",
@@ -442,7 +446,7 @@ class SaleOrderLine(models.Model):
             return _("Down Payments")
 
         dp_state = self._get_downpayment_state()
-        name = _lt("Down Payment")
+        name = _("Down Payment")
         if dp_state == 'draft':
             name = _(
                 "Down Payment: %(date)s (Draft)",
@@ -490,6 +494,9 @@ class SaleOrderLine(models.Model):
         lines_by_company = defaultdict(lambda: self.env['sale.order.line'])
         cached_taxes = {}
         for line in self:
+            if line.product_type == 'combo':
+                line.tax_id = False
+                continue
             lines_by_company[line.company_id] += line
         for company, lines in lines_by_company.items():
             for line in lines.with_company(company):
@@ -531,9 +538,16 @@ class SaleOrderLine(models.Model):
     @api.depends('product_id', 'product_uom', 'product_uom_qty')
     def _compute_price_unit(self):
         for line in self:
-            # check if there is already invoiced amount. if so, the price shouldn't change as it might have been
-            # manually edited
-            if line.qty_invoiced > 0 or (line.product_id.expense_policy == 'cost' and line.is_expense):
+            # Don't compute the price for deleted lines.
+            if not line.order_id:
+                continue
+            # check if the price has been manually set or there is already invoiced amount.
+            # if so, the price shouldn't change as it might have been manually edited.
+            if (
+                line.technical_price_unit not in (0.0, line.price_unit)
+                or line.qty_invoiced > 0
+                or (line.product_id.expense_policy == 'cost' and line.is_expense)
+            ):
                 continue
             if not line.product_uom or not line.product_id:
                 line.price_unit = 0.0
@@ -547,6 +561,7 @@ class SaleOrderLine(models.Model):
                     ),
                     fiscal_position=line.order_id.fiscal_position_id,
                 )
+                line.technical_price_unit = line.price_unit
 
     def _get_display_price(self):
         """Compute the displayed unit price for a given line.
@@ -651,7 +666,7 @@ class SaleOrderLine(models.Model):
         used to prorate the price of this combo with respect to the other combos in the combo
         product.
 
-        Note: this method will throw if this SOL has no combo item.
+        Note: this method will throw if this SOL has no combo item or no linked combo product.
         """
         self.ensure_one()
 
@@ -671,7 +686,9 @@ class SaleOrderLine(models.Model):
         # Compute the prorated combo prices.
         combo_prices = {
             combo_id: self.currency_id.round(
-                base_price * combo_product_price / total_combo_base_price
+                # Don't divide by total_combo_base_price if it's 0. This will make the prorating
+                # wrong, but the delta will be fixed by combo_price_delta below.
+                base_price * combo_product_price / (total_combo_base_price or 1)
             )
             for (combo_id, base_price) in combo_base_prices.items()
         }
@@ -1123,7 +1140,7 @@ class SaleOrderLine(models.Model):
                 ))
             if line.combo_item_id and line.combo_item_id.product_id != line.product_id:
                 raise ValidationError(_(
-                    "A sale order line's combo item's product must match the line's product."
+                    "A sale order line's product must match its combo item's product."
                 ))
 
     #=== ONCHANGE METHODS ===#
@@ -1185,6 +1202,12 @@ class SaleOrderLine(models.Model):
                 line.order_id.message_post(body=msg)
 
         return lines
+
+    def _add_precomputed_values(self, vals_list):
+        super()._add_precomputed_values(vals_list)
+        for vals in vals_list:
+            if 'price_unit' in vals and 'technical_price_unit' not in vals:
+                vals['technical_price_unit'] = vals['price_unit']
 
     def write(self, values):
         if 'display_type' in values and self.filtered(lambda line: line.display_type != values.get('display_type')):
@@ -1317,7 +1340,7 @@ class SaleOrderLine(models.Model):
         res = {
             'display_type': self.display_type or 'product',
             'sequence': self.sequence,
-            'name': self.name,
+            'name': self.env['account.move.line']._get_journal_items_full_name(self.name, self.product_id.display_name),
             'product_id': self.product_id.id,
             'product_uom_id': self.product_uom.id,
             'quantity': self.qty_to_invoice,
@@ -1408,7 +1431,11 @@ class SaleOrderLine(models.Model):
             res = {
                 'quantity': self.product_uom_qty,
                 'price': self.price_unit,
-                'readOnly': self.order_id._is_readonly() or (self.product_id.sale_line_warn == "block"),
+                'readOnly': (
+                    self.order_id._is_readonly()
+                    or self.product_id.sale_line_warn == 'block'
+                    or bool(self.combo_item_id)
+                ),
             }
             if self.product_id.sale_line_warn != 'no-message' and self.product_id.sale_line_warn_msg:
                 res['warning'] = self.product_id.sale_line_warn_msg
@@ -1473,14 +1500,36 @@ class SaleOrderLine(models.Model):
         return self.move_ids
 
     def _get_linked_line(self):
-        """ If the linked line hasn't been stored in the DB yet, rely on the virtual id to retrieve
-        it.
+        """ Return the linked line of this line, if any.
+
+        This method relies on either `linked_line_id` or `linked_virtual_id` to retrieve the linked
+        line, depending on whether the linked line is saved in the DB.
         """
         self.ensure_one()
         return self.linked_line_id or (
             self.linked_virtual_id and self.order_id.order_line.filtered(
                 lambda line: line.virtual_id == self.linked_virtual_id
             ).ensure_one()
+        ) or self.env['sale.order.line']
+
+    def _get_linked_lines(self):
+        """ Return the linked lines of this line, if any.
+
+        This method relies on either `linked_line_id` or `linked_virtual_id` to retrieve the linked
+        lines, depending on whether this line is saved in the DB.
+
+        Note: we can't rely on `linked_line_ids` as it will only be populated when both this line
+        and its linked lines are saved in the DB, which we can't ensure.
+        """
+        self.ensure_one()
+        return (
+            self._origin and self.order_id.order_line.filtered(
+                lambda line: line.linked_line_id._origin == self._origin
+            )
+        ) or (
+            self.virtual_id and self.order_id.order_line.filtered(
+                lambda line: line.linked_virtual_id == self.virtual_id
+            )
         ) or self.env['sale.order.line']
 
     def _sellable_lines_domain(self):

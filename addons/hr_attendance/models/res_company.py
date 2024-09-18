@@ -2,6 +2,7 @@
 
 from odoo import fields, models, api
 from odoo.osv.expression import OR
+
 import uuid
 from werkzeug.urls import url_join
 
@@ -31,9 +32,12 @@ class ResCompany(models.Model):
     attendance_kiosk_use_pin = fields.Boolean(string='Employee PIN Identification')
     attendance_from_systray = fields.Boolean(string='Attendance From Systray', default=True)
     attendance_overtime_validation = fields.Selection([
-        ('no_validation', 'No Validation'),
-        ('by_manager', 'By Manager'),
+        ('no_validation', 'Automatically Approved'),
+        ('by_manager', 'Approved by Manager'),
     ], string='Extra Hours Validation', default='no_validation')
+    auto_check_out = fields.Boolean(string="Automatic Check Out", default=False)
+    auto_check_out_tolerance = fields.Float(default=2, export_string_translation=False)
+    absence_management = fields.Boolean(string="Absence Management", default=False)
 
     @api.depends("attendance_kiosk_key")
     def _compute_attendance_kiosk_url(self):
