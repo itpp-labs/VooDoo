@@ -32,6 +32,8 @@ import { getTaxesAfterFiscalPosition, getTaxesValues } from "../models/utils/tax
 import { QRPopup } from "@point_of_sale/app/utils/qr_code_popup/qr_code_popup";
 import { ActionScreen } from "@point_of_sale/app/screens/action_screen";
 import { FormViewDialog } from "@web/views/view_dialogs/form_view_dialog";
+import { CashMovePopup } from "@point_of_sale/app/navbar/cash_move_popup/cash_move_popup";
+import { ClosePosPopup } from "../navbar/closing_popup/closing_popup";
 
 const { DateTime } = luxon;
 
@@ -260,7 +262,18 @@ export class PosStore extends Reactive {
         this.computeProductPricelistCache();
         await this.processProductAttributes();
     }
+    cashMove() {
+        this.hardwareProxy.openCashbox(_t("Cash in / out"));
+        return makeAwaitable(this.dialog, CashMovePopup);
+    }
+    async closeSession() {
+        const info = await this.getClosePosInfo();
+        await this.data.resetIndexedDB();
 
+        if (info) {
+            this.dialog.add(ClosePosPopup, info);
+        }
+    }
     async processProductAttributes() {
         const productIds = new Set();
         const productTmplIds = new Set();
@@ -330,6 +343,7 @@ export class PosStore extends Reactive {
                 }
 
                 const cancelled = this.removeOrder(order, true);
+                this.removePendingOrder(order);
                 if (!cancelled) {
                     return false;
                 } else if (typeof order.id === "number") {
@@ -348,7 +362,6 @@ export class PosStore extends Reactive {
         }
 
         if (ids.size > 0) {
-            this.pendingOrder.delete.clear();
             await this.data.call("pos.order", "action_pos_order_cancel", [Array.from(ids)]);
         }
 
@@ -528,10 +541,9 @@ export class PosStore extends Reactive {
         return {
             attribute_value_ids: attributeLinesValues.map((values) => values[0].id),
             attribute_custom_values: [],
-            price_extra: attributeLinesValues.reduce(
-                (acc, values) => acc + values[0].price_extra,
-                0
-            ),
+            price_extra: attributeLinesValues
+                .filter((attr) => attr[0].attribute_id.create_variant !== "always")
+                .reduce((acc, values) => acc + values[0].price_extra, 0),
             quantity: 1,
         };
     }
@@ -640,7 +652,9 @@ export class PosStore extends Reactive {
                             if (productFound) {
                                 const attr =
                                     this.data.models["product.template.attribute.value"].get(a);
-                                return attr.is_custom;
+                                return (
+                                    attr.is_custom || attr.attribute_id.create_variant !== "always"
+                                );
                             }
                             return true;
                         })
@@ -662,7 +676,7 @@ export class PosStore extends Reactive {
                             ];
                         }
                     ),
-                    price_extra: productFound ? 0 : values.price_extra + payload.price_extra,
+                    price_extra: values.price_extra + payload.price_extra,
                     qty: payload.qty || values.qty,
                     product_id: productFound || values.product_id,
                 });
@@ -671,10 +685,9 @@ export class PosStore extends Reactive {
             }
         } else if (values.product_id.product_template_variant_value_ids.length > 0) {
             // Verify price extra of variant products
-            const priceExtra = values.product_id.product_template_variant_value_ids.reduce(
-                (acc, attr) => acc + attr.price_extra,
-                0
-            );
+            const priceExtra = values.product_id.product_template_variant_value_ids
+                .filter((attr) => attr.attribute_id.create_variant !== "always")
+                .reduce((acc, attr) => acc + attr.price_extra, 0);
             values.price_extra += priceExtra;
         }
 
@@ -1017,29 +1030,23 @@ export class PosStore extends Reactive {
     }
 
     getPendingOrder() {
-        // With the relational model, the record ID looks like this: pos.order_2.
-        // If the ID is a string, this means that it has not yet been sent to the server.
-        const paidOrdersNotSent = this.models["pos.order"].filter(
-            (order) =>
-                order.finalized &&
-                typeof order.id === "string" &&
-                !this.pendingOrder.create.has(order.id) &&
-                !this.pendingOrder.write.has(order.id)
-        );
         const orderToCreate = this.models["pos.order"].filter(
             (order) =>
                 this.pendingOrder.create.has(order.id) &&
                 (order.lines.length > 0 ||
                     order.payment_ids.some((p) => p.payment_method_id.type === "pay_later"))
         );
-        const orderToUpdate = this.models["pos.order"].filter((order) =>
-            this.pendingOrder.write.has(order.id)
+        const orderToUpdate = this.models["pos.order"].readMany(
+            Array.from(this.pendingOrder.write)
+        );
+        const orderToDelele = this.models["pos.order"].readMany(
+            Array.from(this.pendingOrder.delete)
         );
 
         return {
+            orderToDelele,
             orderToCreate,
             orderToUpdate,
-            paidOrdersNotSent,
         };
     }
 
@@ -1048,6 +1055,14 @@ export class PosStore extends Reactive {
         this.pendingOrder["write"].delete(order.id);
         this.pendingOrder["delete"].delete(order.id);
         return true;
+    }
+
+    clearPendingOrder() {
+        this.pendingOrder = {
+            create: new Set(),
+            write: new Set(),
+            delete: new Set(),
+        };
     }
 
     getSyncAllOrdersContext(orders, options = {}) {
@@ -1062,14 +1077,13 @@ export class PosStore extends Reactive {
     postSyncAllOrders(orders) {}
     async syncAllOrders(options = {}) {
         try {
-            const { orderToCreate, orderToUpdate, paidOrdersNotSent } = this.getPendingOrder();
-            const orders = [...orderToCreate, ...orderToUpdate, ...paidOrdersNotSent];
-
-            this.preSyncAllOrders(orders);
+            const { orderToCreate, orderToUpdate, orderToDelele } = this.getPendingOrder();
+            const orders = [...orderToCreate, ...orderToUpdate];
             const context = this.getSyncAllOrdersContext(orders, options);
+            this.preSyncAllOrders(orders);
 
-            if (this.pendingOrder.delete.size) {
-                await this.deleteOrders([], Array.from(this.pendingOrder.delete));
+            if (orderToDelele.length) {
+                await this.deleteOrders([], orderToDelele);
             }
             // Allow us to force the sync of the orders In the case of
             // pos_restaurant is usefull to get unsynced orders
@@ -1092,14 +1106,6 @@ export class PosStore extends Reactive {
             const missingRecords = await this.data.missingRecursive(data);
             const newData = this.models.loadData(missingRecords);
 
-            for (const order of [...orders, ...data["pos.order"]]) {
-                if (!["invoiced", "paid", "done", "cancel"].includes(order.state)) {
-                    this.addPendingOrder([order.id]);
-                } else {
-                    this.removePendingOrder(order);
-                }
-            }
-
             for (const line of newData["pos.order.line"]) {
                 const refundedOrderLine = line.refunded_orderline_id;
 
@@ -1119,6 +1125,7 @@ export class PosStore extends Reactive {
                 session.delete();
             }
 
+            this.clearPendingOrder();
             return newData["pos.order"];
         } catch (error) {
             if (options.throw) {
@@ -1424,14 +1431,17 @@ export class PosStore extends Reactive {
         }
     }
     async sendOrderInPreparationUpdateLastChange(o, cancelled = false) {
-        const uuid = o.uuid;
         this.addPendingOrder([o.id]);
-        await this.syncAllOrders({ cancel_table_notification: true });
+        const uuid = o.uuid;
+        const orders = await this.syncAllOrders();
+        const order = orders.find((order) => order.uuid === uuid);
 
-        const order = this.models["pos.order"].find((order) => order.uuid === uuid);
-        await this.sendOrderInPreparation(order, cancelled);
-        order.updateLastOrderChange();
-        await this.syncAllOrders();
+        if (order) {
+            await this.sendOrderInPreparation(order, cancelled);
+            order.updateLastOrderChange();
+            this.addPendingOrder([order.id]);
+            await this.syncAllOrders();
+        }
     }
     closeScreen() {
         this.addOrderIfEmpty();

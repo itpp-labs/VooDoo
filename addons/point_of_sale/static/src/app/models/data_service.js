@@ -49,11 +49,16 @@ export class PosData extends Reactive {
         );
 
         browser.addEventListener("online", () => {
-            this.setOnline();
+            if (this.network.offline) {
+                this.network.offline = false;
+                this.network.warningTriggered = false; // Avoid the display of the offline popup multiple times
+            }
+
+            this.syncData();
         });
 
         browser.addEventListener("offline", () => {
-            this.setOffline();
+            this.network.offline = true;
         });
     }
 
@@ -179,24 +184,8 @@ export class PosData extends Reactive {
         return results;
     }
 
-    setOffline() {
-        if (!this.network.offline) {
-            this.network.offline = true;
-        }
-    }
-
-    setOnline() {
-        if (this.network.offline) {
-            this.network.offline = false;
-            this.network.warningTriggered = false; // Avoid the display of the offline popup multiple times
-        }
-
-        this.syncData();
-    }
-
     resetUnsyncQueue() {
         this.network.unsyncData = [];
-        this.setOnline();
     }
 
     async loadInitialData() {
@@ -374,18 +363,18 @@ export class PosData extends Reactive {
 
             return result;
         } catch (error) {
-            const uuids = this.network.unsyncData.map((d) => d.uuid);
-            const skipError = error.constructor.name != "ConnectionLostError";
-            if (queue && !uuids.includes(uuid) && method !== "sync_from_ui" && !skipError) {
-                this.network.unsyncData.push({
-                    args: [...arguments],
-                    date: DateTime.now(),
-                    try: 1,
-                    uuid: uuidv4(),
-                });
+            if (error instanceof ConnectionLostError) {
+                const uuids = this.network.unsyncData.map((d) => d.uuid);
+                if (queue && !uuids.includes(uuid) && method !== "sync_from_ui") {
+                    this.network.unsyncData.push({
+                        args: [...arguments],
+                        date: DateTime.now(),
+                        try: 1,
+                        uuid: uuidv4(),
+                    });
+                }
             }
 
-            this.setOffline();
             throw error;
         } finally {
             this.network.loading = false;

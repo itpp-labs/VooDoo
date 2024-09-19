@@ -119,7 +119,14 @@ export class Message extends Record {
      * @type {() => {} | undefined}
      */
     postFailRedo = undefined;
-    reactions = Record.many("MessageReactions", { inverse: "message" });
+    reactions = Record.many("MessageReactions", {
+        inverse: "message",
+        /**
+         * @param {import("models").MessageReactions} r1
+         * @param {import("models").MessageReactions} r2
+         */
+        sort: (r1, r2) => r1.sequence - r2.sequence,
+    });
     notifications = Record.many("Notification", { inverse: "message" });
     recipients = Record.many("Persona");
     thread = Record.one("Thread");
@@ -166,12 +173,6 @@ export class Message extends Record {
     /** @type {undefined|Boolean} */
     needaction;
     starred = false;
-
-    /**
-     * We exclude the milliseconds because datetime string from the server don't
-     * have them. Message without date like transient message can be missordered
-     */
-    now = DateTime.now().set({ milliseconds: 0 });
 
     /**
      * True if the backend would technically allow edition

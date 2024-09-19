@@ -72,7 +72,7 @@ export const tourService = {
             description: _t("Onboarding"),
             callback: async () => {
                 tourState.clear();
-                await orm.call("res.users", "switch_tour_enabled");
+                toursEnabled = await orm.call("res.users", "switch_tour_enabled", [!toursEnabled]);
                 browser.location.reload();
             },
             isChecked: toursEnabled,
@@ -136,11 +136,10 @@ export const tourService = {
                 : getTourFromRegistry(tourName);
 
             if (!session.is_public && !toursEnabled && options.mode === "manual") {
-                const result = await orm.call("res.users", "switch_tour_enabled", [!toursEnabled]);
-                toursEnabled = result;
+                toursEnabled = await orm.call("res.users", "switch_tour_enabled", [!toursEnabled]);
             }
 
-            const defaultOptions = {
+            let tourConfig = {
                 stepDelay: 0,
                 keepWatchBrowser: false,
                 mode: "auto",
@@ -149,18 +148,18 @@ export const tourService = {
                 redirect: true,
             };
 
-            options = Object.assign(defaultOptions, options);
-            tourState.setCurrentConfig(options);
+            tourConfig = Object.assign(tourConfig, options);
+            tourState.setCurrentConfig(tourConfig);
             tourState.setCurrentTour(tour.name);
             tourState.setCurrentIndex(0);
-            if (options.debug !== false) {
+            if (tourConfig.debug !== false) {
                 // Starts the tour with a debugger to allow you to choose devtools configuration.
                 // eslint-disable-next-line no-debugger
                 debugger;
             }
 
             const willUnload = callWithUnloadCheck(() => {
-                if (tour.url && options.startUrl != tour.url && options.redirect) {
+                if (tour.url && tourConfig.startUrl != tour.url && tourConfig.redirect) {
                     redirect(tour.url);
                 }
             });
@@ -202,10 +201,10 @@ export const tourService = {
                     pointer.stop();
                     endTour(tour);
 
-                    if (tour.rainbowManMessage) {
+                    if (tourConfig.rainbowManMessage) {
                         effect.add({
                             type: "rainbow_man",
-                            message: markup(tour.rainbowManMessage),
+                            message: tourConfig.rainbowManMessage,
                         });
                     }
 
@@ -242,7 +241,11 @@ export const tourService = {
             if (tourState.getCurrentTour()) {
                 resumeTour();
             } else if (session.current_tour) {
-                startTour(session.current_tour.name, { mode: "manual", redirect: false });
+                startTour(session.current_tour.name, {
+                    mode: "manual",
+                    redirect: false,
+                    rainbowManMessage: markup(session.current_tour.rainbowManMessage),
+                });
             }
 
             if (

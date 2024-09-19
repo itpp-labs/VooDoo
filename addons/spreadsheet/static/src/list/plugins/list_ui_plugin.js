@@ -1,13 +1,14 @@
 /** @odoo-module */
 
 import * as spreadsheet from "@odoo/o-spreadsheet";
-import { getFirstListFunction, getNumberOfListFormulas } from "../list_helpers";
+import { getFirstListFunction } from "../list_helpers";
 import { Domain } from "@web/core/domain";
 import { ListDataSource } from "../list_data_source";
 import { globalFiltersFieldMatchers } from "@spreadsheet/global_filters/plugins/global_filters_core_plugin";
 import { OdooUIPlugin } from "@spreadsheet/plugins";
 
 const { astToFormula } = spreadsheet;
+const { isEvaluationError, toString } = spreadsheet.helpers;
 
 /**
  * @typedef {import("./list_core_plugin").SpreadsheetList} SpreadsheetList
@@ -60,16 +61,6 @@ export class ListUIPlugin extends OdooUIPlugin {
      */
     handle(cmd) {
         switch (cmd.type) {
-            case "START":
-                for (const sheetId of this.getters.getSheetIds()) {
-                    const cells = this.getters.getCells(sheetId);
-                    for (const cell of Object.values(cells)) {
-                        if (cell.isFormula) {
-                            this._addListPositionToDataSource(cell);
-                        }
-                    }
-                }
-                break;
             case "INSERT_ODOO_LIST": {
                 const { id, linesNumber } = cmd;
                 this._setupListDataSource(id, linesNumber);
@@ -101,13 +92,6 @@ export class ListUIPlugin extends OdooUIPlugin {
                 break;
             case "UPDATE_CELL":
                 this.unusedLists = undefined;
-                if (cmd.content) {
-                    const position = { sheetId: cmd.sheetId, col: cmd.col, row: cmd.row };
-                    const cell = this.getters.getCell(position);
-                    if (cell && cell.isFormula) {
-                        this._addListPositionToDataSource(cell);
-                    }
-                }
                 break;
             case "UNDO":
             case "REDO": {
@@ -206,36 +190,6 @@ export class ListUIPlugin extends OdooUIPlugin {
 
     _getListDataSourceId(listId) {
         return `list-${listId}`;
-    }
-
-    /**
-     * Extract the position of the records asked in the given formula and
-     * increase the max position of the corresponding data source.
-     *
-     * @param {object} cell Odoo list cell
-     */
-    _addListPositionToDataSource(cell) {
-        if (getNumberOfListFormulas(cell.compiledFormula.tokens) !== 1) {
-            return;
-        }
-        const { functionName, args } = getFirstListFunction(cell.compiledFormula.tokens);
-        if (functionName !== "ODOO.LIST") {
-            return;
-        }
-        const [listId, positionArg] = args.map((arg) => arg.value.toString());
-
-        if (!this.getters.getListIds().includes(listId)) {
-            return;
-        }
-        const position = parseInt(positionArg, 10);
-        if (isNaN(position)) {
-            return;
-        }
-        const dataSourceId = this._getListDataSourceId(listId);
-        if (!this.lists[dataSourceId]) {
-            this._setupListDataSource(listId, 0);
-        }
-        this.lists[dataSourceId].increaseMaxPosition(position);
     }
 
     _getUnusedLists() {
@@ -342,11 +296,10 @@ export class ListUIPlugin extends OdooUIPlugin {
     getListCellValueAndFormat(listId, position, fieldName) {
         const dataSource = this.getters.getListDataSource(listId);
         dataSource.addFieldToFetch(fieldName);
-        const error = dataSource.assertIsValid({ throwOnError: false });
-        if (error) {
-            return error;
-        }
         const value = dataSource.getListCellValue(position, fieldName);
+        if (isEvaluationError(toString(value))) {
+            return value;
+        }
         const field = dataSource.getField(fieldName);
         const format = this._getListFormat(listId, position, field);
         return { value, format };

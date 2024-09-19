@@ -607,6 +607,9 @@
             <field name="inherit_id" ref="account.view_invoice_tree"/>
             <field name="mode">primary</field>
             <field name="arch" type="xml">
+                <xpath expr="//list/header" position="inside">
+                    <button name="action_send_and_print" type="object" string="Print &amp; Send"/>
+                </xpath>
                 <field name="currency_id" position="attributes">
                     <attribute name="string">Credit Note Currency</attribute>
                 </field>
@@ -1029,7 +1032,7 @@
                                     <field name="journal_id"
                                            groups="account.group_account_readonly"
                                            options="{'no_create': True, 'no_open': True}"
-                                           readonly="name and name != '/'"/>
+                                           readonly="posted_before and name not in (False, '', '/')"/>
 
                                     <span class="o_form_label mx-3 oe_edit_only"
                                           groups="account.group_account_readonly"

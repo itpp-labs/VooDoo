@@ -17,7 +17,7 @@ patch(Thread.prototype, {
         if (["group", "chat"].includes(this.channel_type)) {
             return this.store.discuss.chats;
         }
-        if (this.channel_type === "channel") {
+        if (this.channel_type === "channel" && !this.parent_channel_id) {
             return this.store.discuss.channels;
         }
     },
@@ -82,7 +82,7 @@ patch(Thread.prototype, {
             this.openChatWindow(options);
             return;
         }
-        super.open();
+        this.setAsDiscussThread();
     },
     async unpin() {
         this.isLocallyPinned = false;

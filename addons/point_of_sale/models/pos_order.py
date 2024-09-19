@@ -1039,22 +1039,18 @@ class PosOrder(models.Model):
         order_ids = []
         session_ids = set({order.get('session_id') for order in orders})
         for order in orders:
-            existing_draft_order = self.env["pos.order"].search(
-                ['&', ('id', '=', order.get('id', False)), ('state', '=', 'draft')], limit=1) if isinstance(order.get('id'), int) else False
-
             if len(self._get_refunded_orders(order)) > 1:
                 raise ValidationError(_('You can only refund products from the same order.'))
 
-            if existing_draft_order:
-                order_ids.append(self._process_order(order, existing_draft_order))
-            else:
-                existing_paid_orders = self.env['pos.order'].search([('uuid', '=', order['uuid'])])
-                if not existing_paid_orders:
-                    order_ids.append(self._process_order(order, False))
+            existing_order = self.env['pos.order'].search([('uuid', '=', order.get('uuid'))])
+            if existing_order and existing_order.state == 'draft':
+                order_ids.append(self._process_order(order, existing_order))
+            elif not existing_order:
+                order_ids.append(self._process_order(order, False))
 
         # Sometime pos_orders_ids can be empty.
         pos_order_ids = self.env['pos.order'].browse(order_ids)
-        config_id = pos_order_ids[0].config_id.id if pos_order_ids else False
+        config_id = pos_order_ids.config_id.ids[0] if pos_order_ids else False
 
         for order in pos_order_ids:
             order._ensure_access_token()
@@ -1285,9 +1281,9 @@ class PosOrderLine(models.Model):
     price_unit = fields.Float(string='Unit Price', digits=0)
     qty = fields.Float('Quantity', digits='Product Unit of Measure', default=1)
     price_subtotal = fields.Float(string='Tax Excl.', digits=0,
-        readonly=True, store=True, compute='_compute_amount_line_all')
+        readonly=True, required=True)
     price_subtotal_incl = fields.Float(string='Tax Incl.', digits=0,
-        readonly=True, store=True, compute='_compute_amount_line_all')
+        readonly=True, required=True)
     price_extra = fields.Float(string="Price extra")
     price_type = fields.Selection([
         ('original', 'Original'),
@@ -1410,15 +1406,22 @@ class PosOrderLine(models.Model):
         if self.filtered(lambda x: x.order_id.state not in ["draft", "cancel"]):
             raise UserError(_("You can only unlink PoS order lines that are related to orders in new or cancelled state."))
 
-    @api.depends('price_unit', 'tax_ids', 'qty', 'discount', 'product_id')
+    @api.onchange('price_unit', 'tax_ids', 'qty', 'discount', 'product_id')
+    def _onchange_amount_line_all(self):
+        for line in self:
+            res = line._compute_amount_line_all()
+            line.update(res)
+
     def _compute_amount_line_all(self):
-        for orderline in self:
-            fpos = orderline.order_id.fiscal_position_id
-            tax_ids_after_fiscal_position = fpos.map_tax(orderline.tax_ids)
-            price = orderline.price_unit * (1 - (orderline.discount or 0.0) / 100.0)
-            taxes = tax_ids_after_fiscal_position.compute_all(price, orderline.order_id.currency_id, orderline.qty, product=orderline.product_id, partner=orderline.order_id.partner_id)
-            orderline.price_subtotal_incl = taxes['total_included']
-            orderline.price_subtotal = taxes['total_excluded']
+        self.ensure_one()
+        fpos = self.order_id.fiscal_position_id
+        tax_ids_after_fiscal_position = fpos.map_tax(self.tax_ids)
+        price = self.price_unit * (1 - (self.discount or 0.0) / 100.0)
+        taxes = tax_ids_after_fiscal_position.compute_all(price, self.order_id.currency_id, self.qty, product=self.product_id, partner=self.order_id.partner_id)
+        return {
+            'price_subtotal_incl': taxes['total_included'],
+            'price_subtotal': taxes['total_excluded'],
+        }
 
     @api.onchange('product_id')
     def _onchange_product_id(self):
