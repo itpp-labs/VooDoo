@@ -76,7 +76,7 @@
         }
 
         .o_configurator_odoo_logo {
-            background-image: var(--configurator-logo, url(/web/static/img/odoo_logo.svg));
+            background-image: var(--configurator-logo, url('/web/static/img/odoo_logo.svg'));
             background-repeat: no-repeat;
             background-size: contain;
         }
@@ -245,7 +245,7 @@
                 box-shadow: 0 0 0 1px map-get($grays, '200');
 
                 .color_sample {
-                    padding-top: 30%;
+                    padding-top: 20%;
                 }
 
                 &:hover, &.selected {

@@ -2971,6 +2971,39 @@ class TestRoutes(TestStockCommon):
         self.assertEqual(move_line[0].product_uom_qty, self.product_uom_qty, 'Quantities does not match')
         self.assertEqual(move_line[1].product_uom_qty, self.product_uom_qty, 'Quantities does not match')
 
+    def test_pick_ship_from_subloc(self):
+        """ Checks that if a picking is sent to a sublocation of its original destination during the pick->ship route,
+        it will still trigger the push rule from the sublocation as well to continue the route.
+        """
+        warehouse = self.env['stock.warehouse'].search([('company_id', '=', self.env.company.id)], limit=1)
+        warehouse.delivery_steps = 'pick_ship'
+        subloc = self.env['stock.location'].create({
+            'name': 'Fancy Spot',
+            'location_id': warehouse.wh_output_stock_loc_id.id,
+            'usage': 'internal',
+        })
+
+        # Create first move from Stock -> Output
+        pick_move = self.env['stock.move'].create({
+            'name': 'pick',
+            'picking_type_id': warehouse.pick_type_id.id,
+            'location_id': warehouse.lot_stock_id.id,
+            'product_id': self.product1.id,
+            'product_uom_qty': 1
+        })
+        pick_move._action_confirm()
+        self.assertEqual(pick_move.location_dest_id, warehouse.wh_output_stock_loc_id)
+
+        # Change destination of picking to sublocation of Output & Validate the picking
+        pick_move.write({'quantity': 1, 'picked': True})
+        pick_move.picking_id.location_dest_id = subloc
+        pick_move.picking_id._action_done()
+
+        # Output -> Customer rule should trigger, creating the next step
+        self.assertEqual(pick_move.location_dest_id, subloc)
+        self.assertEqual(len(pick_move.move_dest_ids), 1)
+        self.assertEqual(pick_move.move_dest_ids.location_id, subloc)
+
     def test_push_rule_on_move_1(self):
         """ Create a route with a push rule, force it on a move, check that it is applied.
         """
@@ -3195,6 +3228,55 @@ class TestRoutes(TestStockCommon):
 
         pushed_move = move1.move_dest_ids
         self.assertEqual(pushed_move.location_dest_id.id, push_location_2.id)
+
+    def test_cross_dock(self):
+        customer_loc = self.env['stock.location'].browse(self.customer_location)
+        warehouse = self.env['stock.warehouse'].search([('company_id', '=', self.env.company.id)], limit=1)
+        warehouse.write({'reception_steps': 'two_steps', 'delivery_steps': 'pick_ship'})
+        self.product1.write({
+            'route_ids': [Command.link(warehouse.crossdock_route_id.id)]
+        })
+
+        # Create a procurement for an Out using that should use the cross-dock route
+        group = self.env['procurement.group'].create({'name': 'Test-cross-dock'})
+        self.env['procurement.group'].run([self.env['procurement.group'].Procurement(
+            self.product1, 5, self.uom_unit, customer_loc,
+            self.product1.name, '/', self.env.company, {'warehouse_id': warehouse, 'group_id': group})
+        ])
+
+        # Fetch the reception move that was created
+        receipt_move = self.env['stock.move'].search([('group_id', '=', group.id)])
+        self.assertRecordValues(receipt_move, [{
+            'location_id': self.supplier_location,
+            'location_dest_id': warehouse.wh_input_stock_loc_id.id,
+            'location_final_id': self.customer_location,
+            'picking_type_id': warehouse.in_type_id.id,
+        }])
+
+        # Validate the chain
+        receipt_move.write({'picked': True})
+        receipt_move._action_done()
+
+        cross_dock_move = receipt_move.move_dest_ids
+        self.assertRecordValues(cross_dock_move, [{
+            'location_id': warehouse.wh_input_stock_loc_id.id,
+            'location_dest_id': warehouse.wh_output_stock_loc_id.id,
+            'location_final_id': self.customer_location,
+            'picking_type_id': warehouse.xdock_type_id.id,
+        }])
+        cross_dock_move.write({'picked': True})
+        cross_dock_move._action_done()
+
+        delivery_move = cross_dock_move.move_dest_ids
+        self.assertRecordValues(delivery_move, [{
+            'location_id': warehouse.wh_output_stock_loc_id.id,
+            'location_dest_id': self.customer_location,
+            'location_final_id': self.customer_location,
+            'picking_type_id': warehouse.out_type_id.id,
+        }])
+        delivery_move.write({'picked': True})
+        delivery_move._action_done()
+        self.assertEqual(self.env['stock.quant']._get_available_quantity(self.product1, customer_loc), 5)
 
 
 class TestAutoAssign(TestStockCommon):

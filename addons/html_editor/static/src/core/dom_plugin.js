@@ -22,6 +22,7 @@ import { closestElement, descendants, firstLeaf, lastLeaf } from "../utils/dom_t
 import { FONT_SIZE_CLASSES, TEXT_STYLE_CLASSES } from "../utils/formatting";
 import { DIRECTIONS, childNodeIndex, nodeSize, rightPos } from "../utils/position";
 import { callbacksForCursorUpdate } from "@html_editor/utils/selection";
+import { convertList, getListMode } from "@html_editor/utils/list";
 
 export class DomPlugin extends Plugin {
     static name = "dom";
@@ -127,11 +128,18 @@ export class DomPlugin extends Plugin {
 
         // In case the html inserted starts with a list and will be inserted within
         // a list, unwrap the list elements from the list.
+        const isList = (node) => ["UL", "OL"].includes(node.nodeName);
+        const hasSingleChild = container.childNodes.length === 1;
+        if (closestElement(selection.anchorNode, "UL, OL") && isList(container.firstChild)) {
+            unwrapContents(container.firstChild);
+        }
+        // Similarly if the html inserted ends with a list.
         if (
-            closestElement(selection.anchorNode, "UL, OL") &&
-            (container.firstChild.nodeName === "UL" || container.firstChild.nodeName === "OL")
+            closestElement(selection.focusNode, "UL, OL") &&
+            isList(container.lastChild) &&
+            !hasSingleChild
         ) {
-            container.replaceChildren(...container.firstChild.childNodes);
+            unwrapContents(container.lastChild);
         }
 
         startNode = startNode || this.shared.getEditableSelection().anchorNode;
@@ -174,11 +182,25 @@ export class DomPlugin extends Plugin {
                 selection.focusOffset === nodeSize(selection.focusNode);
             // Grab the content of the first child block and isolate it.
             if (shouldUnwrap(container.firstChild) && !isSelectionAtStart) {
+                // Unwrap the deepest nested first <li> element in the
+                // container to extract and paste the text content of the list.
+                if (container.firstChild.nodeName === "LI") {
+                    const deepestBlock = closestBlock(firstLeaf(container.firstChild));
+                    this.shared.splitAroundUntil(deepestBlock, container.firstChild);
+                    container.firstElementChild.replaceChildren(...deepestBlock.childNodes);
+                }
                 containerFirstChild.replaceChildren(...container.firstElementChild.childNodes);
                 container.firstElementChild.remove();
             }
             // Grab the content of the last child block and isolate it.
             if (shouldUnwrap(container.lastChild) && !isSelectionAtEnd) {
+                // Unwrap the deepest nested last <li> element in the container
+                // to extract and paste the text content of the list.
+                if (container.lastChild.nodeName === "LI") {
+                    const deepestBlock = closestBlock(lastLeaf(container.lastChild));
+                    this.shared.splitAroundUntil(deepestBlock, container.lastChild);
+                    container.lastElementChild.replaceChildren(...deepestBlock.childNodes);
+                }
                 containerLastChild.replaceChildren(...container.lastElementChild.childNodes);
                 container.lastElementChild.remove();
             }
@@ -202,6 +224,9 @@ export class DomPlugin extends Plugin {
         // element if it's a block then we insert the content in the right places.
         let currentNode = startNode;
         let lastChildNode = false;
+        const currentList = currentNode && closestElement(currentNode, "UL, OL");
+        const mode = currentList && getListMode(currentList);
+
         const _insertAt = (reference, nodes, insertBefore) => {
             for (const child of insertBefore ? nodes.reverse() : nodes) {
                 reference[insertBefore ? "before" : "after"](child);
@@ -236,7 +261,7 @@ export class DomPlugin extends Plugin {
                 const parent = currentNode.nextSibling.parentElement;
                 const index = [...parent.childNodes].indexOf(currentNode.nextSibling);
                 this.dispatch("SPLIT_BLOCK_NODE", {
-                    targetNode: currentNode.nextSibling.parentElement,
+                    targetNode: parent,
                     targetOffset: index,
                 });
             }
@@ -301,11 +326,27 @@ export class DomPlugin extends Plugin {
                     doesCurrentNodeAllowsP = allowsParagraphRelatedElements(currentNode);
                 }
             }
+            // Ensure that all adjacent paragraph elements are converted to
+            // <li> when inserting in a list.
+            if (
+                block.nodeName === "LI" &&
+                paragraphRelatedElements.includes(nodeToInsert.nodeName)
+            ) {
+                setTagName(nodeToInsert, "LI");
+            }
             if (insertBefore) {
                 currentNode.before(nodeToInsert);
                 insertBefore = false;
             } else {
                 currentNode.after(nodeToInsert);
+            }
+            let convertedList;
+            if (
+                currentList &&
+                ((nodeToInsert.nodeName === "LI" && nodeToInsert.classList.contains("oe-nested")) ||
+                    isList(nodeToInsert))
+            ) {
+                convertedList = convertList(nodeToInsert, mode);
             }
             if (
                 nodeToInsert.nodeType !== Node.ELEMENT_NODE ||
@@ -318,7 +359,7 @@ export class DomPlugin extends Plugin {
             if (currentNode.tagName !== "BR" && isShrunkBlock(currentNode)) {
                 currentNode.remove();
             }
-            currentNode = nodeToInsert;
+            currentNode = convertedList || nodeToInsert;
         }
         const previousNode = currentNode.previousSibling;
         if (cleanTrailingBR(currentNode.parentElement)) {
@@ -326,7 +367,9 @@ export class DomPlugin extends Plugin {
             currentNode = previousNode;
         }
         currentNode = lastChildNode || currentNode;
-        let lastPosition = [...paragraphRelatedElements, "LI"].includes(currentNode.nodeName)
+        let lastPosition = [...paragraphRelatedElements, "LI", "OL", "UL"].includes(
+            currentNode.nodeName
+        )
             ? rightPos(lastLeaf(currentNode))
             : rightPos(currentNode);
 

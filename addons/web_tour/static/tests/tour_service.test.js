@@ -74,6 +74,15 @@ beforeEach(() => {
     onRpc("/web/dataset/call_kw/res.users/switch_tour_enabled", async () => {
         return true;
     });
+    onRpc("/web/dataset/call_kw/web_tour.tour/get_tour_json_by_name", async () => {
+        return {
+            name: "tour1",
+            steps: [
+                { trigger: "button.foo", run: "click" },
+                { trigger: "button.bar", run: "click" },
+            ],
+        };
+    });
 });
 
 afterEach(() => {
@@ -232,6 +241,7 @@ test("next step with new anchor at same position", async () => {
 test("a failing tour logs the step that failed in run", async () => {
     patchWithCleanup(browser.console, {
         groupCollapsed: (s) => expect.step(`log: ${s}`),
+        log: (s) => expect.step(`log: ${s}`),
         warn: (s) => {},
         error: (s) => expect.step(`error: ${s}`),
     });
@@ -339,6 +349,7 @@ test("a failing tour logs the step that failed", async () => {
     patchWithCleanup(browser.console, {
         dir: (s) => expect.step(`runbot: ${s.replace(/[\s-]*/g, "")}`),
         groupCollapsed: (s) => expect.step(`log: ${s}`),
+        log: (s) => expect.step(`log: ${s}`),
         warn: (s) => expect.step(`warn: ${s.replace(/[\s-]*/gi, "")}`),
         error: (s) => expect.step(`error: ${s}`),
     });
@@ -989,13 +1000,23 @@ test("manual tour with inactive steps", async () => {
 });
 
 test("automatic tour with alternative trigger", async () => {
+    let suppressLog = false;
     patchWithCleanup(browser.console, {
         groupCollapsed: (s) => {
             expect.step("on step");
+            suppressLog = true;
+        },
+        groupEnd: () => {
+            suppressLog = false;
         },
         log: (s) => {
+            if (suppressLog) {
+                return;
+            }
             if (s.toLowerCase().includes("tour tour_des_flandres succeeded")) {
                 expect.step("succeeded");
+            } else if (s !== "tour succeeded") {
+                expect.step("on step");
             }
         },
     });
@@ -1184,13 +1205,6 @@ test("Tour backward when the pointed element disappear and ignore warn step", as
 });
 
 test("Tour started by the URL", async () => {
-    registry.category("web_tour.tours").add("tour1", {
-        steps: () => [
-            { trigger: "button.foo", run: "click" },
-            { trigger: "button.bar", run: "click" },
-        ],
-    });
-
     browser.location.href = `${browser.location.origin}?tour=tour1`;
 
     class Dummy extends Component {
@@ -1334,6 +1348,7 @@ test("check tooltip position", async () => {
     expect(tooltip.getBoundingClientRect().bottom).toBeLessThan(
         button3.getBoundingClientRect().top
     );
+    await contains(".button3").click();
 });
 
 test("check rainbowManMessage", async () => {

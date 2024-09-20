@@ -5,12 +5,13 @@
 
     &.o-important {
         background-color: mix($o-gray-100, $o-info, 92.5%) !important;
+        border-color: darken(mix($o-gray-100, $o-info, 92.5%), 5%) !important;
     }
     &.o-active {
         outline-color: rgba($o-action, var(--mail-NotificationItem-activeOutlineOpacity, 0.5));
     }
     &:hover, &.o-active {
-        background-color: $o-gray-100 !important;
+        background-color: mix($o-gray-100, $o-gray-200) !important;
 
         &.o-important {
             background-color: mix($o-gray-100, $o-info, 87.5%) !important;
@@ -46,7 +47,6 @@
 
 .o-mail-NotificationItem-unreadIndicator {
     color: darken($info, 5%);
-    opacity: 85%;
     font-size: 0.5rem;
     left: map-get($spacers, 2);
 }

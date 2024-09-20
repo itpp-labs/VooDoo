@@ -61,7 +61,7 @@ export class TicketScreen extends Component {
         this.dialog = useService("dialog");
         this.numberBuffer = useService("number_buffer");
         this.doPrint = useTrackedAsync((_selectedSyncedOrder) =>
-            this.pos.printReceipt(_selectedSyncedOrder)
+            this.pos.printReceipt({ order: _selectedSyncedOrder })
         );
         this.numberBuffer.use({
             triggerAtInput: (event) => this._onUpdateSelectedOrderline(event),
@@ -425,7 +425,8 @@ export class TicketScreen extends Component {
             this.isDefaultOrderEmpty(order) ||
             order.payment_ids.some(
                 (payment) => payment.is_electronic() && payment.get_payment_status() === "done"
-            )
+            ) ||
+            order.finalized
         );
     }
     isHighlighted(order) {
