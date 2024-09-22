@@ -193,14 +193,19 @@ class HrAttendance(models.Model):
 
     @api.depends('check_in', 'check_out')
     def _compute_worked_hours(self):
+        """ Computes the worked hours of the attendance record.
+            The worked hours of resource with flexible calendar is computed as the difference
+            between check_in and check_out, without taking into account the lunch_interval"""
         for attendance in self:
             if attendance.check_out and attendance.check_in and attendance.employee_id:
                 calendar = attendance._get_employee_calendar()
                 resource = attendance.employee_id.resource_id
-                tz = timezone(calendar.tz)
+                tz = timezone(resource.tz) if not calendar else timezone(calendar.tz)
                 check_in_tz = attendance.check_in.astimezone(tz)
                 check_out_tz = attendance.check_out.astimezone(tz)
-                lunch_intervals = attendance.employee_id._employee_attendance_intervals(check_in_tz, check_out_tz, lunch=True)
+                lunch_intervals = []
+                if not attendance.employee_id.is_flexible:
+                    lunch_intervals = attendance.employee_id._employee_attendance_intervals(check_in_tz, check_out_tz, lunch=True)
                 attendance_intervals = Intervals([(check_in_tz, check_out_tz, attendance)]) - lunch_intervals
                 delta = sum((i[1] - i[0]).total_seconds() for i in attendance_intervals)
                 attendance.worked_hours = delta / 3600.0
@@ -339,8 +344,20 @@ class HrAttendance(models.Model):
                 # Overtime is not counted if any shift is not closed or if there are no attendances for that day,
                 # this could happen when deleting attendances.
                 if not unfinished_shifts and attendances:
+                    # The employee is working flexible hours
+                    if emp.is_flexible:
+                        work_duration = 0
+                        for attendance in attendances:
+                            local_check_in = pytz.utc.localize(attendance.check_in)
+                            local_check_out = pytz.utc.localize(attendance.check_out)
+                            work_duration += (local_check_out - local_check_in).total_seconds() / 3600.0
+                        # In case of fully flexible employee, no overtime is computed
+                        if not emp.is_fully_flexible and work_duration > emp.resource_id.calendar_id.hours_per_day:
+                            overtime_duration = work_duration - emp.resource_id.calendar_id.hours_per_day
+                            overtime_duration_real = overtime_duration
+
                     # The employee usually doesn't work on that day
-                    if not working_times[attendance_date]:
+                    elif not working_times[attendance_date]:
                         # User does not have any resource_calendar_attendance for that day (week-end for example)
                         overtime_duration = sum(attendances.mapped('worked_hours'))
                         overtime_duration_real = overtime_duration

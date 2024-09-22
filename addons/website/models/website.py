@@ -480,7 +480,7 @@ class Website(models.Model):
         return r
 
     @api.model
-    def configurator_recommended_themes(self, industry_id, palette):
+    def configurator_recommended_themes(self, industry_id, palette, result_nbr_max=3):
         Module = request.env['ir.module.module']
         domain = Module.get_themes_domain()
         domain = AND([[('name', '!=', 'theme_default')], domain])
@@ -488,7 +488,10 @@ class Website(models.Model):
         client_themes_img = {t: get_manifest(t).get('images_preview_theme', {}) for t in client_themes if get_manifest(t)}
         themes_suggested = self._website_api_rpc(
             '/api/website/2/configurator/recommended_themes/%s' % (industry_id if industry_id > 0 else ''),
-            {'client_themes': client_themes_img}
+            {
+                'client_themes': client_themes_img,
+                'result_nbr_max': result_nbr_max,
+            }
         )
         process_svg = self.env['website.configurator.feature']._process_svg
         for theme in themes_suggested:
@@ -881,8 +884,16 @@ class Website(models.Model):
             fallback_create_missing_industry_image('s_cta_box_default_image', 'library_image_02')
             fallback_create_missing_industry_image('s_image_punchy_default_image', 's_cover_default_image')
             fallback_create_missing_industry_image('s_image_frame_default_image', 's_carousel_default_image_2')
+            fallback_create_missing_industry_image('s_carousel_intro_default_image_1', 's_cover_default_image')
+            fallback_create_missing_industry_image('s_carousel_intro_default_image_2', 's_image_text_default_image')
+            fallback_create_missing_industry_image('s_carousel_intro_default_image_3', 's_text_image_default_image')
 
             fallback_create_missing_industry_image('s_framed_intro_default_image', 's_cover_default_image')
+            fallback_create_missing_industry_image('s_wavy_grid_default_image_1', 's_cover_default_image')
+            fallback_create_missing_industry_image('s_wavy_grid_default_image_2', 's_image_text_default_image')
+            fallback_create_missing_industry_image('s_wavy_grid_default_image_3', 's_text_image_default_image')
+            fallback_create_missing_industry_image('s_wavy_grid_default_image_4', 's_carousel_default_image_1')
+
         except Exception:
             pass
 

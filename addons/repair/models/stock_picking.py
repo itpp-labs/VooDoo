@@ -24,6 +24,16 @@ class PickingType(models.Model):
     count_repair_late = fields.Integer(
         string="Number of Late Repair Orders", compute='_compute_count_repair')
 
+    default_product_location_src_id = fields.Many2one(
+        'stock.location', 'Default Product Source Location', compute='_compute_default_product_location_id',
+        check_company=True, store=True, readonly=False, precompute=True,
+        help="This is the default source location for product which come for the repair when you create a repair order with this operation type.")
+
+    default_product_location_dest_id = fields.Many2one(
+        'stock.location', 'Default Product Destination Location', compute='_compute_default_product_location_id',
+        check_company=True, store=True, readonly=False, precompute=True,
+        help="This is the default destination location for product which come for the repair when you create a repair order with this operation type.")
+
     default_remove_location_dest_id = fields.Many2one(
         'stock.location', 'Default Remove Destination Location', compute='_compute_default_remove_location_dest_id',
         check_company=True, store=True, readonly=False, precompute=True,
@@ -39,6 +49,7 @@ class PickingType(models.Model):
         compute='_compute_is_repairable', store=True, readonly=False, default=False,
         help="If ticked, you will be able to directly create repair orders from a return.")
     return_type_of_ids = fields.One2many('stock.picking.type', 'return_picking_type_id')
+    repair_properties_definition = fields.PropertiesDefinition('Repair Properties')
 
     def _compute_count_repair(self):
         repair_picking_types = self.filtered(lambda picking: picking.code == 'repair_operation')
@@ -122,6 +133,14 @@ class PickingType(models.Model):
         super(PickingType, (self - repair_picking_type))._compute_default_location_dest_id()
 
     @api.depends('code')
+    def _compute_default_product_location_id(self):
+        for picking_type in self:
+            if picking_type.code == 'repair_operation':
+                stock_location = picking_type.warehouse_id.lot_stock_id
+                picking_type.default_product_location_src_id = stock_location.id
+                picking_type.default_product_location_dest_id = stock_location.id
+
+    @api.depends('code')
     def _compute_default_remove_location_dest_id(self):
         repair_picking_type = self.filtered(lambda pt: pt.code == 'repair_operation')
         company_ids = repair_picking_type.company_id.ids
@@ -167,6 +186,12 @@ class PickingType(models.Model):
         repair_records = [(i, d, _('Confirmed')) for i, d in picking_type_id_to_dates.items()]
         return records + repair_records
 
+    def action_repair_overview(self):
+        routing_count = self.env['stock.picking.type'].search_count([('code', '=', 'repair_operation')])
+        if routing_count == 1:
+            return self.env['ir.actions.actions']._for_xml_id('repair.action_repair_order_tree')
+        return self.env['ir.actions.actions']._for_xml_id('repair.action_repair_picking_type_kanban')
+
 
 class Picking(models.Model):
     _inherit = 'stock.picking'
@@ -189,7 +214,7 @@ class Picking(models.Model):
         self.ensure_one()
         ctx = clean_context(self.env.context.copy())
         ctx.update({
-            'default_location_id': self.location_dest_id.id,
+            'default_product_location_src_id': self.location_dest_id.id,
             'default_repair_picking_id': self.id,
             'default_picking_type_id': self.picking_type_id.warehouse_id.repair_type_id.id,
             'default_partner_id': self.partner_id and self.partner_id.id or False,

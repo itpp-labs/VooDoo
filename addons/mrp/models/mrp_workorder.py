@@ -339,6 +339,8 @@ class MrpWorkorder(models.Model):
             delta_duration = new_order_duration - old_order_duration
 
             if delta_duration > 0:
+                if order.state not in ('progress', 'done'):
+                    order.state = 'progress'
                 enddate = datetime.now()
                 date_start = enddate - timedelta(seconds=_float_duration_to_second(delta_duration))
                 if order.duration_expected >= new_order_duration or old_order_duration >= order.duration_expected:
@@ -890,7 +892,7 @@ class MrpWorkorder(models.Model):
                 wo.duration = wo.duration_expected
                 wo.duration_percent = 100
 
-    def _compute_expected_operation_cost(self):
+    def _compute_expected_operation_cost(self, without_employee_cost=False):
         return (self.duration_expected / 60.0) * (self.costs_hour or self.workcenter_id.costs_hour)
 
     def _compute_current_operation_cost(self):

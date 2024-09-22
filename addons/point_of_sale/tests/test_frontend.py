@@ -56,6 +56,7 @@ class TestPointOfSaleHttpCommon(AccountTestInvoicingHttpCommon):
             'groups_id': [
                 (4, cls.env.ref('base.group_user').id),
                 (4, cls.env.ref('point_of_sale.group_pos_user').id),
+                (4, cls.env.ref('stock.group_stock_user').id),
             ],
             'tz': 'America/New_York',
         })
@@ -83,6 +84,7 @@ class TestPointOfSaleHttpCommon(AccountTestInvoicingHttpCommon):
         cls.bank_payment_method = env['pos.payment.method'].create({
             'name': 'Bank',
             'journal_id': cls.bank_journal.id,
+            'outstanding_account_id': cls.inbound_payment_method_line.payment_account_id.id,
         })
         env['pos.config'].search([]).unlink()
         cls.main_pos_config = env['pos.config'].create({

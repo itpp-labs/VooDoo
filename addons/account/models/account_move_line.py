@@ -164,7 +164,7 @@ class AccountMoveLine(models.Model):
     payment_id = fields.Many2one(
         comodel_name='account.payment',
         string="Originator Payment",
-        related='move_id.payment_id', store=True,
+        related='move_id.origin_payment_id', store=True,
         auto_join=True,
         index='btree_not_null',
         help="The payment that created this entry")
@@ -419,12 +419,6 @@ class AccountMoveLine(models.Model):
     )
 
     # === Misc Information === #
-    blocked = fields.Boolean(
-        string='No Follow-up',
-        compute='_compute_blocked', store=True, readonly=False, precompute=True,
-        help="You can check this box to mark this journal item as a litigation with the "
-             "associated partner",
-    )
     is_refund = fields.Boolean(compute='_compute_is_refund')
 
     _sql_constraints = [
@@ -471,11 +465,6 @@ class AccountMoveLine(models.Model):
     # -------------------------------------------------------------------------
     # COMPUTE METHODS
     # -------------------------------------------------------------------------
-
-    @api.depends('journal_id.type')
-    def _compute_blocked(self):
-        for line in self:
-            line.blocked = line.journal_id and line.journal_id.type == 'general'
 
     @api.depends('move_id')
     def _compute_display_type(self):
@@ -1204,7 +1193,7 @@ class AccountMoveLine(models.Model):
         if ctx:
             context.update(ctx)
         return {
-            'name': _('Register Payment'),
+            'name': _('Pay'),
             'res_model': 'account.payment.register',
             'view_mode': 'form',
             'views': [[False, 'form']],
@@ -1883,7 +1872,7 @@ class AccountMoveLine(models.Model):
         """
 
         def is_payment(aml):
-            return aml.move_id.payment_id or aml.move_id.statement_line_id
+            return aml.move_id.origin_payment_id or aml.move_id.statement_line_id
 
         def get_odoo_rate(aml, other_aml, currency):
             if forced_rate := self._context.get('forced_rate_from_register_payment'):

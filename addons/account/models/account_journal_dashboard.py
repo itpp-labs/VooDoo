@@ -87,22 +87,37 @@ class account_journal(models.Model):
         act_type_name = self.env['mail.activity.type']._field_to_sql('act_type', 'name')
         sql_query = SQL(
             """
-            SELECT activity.id,
-                   activity.res_id,
-                   activity.res_model,
-                   activity.summary,
-                   CASE WHEN activity.date_deadline < %(today)s THEN 'late' ELSE 'future' END as status,
-                   %(act_type_name)s as act_type_name,
-                   act_type.category as activity_category,
-                   activity.date_deadline,
-                   move.date,
-                   move.ref,
-                   move.journal_id
-              FROM account_move move
-              JOIN mail_activity activity ON activity.res_id = move.id AND activity.res_model = 'account.move'
-         LEFT JOIN mail_activity_type act_type ON activity.activity_type_id = act_type.id
-             WHERE move.journal_id = ANY(%(ids)s)
-               AND move.company_id = ANY(%(company_ids)s)
+         SELECT activity.id,
+                activity.res_id,
+                activity.res_model,
+                activity.summary,
+      CASE WHEN activity.date_deadline < %(today)s THEN 'late' ELSE 'future' END as status,
+                %(act_type_name)s as act_type_name,
+                act_type.category as activity_category,
+                activity.date_deadline,
+                move.journal_id
+           FROM account_move move
+           JOIN mail_activity activity ON activity.res_id = move.id AND activity.res_model = 'account.move'
+      LEFT JOIN mail_activity_type act_type ON activity.activity_type_id = act_type.id
+          WHERE move.journal_id = ANY(%(ids)s)
+            AND move.company_id = ANY(%(company_ids)s)
+
+      UNION ALL
+
+         SELECT activity.id,
+                activity.res_id,
+                activity.res_model,
+                activity.summary,
+      CASE WHEN activity.date_deadline < %(today)s THEN 'late' ELSE 'future' END as status,
+                %(act_type_name)s as act_type_name,
+                act_type.category as activity_category,
+                activity.date_deadline,
+                journal.id as journal_id
+           FROM account_journal journal
+           JOIN mail_activity activity ON activity.res_id = journal.id AND activity.res_model = 'account.journal'
+      LEFT JOIN mail_activity_type act_type ON activity.activity_type_id = act_type.id
+          WHERE journal.id = ANY(%(ids)s)
+            AND journal.company_id = ANY(%(company_ids)s)
             """,
             today=today,
             act_type_name=act_type_name,
@@ -795,7 +810,7 @@ class account_journal(models.Model):
                    END) AS amount_total,
                    SUM(amount_company_currency_signed) AS amount_total_company
               FROM account_payment payment
-              JOIN account_move move ON move.payment_id = payment.id
+              JOIN account_move move ON move.origin_payment_id = payment.id
               JOIN account_journal journal ON move.journal_id = journal.id
              WHERE payment.is_matched IS TRUE
                AND move.state = 'posted'
@@ -823,7 +838,7 @@ class account_journal(models.Model):
                    END) AS amount_total,
                    SUM(amount_company_currency_signed) AS amount_total_company
               FROM account_payment payment
-              JOIN account_move move ON move.payment_id = payment.id
+              JOIN account_move move ON move.origin_payment_id = payment.id
              WHERE (NOT payment.is_matched OR payment.is_matched IS NULL)
                AND move.state = 'posted'
                AND payment.journal_id = ANY(%s)
@@ -864,12 +879,21 @@ class account_journal(models.Model):
             'context': self._get_move_action_context(),
         }
 
+    def _build_no_journal_error_msg(self, company_name, journal_types):
+        return _(
+                "No journal could be found in company %(company_name)s for any of those types: %(journal_types)s",
+                company_name=company_name,
+                journal_types=', '.join(journal_types),
+            )
+
     def action_create_vendor_bill(self):
         """ This function is called by the "try our sample" button of Vendor Bills,
         visible on dashboard if no bill has been created yet.
         """
         context = dict(self._context)
-        purchase_journal = self.browse(context.get('default_journal_id'))
+        purchase_journal = self.browse(context.get('default_journal_id')) or self.search([('type', '=', 'purchase')], limit=1)
+        if not purchase_journal:
+            raise UserError(self._build_no_journal_error_msg(self.env.company.display_name, ['purchase']))
         context['default_move_type'] = 'in_invoice'
         invoice_date = fields.Date.today() - timedelta(days=12)
         partner = self.env['res.partner'].search([('name', '=', 'Deco Addict')], limit=1)

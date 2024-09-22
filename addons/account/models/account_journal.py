@@ -944,7 +944,7 @@ class AccountJournal(models.Model):
             raise UserError(_("No attachment was provided"))
 
         if not self:
-            raise UserError(_("No journal found"))
+            raise UserError(self.env['account.journal']._build_no_journal_error_msg(self.env.company.display_name, [journal_type]))
 
         # As we are coming from the journal, we assume that each attachments
         # will create an invoice with a tentative to enhance with EDI / OCR..
@@ -1036,7 +1036,7 @@ class AccountJournal(models.Model):
         self.ensure_one()
         account_ids = set()
         for line in self.inbound_payment_method_line_ids:
-            account_ids.add(line.payment_account_id.id or self.company_id.account_journal_payment_debit_account_id.id)
+            account_ids.add(line.payment_account_id.id)
         return self.env['account.account'].browse(account_ids)
 
     def _get_journal_outbound_outstanding_payment_accounts(self):
@@ -1046,7 +1046,7 @@ class AccountJournal(models.Model):
         self.ensure_one()
         account_ids = set()
         for line in self.outbound_payment_method_line_ids:
-            account_ids.add(line.payment_account_id.id or self.company_id.account_journal_payment_credit_account_id.id)
+            account_ids.add(line.payment_account_id.id)
         return self.env['account.account'].browse(account_ids)
 
     def _get_available_payment_method_lines(self, payment_type):

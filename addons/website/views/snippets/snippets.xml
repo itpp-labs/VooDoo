@@ -54,6 +54,9 @@
                 <t t-snippet="website.s_carousel" string="Carousel" group="intro">
                     <keywords>gallery, carousel</keywords>
                 </t>
+                <t t-snippet="website.s_carousel_intro" string="Carousel Intro" group="intro">
+                    <keywords>gallery, carousel, slider, slideshow, picture, photo, image-slider, rotating, swipe, transition, media-carousel, movement</keywords>
+                </t>
                 <t t-snippet="website.s_adventure" string="Adventure" group="intro">
                     <keywords>journey, exploration, travel, outdoor, excitement, quest, start, onboarding, discovery, thrill</keywords>
                 </t>
@@ -84,6 +87,9 @@
                 <t t-snippet="website.s_framed_intro" string="Framed Intro" group="intro">
                     <keywords>hero, jumbotron, headline, header, intro, home, content, introduction, overview, spotlight, presentation, welcome, context, description, primary, highlight, lead</keywords>
                 </t>
+                <t t-snippet="website.s_empowerment" string="Empowerment" group="intro">
+                    <keywords>hero, jumbotron, headline, header, intro, home, content, introduction, overview, spotlight, presentation, welcome, context, description, primary, highlight, lead, CTA, promote, promotion</keywords>
+                </t>
 
                 <!-- Columns group -->
                 <t t-snippet="website.s_three_columns" string="Columns" group="columns">
@@ -95,11 +101,24 @@
                 <t t-snippet="website.s_key_benefits" string="Key benefits" group="columns">
                     <keywords>promotion, characteristic, quality, highlights, specs, advantages, functionalities, features, exhibit, details, capabilities, attributes, promotion, headline, content, overiew, spotlight</keywords>
                 </t>
+                <t t-snippet="website.s_product_list" string="Items" group="columns"/>
                 <t t-snippet="website.s_freegrid" string="Free grid" group="columns">
                     <keywords>description, containers, layouts, structures, multi-columns, modules, boxes, content, picture, photo, illustration, media, visual, article, story, combination, showcase, announcement, reveal, trendy, design, shape, geometric, engage, call to action, cta, button</keywords>
                 </t>
+                <t t-snippet="website.s_cards_grid" string="Cards Grid" group="columns">
+                    <keywords>description, containers, layouts, structures, multi-columns, modules, boxes, content, picture, photo, illustration, media, visual, article, story, combination, showcase, announcement, reveal</keywords>
+                </t>
                 <t t-snippet="website.s_key_images" string="Key Images" group="columns">
                     <keywords>columns, gallery, pictures, photos, media, text, content, album, showcase, visuals, portfolio, arrangement, collection, visual-grid, split, alignment, added value</keywords>
+                </t>
+                <t t-snippet="website.s_wavy_grid" string="Wavy Grid" group="columns">
+                    <keywords>reveal, showcase, launch, presentation, announcement, content, picture, photo, illustration, media, visual, combination</keywords>
+                </t>
+                <t t-snippet="website.s_card_offset" string="Card Offset" group="columns">
+                    <keywords>content, picture, photo, illustration, media, visual, article, story, combination, trendy, pattern, design</keywords>
+                </t>
+                <t t-snippet="website.s_cards_soft" string="Cards Soft" group="columns">
+                    <keywords>description, containers, layouts, structures, multi-columns, modules, boxes, content, picture, photo, illustration, media, visual, article, story, combination, showcase, announcement, reveal</keywords>
                 </t>
 
                 <!-- Content group -->
@@ -108,6 +127,9 @@
                 </t>
                 <t t-snippet="website.s_image_text" string="Image - Text" group="content">
                     <keywords>content</keywords>
+                </t>
+                <t t-snippet="website.s_shape_image" string="Shape image" group="content">
+                    <keywords>content, picture, photo, illustration, media, visual, article, story, combination, trendy, pattern, design, shape, geometric, patterned</keywords>
                 </t>
                 <t t-snippet="website.s_mockup_image" string="Mockup Image" group="content">
                     <keywords>CTA, button, btn, action, engagement, link, offer, appeal, call to action, prompt, interact, trigger, mockup</keywords>
@@ -171,15 +193,20 @@
                 <t t-snippet="website.s_features" string="Features" group="content">
                     <keywords>promotion, characteristic, quality</keywords>
                 </t>
+                <t t-snippet="website.s_features_wave" string="Features Wave" group="content">
+                    <keywords>promotion, characteristic, quality, highlights, specs, advantages, functionalities, exhibit, details, capabilities, attributes, promotion, headline, content, overiew, spotlight</keywords>
+                </t>
                 <t t-snippet="website.s_media_list" string="Media List" group="content"/>
                 <t t-snippet="website.s_showcase" string="Showcase" group="content"/>
                 <t t-snippet="website.s_comparisons" string="Comparisons" group="content">
                     <keywords>pricing</keywords>
                 </t>
                 <t t-snippet="website.s_features_grid" string="Features Grid" group="content"/>
-                <t t-snippet="website.s_product_list" string="Items" group="content"/>
                 <t t-snippet="website.s_tabs" string="Tabs" group="content"/>
                 <t t-snippet="website.s_timeline" string="Timeline" group="content"/>
+                <t t-snippet="website.s_timeline_list" string="Timeline List" group="content">
+                    <keywords>history, story, events, milestones, chronology, sequence, progression, achievements, changelog, updates, announcements, recent, latest</keywords>
+                </t>
                 <t t-snippet="website.s_process_steps" string="Steps" t-forbid-sanitize="true" group="content"/>
                 <t t-snippet="website.s_numbers_showcase" string="Numbers Showcase" group="content">
                     <keywords>statistics, stats, KPI, metrics, dashboard, analytics, highlights, figures, performance, achievements, benchmarks, milestones, indicators, data, measurements, reports, trends, results, analytics, cta, call to action, button</keywords>
@@ -220,19 +247,40 @@
                 <t t-snippet="website.s_image_frame" string="Image Frame" group="images">
                     <keywords>header, intro, home, content, introduction, overview, spotlight, presentation, welcome, context, description, primary, highlight, lead</keywords>
                 </t>
+                <t t-snippet="website.s_images_mosaic" string="Images Mosaic" group="images">
+                    <keywords>content, picture, photo, illustration, media, visual, article, story, combination, trendy, pattern, design, shape, geometric, patterned, contrast</keywords>
+                </t>
+                <t t-snippet="website.s_images_constellation" string="Images Constellation" group="images">
+                    <keywords>content, picture, photo, illustration, media, visual, article, story, combination, trendy, pattern, design, shape, geometric, patterned, contrast, collage, arrangement, gallery, creative, mosaic</keywords>
+                </t>
 
                 <!-- People group -->
                 <t t-snippet="website.s_company_team" string="Team" group="people">
                     <keywords>organization, structure</keywords>
                 </t>
+                <t t-snippet="website.s_company_team_basic" string="Team Basic" group="people">
+                    <keywords>organization, company, people, members, staffs, profiles, bios, roles, personnel, crew, patterned, trendy</keywords>
+                </t>
                 <t t-snippet="website.s_company_team_shapes" string="Team Shapes" group="people">
                     <keywords>organization, structure, people, team, name, role, position, image, portrait, photo, employees, shapes</keywords>
+                </t>
+                <t t-snippet="website.s_company_team_detail" string="Team Detail" group="people">
+                    <keywords>organization, company, people, members, staffs, profiles, bios, roles, personnel, crew, patterned, trendy, social</keywords>
                 </t>
                 <t t-snippet="website.s_references" string="References" group="people">
                     <keywords>customers, clients</keywords>
                 </t>
+                <t t-snippet="website.s_references_social" string="References Social" group="people">
+                    <keywords>customers, clients, sponsors, partners, supporters, case-studies, collaborators, associations, associates, testimonials, endorsements, social</keywords>
+                </t>
+                <t t-snippet="website.s_references_grid" string="References Grid" group="people">
+                    <keywords>customers, clients, sponsors, partners, supporters, case-studies, collaborators, associations, associates, testimonials, endorsements</keywords>
+                </t>
                 <t t-snippet="website.s_quotes_carousel" string="Quotes" group="people">
                     <keywords>testimonials</keywords>
+                </t>
+                <t t-snippet="website.s_quotes_carousel_minimal" string="Quotes Minimal" group="people">
+                    <keywords>cite, testimonials, endorsements, reviews, feedback, statements, references, sayings, comments, appreciations, citations</keywords>
                 </t>
 
                 <!-- Text group -->
@@ -255,6 +303,8 @@
 
                 <!-- Contact & Forms group -->
                 <t t-snippet="website.s_website_form" string="Form" t-forbid-sanitize="form" t-thumbnail="/website/static/src/img/snippets_thumbs/s_website_form.svg" group="contact_and_forms"/>
+                <t t-snippet="website.s_opening_hours" string="Opening Hours" group="contact_and_forms"/>
+                <t t-snippet="website.s_contact_info" string="Contact Info" group="contact_and_forms"/>
 
                 <!-- Products group -->
                 <t id="sale_products_hook"/>
@@ -442,6 +492,43 @@
     </xpath>
 </template>
 
+<template id="snippet_options_carousel">
+    <div data-js="Carousel"
+         data-selector="section"
+         data-exclude=".s_carousel_intro_wrapper"
+         data-target="> .carousel">
+        <we-row string="Slide">
+            <we-button data-add-slide="true" data-no-preview="true" class="o_we_bg_brand_primary">Add Slide</we-button>
+        </we-row>
+        <we-select string="Style">
+            <we-button data-select-class="">Classic</we-button>
+            <we-button data-select-class="s_carousel_controllers_indicators_outside">Indicators outside</we-button>
+        </we-select>
+        <we-checkbox string="Invert colors" class="o_we_sublevel_1" data-select-class="carousel-dark"/>
+        <we-select string="Arrows" class="o_we_sublevel_1">
+            <we-button data-select-class="s_carousel_default">Default</we-button>
+            <we-button data-select-class="s_carousel_boxed">Boxed</we-button>
+            <we-button data-select-class="s_carousel_rounded">Rounded</we-button>
+            <we-button data-select-class="s_carousel_arrows_hidden">Hidden</we-button>
+        </we-select>
+        <we-select string="Indicators" data-apply-to=".carousel-indicators" class="o_we_sublevel_1">
+            <we-button data-select-class="">Bars</we-button>
+            <we-button data-select-class="s_carousel_indicators_dots">Dots</we-button>
+            <we-button data-select-class="s_carousel_indicators_numbers">Numbers</we-button>
+            <we-button data-select-class="s_carousel_indicators_hidden">Hidden</we-button>
+        </we-select>
+        <we-select string="Transition">
+            <we-button data-select-class="slide">Slide</we-button>
+            <we-button data-select-class="carousel-fade slide">Fade</we-button>
+            <we-divider/>
+            <we-button data-select-class="">None</we-button>
+        </we-select>
+        <we-input string="Speed"
+                  data-select-data-attribute="0s" data-attribute-name="bsInterval"
+                  data-unit="s" data-save-unit="ms" data-step="0.1"/>
+    </div>
+</template>
+
 <template id="snippet_options_border_line_widgets">
     <we-row t-att-string="label">
         <we-input data-name="border_width_opt"
@@ -606,7 +693,7 @@
              which the s_card options should be bound (instead of the s_card).
              Note: defined here to be set above all the other options that might
              need it. -->
-        <t t-set="card_parent_handlers" t-value="'.s_three_columns .row > div, .s_comparisons .row > div'"/>
+        <t t-set="card_parent_handlers" t-value="'.s_three_columns .row > div, .s_comparisons .row > div, .s_cards_grid .row > div, .s_cards_soft .row > div, .s_product_list .row > div'"/>
 
         <!-- Binding the option on the snippet if it is not a s_card with a
              handler parent -->
@@ -619,6 +706,14 @@
         <t t-call="web_editor.snippet_options_version_control">
             <t t-set="selector" t-valuef="#{card_parent_handlers}"/>
             <t t-set="target" t-value="'> .s_card'"/>
+        </t>
+    </xpath>
+
+    <!-- Font Awesome icons -->
+    <xpath expr="//div[@data-js='FontawesomeTools']" position="inside">
+        <t t-call="website.snippet_options_border_line_widgets">
+            <t t-set="label">Border</t>
+            <t t-set="with_bs_class" t-value="True"/>
         </t>
     </xpath>
 
@@ -688,41 +783,11 @@
         <t t-set="with_gradients" t-value="True"/>
         <t t-set="with_color_combinations" t-value="True"/>
     </t>
-    <div data-js="Carousel"
-         data-selector="section"
-         data-target="> .carousel">
-        <we-row string="Slide">
-            <we-button data-add-slide="true" data-no-preview="true" class="o_we_bg_brand_primary">Add Slide</we-button>
-        </we-row>
-        <we-select string="Style">
-            <we-button data-select-class="">Classic</we-button>
-            <we-button data-select-class="s_carousel_controllers_indicators_outside">Indicators outside</we-button>
-        </we-select>
-        <we-checkbox string="Invert colors" class="o_we_sublevel_1" data-select-class="carousel-dark"/>
-        <we-select string="Arrows" class="o_we_sublevel_1">
-            <we-button data-select-class="s_carousel_default">Default</we-button>
-            <we-button data-select-class="s_carousel_boxed">Boxed</we-button>
-            <we-button data-select-class="s_carousel_rounded">Rounded</we-button>
-            <we-button data-select-class="s_carousel_arrows_hidden">Hidden</we-button>
-        </we-select>
-        <we-select string="Indicators" data-apply-to=".carousel-indicators" class="o_we_sublevel_1">
-            <we-button data-select-class="">Bars</we-button>
-            <we-button data-select-class="s_carousel_indicators_dots">Dots</we-button>
-            <we-button data-select-class="s_carousel_indicators_hidden">Hidden</we-button>
-        </we-select>
-        <we-select string="Transition">
-            <we-button data-select-class="slide">Slide</we-button>
-            <we-button data-select-class="carousel-fade slide">Fade</we-button>
-            <we-divider/>
-            <we-button data-select-class="">None</we-button>
-        </we-select>
-        <we-input string="Speed"
-                  data-select-data-attribute="0s" data-attribute-name="bsInterval"
-                  data-unit="s" data-save-unit="ms" data-step="0.1"/>
-    </div>
+
+    <t t-call="website.snippet_options_carousel"/>
 
     <div data-js="CarouselItem"
-         data-selector=".s_carousel .carousel-item, .s_quotes_carousel .carousel-item">
+         data-selector=".s_carousel .carousel-item, .s_quotes_carousel .carousel-item, .s_carousel_intro .carousel-item">
         <we-button class="fa fa-fw fa-angle-left" data-switch-to-slide="left" data-no-preview="true" title="Move Backward"/>
         <we-button class="fa fa-fw fa-angle-right me-2" data-switch-to-slide="right" data-no-preview="true" title="Move Forward"/>
         <we-button class="fa fa-fw fa-plus o_we_bg_success" data-add-slide-item="true" data-no-preview="true" title="Add Slide"/>
@@ -730,7 +795,7 @@
     </div>
 
     <div data-js="GalleryElement"
-        data-selector=".s_image_gallery img, .s_carousel .carousel-item, .s_quotes_carousel .carousel-item">
+        data-selector=".s_image_gallery img, .s_carousel .carousel-item, .s_quotes_carousel .carousel-item, .s_carousel_intro .carousel-item">
         <we-row string="Re-order" data-no-preview="true">
             <we-button class="fa fa-fw fa-angle-double-left" title="Move to first" data-position="first"/>
             <we-button class="fa fa-fw fa-angle-left" title="Move to previous" data-position="prev"/>
@@ -769,7 +834,7 @@
 
     <!-- Grid only -->
     <div data-js="layout_column"
-        data-selector="section.s_masonry_block, section.s_image_frame"
+        data-selector="section.s_masonry_block, section.s_image_frame, section.s_contact_info"
         data-target="> *:has(> .row)">
         <t t-call="website.grid_layout_options"/>
     </div>
@@ -778,7 +843,7 @@
     <div data-js="layout_column"
         data-selector="section"
         data-target="> *:has(> .row), > .s_allow_columns"
-        data-exclude=".s_dynamic, .s_dynamic_snippet_content, .s_dynamic_snippet_title, .s_masonry_block, .s_framed_intro, .s_features_grid, .s_media_list, .s_table_of_content, .s_process_steps, .s_image_gallery, .s_timeline, .s_pricelist_boxed, .s_quadrant, .s_pricelist_cafe, .s_faq_horizontal, .s_image_frame">
+        data-exclude=".s_dynamic, .s_dynamic_snippet_content, .s_dynamic_snippet_title, .s_masonry_block, .s_framed_intro, .s_features_grid, .s_media_list, .s_table_of_content, .s_process_steps, .s_image_gallery, .s_timeline, .s_pricelist_boxed, .s_quadrant, .s_pricelist_cafe, .s_faq_horizontal, .s_image_frame, .s_card_offset, .s_contact_info">
         <we-row>
             <we-button-group string="Layout" data-no-preview="true">
                 <we-button data-select-layout="grid" data-name="grid_mode">Grid</we-button>
@@ -794,7 +859,7 @@
     </div>
 
     <!--  Vertical Alignment -->
-    <div data-js="vAlignment" id="row_valign_snippet_option" data-selector=".s_text_image, .s_image_text, .s_three_columns, .s_showcase, .s_numbers, .s_faq_collapse, .s_references, .s_accordion_image" data-target=".row">
+    <div data-js="vAlignment" id="row_valign_snippet_option" data-selector=".s_text_image, .s_image_text, .s_three_columns, .s_showcase, .s_numbers, .s_faq_collapse, .s_references, .s_accordion_image, .s_shape_image" data-target=".row">
         <we-button-group class="o_we_sublevel_1" string="Vert. Alignment" title="Vertical Alignment" data-dependencies="normal_mode">
             <we-button title="Align Top"
                        data-select-class="align-items-start"
@@ -833,7 +898,7 @@
     <t t-set="only_bg_image_exclude" t-value="''"/>
 
     <t t-set="both_bg_color_image_selector" t-value="'section, .carousel-item, .s_masonry_block .row > div, .s_color_blocks_2 .row > div, .parallax, .s_text_cover .row > .o_not_editable'"/>
-    <t t-set="both_bg_color_image_exclude" t-value="base_only_bg_image_selector + ', .s_carousel_wrapper, .s_image_gallery .carousel-item, .s_google_map, .s_map, [data-snippet] :not(.oe_structure) > [data-snippet], .s_masonry_block .s_col_no_resize, .s_quotes_carousel_wrapper'"/>
+    <t t-set="both_bg_color_image_exclude" t-value="base_only_bg_image_selector + ', .s_carousel_wrapper, .s_image_gallery .carousel-item, .s_google_map, .s_map, [data-snippet] :not(.oe_structure) > [data-snippet], .s_masonry_block .s_col_no_resize, .s_quotes_carousel_wrapper, .s_carousel_intro_wrapper'"/>
 
     <t t-call="website.snippet_options_background_options">
         <t t-set="selector" t-value="both_bg_color_image_selector"/>
@@ -1721,6 +1786,17 @@
             <we-button data-change-grid-image-mode="cover">Cover</we-button>
             <we-button data-change-grid-image-mode="contain">Contain</we-button>
         </we-select>
+    </div>
+
+    <!-- Indicators: '.o_dot' and '.o_dot_line' -->
+    <t t-set="o_dot_color_selector" t-valuef=".s_timeline .s_timeline_row"/>
+    <t t-set="o_dot_line_color_selector" t-valuef=".s_timeline"/>
+
+    <div t-att-data-selector="o_dot_color_selector">
+        <we-colorpicker string="Dot Color" data-select-style="true" data-css-property="color" data-color-prefix="text-" data-apply-to=".o_dot"/>
+    </div>
+    <div t-att-data-selector="o_dot_line_color_selector">
+        <we-colorpicker string="Dot Lines Color" data-select-style="true" data-css-property="border-color" data-color-prefix="border-" data-apply-to=".o_dot_line"/>
     </div>
 
     <!-- Website Animate -->
