@@ -15,7 +15,7 @@
                 <field name="alias_domain_id"/>
                 <field name="bank_account_id"/>
                 <templates>
-                    <t t-name="kanban-card">
+                    <t t-name="card">
                         <t t-value="JSON.parse(record.kanban_dashboard.raw_value)" t-set="dashboard"/>
                         <t t-value="record.type.raw_value" t-set="journal_type"/>
                         <t t-value="!record.has_entries.raw_value" t-set="journal_is_empty"/>
@@ -56,7 +56,7 @@
                         </t>
                     </t>
 
-                    <t t-name="kanban-menu">
+                    <t t-name="menu">
                         <t t-value="JSON.parse(record.kanban_dashboard.raw_value)" t-set="dashboard"/>
                         <t t-value="record.type.raw_value" t-set="journal_type"/>
                         <div class="container">
@@ -205,7 +205,7 @@
 
                     <t t-name="JournalMiscelaneous">
                         <div id="dashboard_misc_left" class="col mb-3 mb-sm-0">
-                            <button id="new_misc_entry_button" type="object" name="action_create_new" class="btn btn-primary" groups="account.group_account_user">
+                            <button id="new_misc_entry_button" type="object" name="action_create_new" class="btn btn-primary float-start me-1" groups="account.group_account_user">
                                 New
                             </button>
                         </div>
@@ -297,13 +297,13 @@
                             </t>
                             <t t-if="journal_type == 'purchase'">
                                 <div t-if="!journal_is_empty" class="d-flex">
-                                    <widget name="account_file_uploader" btnClass="btn btn-primary oe_kanban_action_button"/>
+                                    <widget name="account_file_uploader" btnClass="btn btn-primary oe_kanban_action"/>
                                     <div class="ms-1">
                                         <button type="object" name="action_create_new" class="btn-secondary " groups="account.group_account_invoice">New</button>
                                     </div>
                                 </div>
                                 <div t-else="">
-                                    <widget name="account_file_uploader" btnClass="btn btn-primary oe_kanban_action_button"/>
+                                    <widget name="account_file_uploader" btnClass="btn btn-primary oe_kanban_action"/>
                                     <widget name="bill_upload_guide"/>
                                 </div>
                             </t>

@@ -29,6 +29,7 @@ export const pyToJsModels = {
     "mail.link.preview": "LinkPreview",
     "mail.message": "Message",
     "mail.notification": "Notification",
+    "mail.scheduled.message": "ScheduledMessage",
     "mail.thread": "Thread",
     "res.partner": "Persona",
 };
@@ -77,6 +78,8 @@ export class Store extends BaseStore {
     Notification;
     /** @type {typeof import("@mail/core/common/persona_model").Persona} */
     Persona;
+    /** @type {typeof import "@mail/chatter/web/scheduled_message_model).ScheduledMessage"} */
+    ScheduledMessage;
     /** @type {typeof import("@mail/core/common/settings_model").Settings} */
     Settings;
     /** @type {typeof import("@mail/core/common/thread_model").Thread} */
@@ -497,15 +500,9 @@ export class Store extends BaseStore {
     /**
      * Get the parameters to pass to the message post route.
      */
-    async getMessagePostParams({
-        attachments,
-        body,
-        cannedResponseIds,
-        isNote,
-        mentionedChannels,
-        mentionedPartners,
-        thread,
-    }) {
+    async getMessagePostParams({ body, postData, thread }) {
+        const { attachments, cannedResponseIds, isNote, mentionedChannels, mentionedPartners } =
+            postData;
         const subtype = isNote ? "mail.mt_note" : "mail.mt_comment";
         const validMentions = this.getMentionsFromText(body, {
             mentionedChannels,
@@ -526,7 +523,7 @@ export class Store extends BaseStore {
                 });
             partner_ids.push(...recipientIds);
         }
-        const postData = {
+        postData = {
             body: await prettifyMessageContent(body, validMentions),
             message_type: "comment",
             subtype_xmlid: subtype,

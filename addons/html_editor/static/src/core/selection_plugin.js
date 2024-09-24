@@ -4,7 +4,6 @@ import {
     isMediaElement,
     isProtected,
     isProtecting,
-    isTextNode,
     paragraphRelatedElements,
     previousLeaf,
 } from "@html_editor/utils/dom_info";
@@ -417,10 +416,12 @@ export class SelectionPlugin extends Plugin {
         if (!this.isSelectionInEditable({ anchorNode, focusNode })) {
             throw new Error("Selection is not in editor");
         }
-        [anchorNode, anchorOffset] = normalizeCursorPosition(anchorNode, anchorOffset, "left");
+        const isCollapsed = anchorNode === focusNode && anchorOffset === focusOffset;
         [focusNode, focusOffset] = normalizeCursorPosition(focusNode, focusOffset, "right");
+        [anchorNode, anchorOffset] = isCollapsed
+            ? [focusNode, focusOffset]
+            : normalizeCursorPosition(anchorNode, anchorOffset, "left");
         if (normalize) {
-            const isCollapsed = anchorNode === focusNode && anchorOffset === focusOffset;
             // normalize selection
             [anchorNode, anchorOffset] = normalizeDeepCursorPosition(anchorNode, anchorOffset);
             [focusNode, focusOffset] = isCollapsed
@@ -581,10 +582,6 @@ export class SelectionPlugin extends Plugin {
             (nodes) => {
                 const edgeNodes = getUnselectedEdgeNodes(selection);
                 return nodes.filter((node) => !edgeNodes.has(node));
-            },
-            // Filter whitespace
-            (nodes) => {
-                return nodes.filter((node) => !isTextNode(node) || node.textContent !== "\n");
             },
             // Custom modifiers
             ...(this.resources.modifyTraversedNodes || []),

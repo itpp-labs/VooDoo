@@ -15,12 +15,12 @@
     ],
     'data': [
         'data/cron.xml',
+        'data/res_partner_data.xml',
         'security/ir.model.access.csv',
         'views/account_journal_dashboard_views.xml',
         'views/account_move_views.xml',
         'views/res_partner_views.xml',
         'views/res_config_settings_views.xml',
-        'wizard/account_move_send_views.xml',
         'wizard/peppol_registration_views.xml',
         'wizard/service_wizard.xml',
     ],

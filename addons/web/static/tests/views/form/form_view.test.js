@@ -894,7 +894,7 @@ test(`Form and subview with _view_ref contexts`, async () => {
         kanban: `
             <kanban>
                 <templates>
-                    <t t-name="kanban-card">
+                    <t t-name="card">
                         <field name="color"/>
                     </t>
                 </templates>
@@ -959,7 +959,7 @@ test(`Form and subsubview with only _view_ref contexts`, async () => {
         kanban: `
             <kanban>
                 <templates>
-                    <t t-name="kanban-card">
+                    <t t-name="card">
                         <field name="name"/>
                     </t>
                 </templates>
@@ -973,7 +973,7 @@ test(`Form and subsubview with only _view_ref contexts`, async () => {
         kanban: `
             <kanban>
                 <templates>
-                    <t t-name="kanban-card">
+                    <t t-name="card">
                         <field name="name"/>
                     </t>
                 </templates>
@@ -4874,6 +4874,126 @@ test.tags("desktop")(`discard changes on relational data on new record`, async (
     expect(`.o_data_row`).toHaveCount(0);
 });
 
+test("discard changes on relational data on existing record", async () => {
+    Partner._records[0].product_ids = [37];
+    Partner._records[0].bar = false;
+    Partner._onChanges = {
+        bar(record) {
+            // when bar changes, push another record in product_ids.
+            record.product_ids = [[4, 41]];
+        },
+    };
+    await mountView({
+        type: "form",
+        resModel: "partner",
+        resId: 1,
+        arch: `
+            <form>
+                <field name="bar"/>
+                <field name="product_ids" widget="one2many">
+                    <list>
+                        <field name="display_name"/>
+                    </list>
+                </field>
+            </form>`,
+    });
+
+    expect(queryAllTexts`.o_data_cell`).toEqual(["xphone"]);
+    expect(`.o_field_widget[name=bar] input:checked`).toHaveCount(0);
+
+    // Click on bar
+    await contains(`.o_field_widget[name=bar] input`).click();
+    expect(`.o_field_widget[name=bar] input:checked`).toHaveCount(1);
+    expect(queryAllTexts`.o_data_cell`).toEqual(["xphone", "xpad"]);
+
+    // click on discard
+    await contains(`.o_form_button_cancel`).click();
+    expect(queryAllTexts`.o_data_cell`).toEqual(["xphone"]);
+    expect(`.o_field_widget[name=bar] input:checked`).toHaveCount(0);
+});
+
+test("discard changes on relational data on new record (1)", async () => {
+    // When bar is changed, it pushes a record in product_ids
+    // After discarding, product_ids should be empty
+    Partner._onChanges = {
+        bar(record) {
+            if (record.bar) {
+                // when bar changes, push another record in product_ids.
+                record.product_ids = [[4, 41]];
+            }
+        },
+    };
+    await mountView({
+        type: "form",
+        resModel: "partner",
+        arch: `
+            <form>
+                <field name="bar"/>
+                <field name="product_ids" widget="one2many">
+                    <list>
+                        <field name="display_name"/>
+                    </list>
+                </field>
+            </form>`,
+    });
+
+    expect(queryAllTexts`.o_data_cell`).toEqual([]);
+    expect(`.o_field_widget[name=bar] input:checked`).toHaveCount(0);
+
+    // Click on bar
+    await contains(`.o_field_widget[name=bar] input`).click();
+    expect(`.o_field_widget[name=bar] input:checked`).toHaveCount(1);
+    expect(queryAllTexts`.o_data_cell`).toEqual(["xpad"]);
+
+    // click on discard
+    await contains(`.o_form_button_cancel`).click();
+    expect(queryAllTexts`.o_data_cell`).toEqual([]);
+    expect(`.o_field_widget[name=bar] input:checked`).toHaveCount(0);
+});
+
+test("discard changes on relational data on new record (2)", async () => {
+    // An initial onChange push a record in product_ids
+    // When bar is changed, it pushes a second record in product_ids
+    // After discarding, product_ids should contain the inital record pushed by the inital onChange
+    Partner._onChanges = {
+        product_ids(record) {
+            record.product_ids = [[4, 41]];
+        },
+        bar(record) {
+            if (record.bar) {
+                // when bar changes, push another record in product_ids.
+                record.product_ids = [[4, 37]];
+            }
+        },
+    };
+    await mountView({
+        type: "form",
+        resModel: "partner",
+        arch: `
+            <form>
+                <field name="bar"/>
+                <field name="product_ids" widget="one2many">
+                    <list>
+                        <field name="display_name"/>
+                    </list>
+                </field>
+            </form>`,
+    });
+
+    expect(queryAllTexts`.o_data_cell`).toEqual(["xpad"]);
+    expect(`.o_field_widget[name=bar] input:checked`).toHaveCount(0);
+
+    // Click on bar
+    await contains(`.o_field_widget[name=bar] input`).click();
+    expect(`.o_field_widget[name=bar] input:checked`).toHaveCount(1);
+    expect(queryAllTexts`.o_data_cell`).toEqual(["xpad", "xphone"]);
+
+    // click on discard
+    await contains(`.o_form_button_cancel`).click();
+    expect(queryAllTexts`.o_data_cell`).toEqual(["xpad"]);
+    expect(`.o_field_widget[name=bar] input:checked`).toHaveCount(0);
+});
+
 test(`discard changes on a new (non dirty, except for defaults) form view`, async () => {
     Partner._fields.foo = fields.Char({ default: "ABC" });
 
@@ -7171,7 +7291,7 @@ test(`non inline subview and create=0 in action context`, async () => {
     Product._views = {
         kanban: `
             <kanban>
-                <templates><t t-name="kanban-card">
+                <templates><t t-name="card">
                     <field name="name"/>
                 </t></templates>
             </kanban>
@@ -9849,7 +9969,7 @@ test.tags("desktop")(`discard after a failed save (and close notifications)`, as
         kanban: `
             <kanban>
                 <templates>
-                    <t t-name="kanban-card">
+                    <t t-name="card">
                         <field name="foo" />
                     </t>
                 </templates>
@@ -9894,7 +10014,7 @@ test(`one2many create record dialog shouldn't have a 'remove' button`, async () 
                 <field name="child_ids">
                     <kanban>
                         <templates>
-                            <t t-name="kanban-card">
+                            <t t-name="card">
                                 <field name="foo"/>
                             </t>
                         </templates>
@@ -10683,7 +10803,7 @@ test.tags("desktop")(`empty x2manys when coming form a list with sample data`, a
                 <field name="child_ids">
                     <kanban>
                         <templates>
-                            <t t-name="kanban-card">
+                            <t t-name="card">
                                 <field name="name"/>
                             </t>
                         </templates>

@@ -1,4 +1,4 @@
-import { expect, test } from "@odoo/hoot";
+import { beforeEach, expect, test } from "@odoo/hoot";
 import { KanbanArchParser } from "@web/views/kanban/kanban_arch_parser";
 import { parseXML } from "@web/core/utils/xml";
 import {
@@ -10,6 +10,7 @@ import {
     models,
     mountView,
     onRpc,
+    patchWithCleanup,
     toggleKanbanRecordDropdown,
 } from "../../web_test_helpers";
 import { queryAll } from "@odoo/hoot-dom";
@@ -34,11 +35,23 @@ class Category extends models.Model {
 
 defineModels([Category]);
 
-test("oe_kanban_colorpicker in kanban-menu and kanban-box", async () => {
+// avoid "kanban-box" deprecation warnings in this suite, which defines legacy kanban on purpose
+beforeEach(() => {
+    const originalConsoleWarn = console.warn;
+    patchWithCleanup(console, {
+        warn: (msg) => {
+            if (msg !== "'kanban-box' is deprecated, use 'kanban-card' API instead") {
+                originalConsoleWarn(msg);
+            }
+        },
+    });
+});
+
+test("oe_kanban_colorpicker in menu and kanban-box", async () => {
     const archInfo = parseArch(`
         <kanban>
             <templates>
-                <t t-name="kanban-menu">
+                <t t-name="menu">
                     <ul class="oe_kanban_colorpicker" data-field="kanban_menu_colorpicker" role="menu"/>
                 </t>
                 <t t-name="kanban-box"/>
@@ -52,7 +65,7 @@ test("oe_kanban_colorpicker in kanban-menu and kanban-box", async () => {
     const archInfo_1 = parseArch(`
         <kanban>
             <templates>
-                <t t-name="kanban-menu"/>
+                <t t-name="menu"/>
                 <t t-name="kanban-box">
                     <ul class="oe_kanban_colorpicker" data-field="kanban_box_color" role="menu"/>
                 </t>
@@ -79,7 +92,7 @@ test("kanban with colorpicker and node with color attribute", async () => {
             <kanban>
                 <field name="colorpickerField"/>
                 <templates>
-                    <t t-name="kanban-menu">
+                    <t t-name="menu">
                         <div class="oe_kanban_colorpicker" data-field="colorpickerField"/>
                     </t>
                     <t t-name="kanban-box">
@@ -112,7 +125,7 @@ test("edit the kanban color with the colorpicker", async () => {
             <kanban>
                 <field name="color"/>
                 <templates>
-                    <t t-name="kanban-menu">
+                    <t t-name="menu">
                         <div class="oe_kanban_colorpicker"/>
                     </t>
                     <t t-name="kanban-box">
@@ -153,7 +166,7 @@ test("colorpicker doesn't appear when missing access rights", async () => {
             <kanban edit="0">
                 <field name="color"/>
                 <templates>
-                    <t t-name="kanban-menu">
+                    <t t-name="menu">
                         <div class="oe_kanban_colorpicker"/>
                     </t>
                     <t t-name="kanban-box">

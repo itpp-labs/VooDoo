@@ -351,7 +351,7 @@ class TestUi(TestPointOfSaleHttpCommon):
         self.assertEqual(len(reward_orderline.ids), 0, msg='Reference: Order4_no_reward. Last order should have no reward line.')
 
         # Part 3
-        partner_ddd = self.env['res.partner'].create({'name': 'Test Partner DDD'})
+        partner_ddd = self.env['res.partner'].create({'name': 'DDD Test Partner'})
         self.env['loyalty.card'].create({
             'partner_id': partner_ddd.id,
             'program_id': loyalty_program.id,
@@ -402,7 +402,7 @@ class TestUi(TestPointOfSaleHttpCommon):
         aaa_loyalty_card = loyalty_program.coupon_ids.filtered(lambda coupon: coupon.partner_id.id == partner_aaa.id)
 
         self.assertEqual(loyalty_program.pos_order_count, 1)
-        self.assertAlmostEqual(aaa_loyalty_card.points, 0.2)
+        self.assertAlmostEqual(aaa_loyalty_card.points, 5.2)
 
     def test_pos_loyalty_tour_max_amount(self):
         """Test the loyalty program with a maximum amount and product with different taxe."""

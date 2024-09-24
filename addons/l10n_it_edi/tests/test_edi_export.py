@@ -72,7 +72,7 @@ class TestItEdiExport(TestItEdi):
             'name': "22% price included tax",
             'amount': 22.0,
             'amount_type': 'percent',
-            'price_include': True,
+            'price_include_override': 'tax_included',
         })
 
         invoice = self.env['account.move'].with_company(self.company).create({
@@ -402,8 +402,7 @@ class TestItEdiExport(TestItEdi):
             ],
         })
         invoice.action_post()
-        template = self.env.ref(invoice._get_mail_template())
-        invoice._generate_pdf_and_send_invoice(template)
+        invoice._generate_and_send()
         self.assertIn(
             'INV_2024_00001_proforma.pdf',
             invoice.attachment_ids.mapped('name'),

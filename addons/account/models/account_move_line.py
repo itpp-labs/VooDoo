@@ -543,38 +543,6 @@ class AccountMoveLine(models.Model):
                        AND line.display_type = 'payment_term'
                        AND line.id != ANY(%(current_ids)s)
                 ),
-                properties AS(
-                    SELECT DISTINCT ON (property.company_id, property.name, property.res_id)
-                           'res.partner' AS model,
-                           SPLIT_PART(property.res_id, ',', 2)::integer AS id,
-                           CASE
-                               WHEN property.name = 'property_account_receivable_id' THEN 'asset_receivable'
-                               ELSE 'liability_payable'
-                           END AS account_type,
-                           SPLIT_PART(property.value_reference, ',', 2)::integer AS account_id
-                      FROM ir_property property
-                      JOIN res_company company ON property.company_id = company.id
-                     WHERE property.name IN ('property_account_receivable_id', 'property_account_payable_id')
-                       AND property.company_id = ANY(%(company_ids)s)
-                       AND property.res_id = ANY(%(partners)s)
-                  ORDER BY property.company_id, property.name, property.res_id, account_id
-                ),
-                default_properties AS(
-                    SELECT DISTINCT ON (property.company_id, property.name)
-                           'res.partner' AS model,
-                           company.partner_id AS id,
-                           CASE
-                               WHEN property.name = 'property_account_receivable_id' THEN 'asset_receivable'
-                               ELSE 'liability_payable'
-                           END AS account_type,
-                           SPLIT_PART(property.value_reference, ',', 2)::integer AS account_id
-                      FROM ir_property property
-                      JOIN res_company company ON property.company_id = company.id
-                     WHERE property.name IN ('property_account_receivable_id', 'property_account_payable_id')
-                       AND property.company_id = ANY(%(company_ids)s)
-                       AND property.res_id IS NULL
-                  ORDER BY property.company_id, property.name, account_id
-                ),
                 fallback AS (
                     SELECT DISTINCT ON (account_companies.res_company_id, account.account_type)
                            'res.company' AS model,
@@ -589,10 +557,6 @@ class AccountMoveLine(models.Model):
                        AND account.deprecated = 'f'
                 )
                 SELECT * FROM previous
-                UNION ALL
-                SELECT * FROM default_properties
-                UNION ALL
-                SELECT * FROM properties
                 UNION ALL
                 SELECT * FROM fallback
             """, {
@@ -610,8 +574,8 @@ class AccountMoveLine(models.Model):
                 move = line.move_id
                 account_id = (
                     accounts.get(('account.move', move.id, None))
-                    or accounts.get(('res.partner', move.commercial_partner_id.id, account_type))
-                    or accounts.get(('res.partner', move.company_id.partner_id.id, account_type))
+                    or move.with_company(move.company_id).commercial_partner_id['property_account_receivable_id' if account_type == 'asset_receivable' else 'property_account_payable_id'].id
+                    or move.with_company(move.company_id).company_id.partner_id['property_account_receivable_id' if account_type == 'asset_receivable' else 'property_account_payable_id'].id
                     or accounts.get(('res.company', move.company_id.id, account_type))
                 )
                 if line.move_id.fiscal_position_id:
@@ -811,7 +775,10 @@ class AccountMoveLine(models.Model):
                 tax = record.tax_repartition_line_id.tax_id or record.tax_ids[:1]
                 is_refund = record.is_refund
                 tax_type = tax.type_tax_use
-                record.tax_tag_invert = (tax_type == 'purchase' and is_refund) or (tax_type == 'sale' and not is_refund)
+                if record.display_type == 'epd':  # In case of early payment, tax_tag_invert is independent of the balance of the line
+                    record.tax_tag_invert = tax_type == 'purchase'
+                else:
+                    record.tax_tag_invert = (tax_type == 'purchase' and is_refund) or (tax_type == 'sale' and not is_refund)
             else:
                 # For invoices with taxes
                 record.tax_tag_invert = origin_move_id.is_inbound()

@@ -116,13 +116,13 @@
             <kanban>
                 <field name="remaining_sending" />
                 <templates>
-                    <t t-name="kanban-card" class="row g-0">
+                    <t t-name="card" class="row g-0">
                         <aside class="col-2">
-                            <field name="image_1024" widget="image" t-att-title="name" t-att-alt="name"/>
+                            <field name="image_1024" widget="image" t-att-alt="record.name.value"/>
                         </aside>
                         <main class="col ps-2">
                             <span>
-                                <field class="fw-bold fs-5" name="name"/>
+                                <field class="fw-bold fs-5 me-1" name="name"/>
                                 <t t-if="record.remaining_sending.value != -1">
                                     <field name="stat_my_monthly_sending"/>/<field name="rule_max_number"/>
                                 </t>
@@ -135,7 +135,7 @@
                                 <field class="fw-bold" name="granted_count"/> granted,
                                 <field class="fw-bold" name="stat_this_month"/> this month
                             </div>
-                            <div t-if="!widget.isHtmlEmpty(record.description.value)">
+                            <div>
                                 <field class="fst-italic" name="description"/>
                                 <field name="unique_owner_ids" widget="many2many_avatar_user"/>
                             </div>

@@ -123,6 +123,8 @@ class AccountTestInvoicingCommon(ProductCommon):
         # ==== Partners ====
         cls.partner_a = cls.env['res.partner'].create({
             'name': 'partner_a',
+            'invoice_sending_method': 'manual',
+            'invoice_edi_format': False,
             'property_payment_term_id': cls.pay_terms_a.id,
             'property_supplier_payment_term_id': cls.pay_terms_a.id,
             'property_account_receivable_id': cls.company_data['default_account_receivable'].id,
@@ -131,6 +133,8 @@ class AccountTestInvoicingCommon(ProductCommon):
         })
         cls.partner_b = cls.env['res.partner'].create({
             'name': 'partner_b',
+            'invoice_sending_method': 'manual',
+            'invoice_edi_format': False,
             'property_payment_term_id': cls.pay_terms_b.id,
             'property_supplier_payment_term_id': cls.pay_terms_b.id,
             'property_account_position_id': cls.fiscal_pos_a.id,
@@ -274,8 +278,8 @@ class AccountTestInvoicingCommon(ProductCommon):
                     ('account_type', '=', 'expense'),
                     ('id', '!=', company.account_journal_early_pay_discount_loss_account_id.id)
                 ], limit=1),
-            'default_account_receivable': cls.env['ir.property'].with_company(company)._get(
-                'property_account_receivable_id', 'res.partner'
+            'default_account_receivable': cls.env['res.partner']._fields['property_account_receivable_id'].get_company_dependent_fallback(
+                cls.env['res.partner'].with_company(company)
             ),
             'default_account_payable': AccountAccount.search([
                     *account_company_domain,
@@ -351,7 +355,7 @@ class AccountTestInvoicingCommon(ProductCommon):
                     'amount': 20.0,
                     'type_tax_use': type_tax_use,
                     'country_id': company_data['company'].account_fiscal_country_id.id,
-                    'price_include': True,
+                    'price_include_override': 'tax_included',
                     'include_base_amount': True,
                     'tax_exigibility': 'on_invoice',
                     'invoice_repartition_line_ids': [

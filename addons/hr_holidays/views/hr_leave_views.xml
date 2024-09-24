@@ -111,11 +111,11 @@
             <kanban class="o_kanban_mobile" create="0" sample="1">
                 <field name="supported_attachment_ids_count"/>
                 <templates>
-                    <t t-name="kanban-menu" groups="base.group_user">
+                    <t t-name="menu" groups="base.group_user">
                         <a t-if="widget.editable" role="menuitem" type="open" class="dropdown-item">Edit Time Off</a>
                         <a t-if="widget.deletable" role="menuitem" type="delete" class="dropdown-item">Delete</a>
                     </t>
-                    <t t-name="kanban-card" class="row g-0">
+                    <t t-name="card" class="row g-0">
                         <div class="ms-3 col">
                             <span class="badge rounded-pill float-end"><field name="number_of_days"/> days</span>
                             <field class="fw-bold fs-5" name="employee_id"/>
@@ -173,8 +173,6 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='number_of_days']/../.." position='before'>
                 <field name="employee_id" widget="image" options="{'preview_image': 'avatar_128'}"
-                    t-att-title="record.employee_id.value"
-                    t-att-alt="record.employee_id.value"
                     class="o_image_64_cover float-start me-2 col-3"/>
             </xpath>
             <xpath expr="//field[@name='name']" position="replace"/>
