@@ -422,6 +422,7 @@
 
                                         <a t-if="record.privacy_visibility.raw_value == 'portal'" class="dropdown-item" role="menuitem" name="action_open_share_project_wizard" type="object">Share Project</a>
 
+                                        <a class="dropdown-item" role="menuitem" name="copy" type="object">Duplicate</a>
                                         <a class="dropdown-item" role="menuitem" type="open">Settings</a>
                                     </div>
                                     <div class="col-12 ps-0" groups="!project.group_project_manager">
@@ -464,7 +465,7 @@
                                     <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
                                 </div>
                             </div>
-                            <footer class="fs-6 mt-auto pt-0 ms-1">
+                            <footer class="mt-auto pt-0 ms-1">
                                 <div class="d-flex align-items-center">
                                     <div class="o_project_kanban_boxes d-flex align-items-baseline">
                                         <a class="o_project_kanban_box me-1" name="action_view_tasks" type="object">
@@ -616,6 +617,7 @@
         <record id="open_view_project_all_config" model="ir.actions.act_window">
             <field name="name">Projects</field>
             <field name="res_model">project.project</field>
+            <field name="path">project-configuration</field>
             <field name="domain">[]</field>
             <field name="view_mode">list,kanban,form</field>
             <field name="view_ids" eval="[(5, 0, 0),

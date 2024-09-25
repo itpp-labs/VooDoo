@@ -755,7 +755,7 @@
                         <button name="action_reverse" string='Credit Note'
                                 type='object' groups="account.group_account_invoice"
                                 invisible="move_type not in ('out_invoice', 'in_invoice') or state != 'posted'"
-                                data-hotkey="n"/>
+                                data-hotkey="shift+n"/>
                         <!-- Cancel -->
                         <button name="button_cancel" string="Cancel Entry" type="object" groups="account.group_account_invoice" data-hotkey="x"
                                 invisible="not id or state != 'draft' or move_type != 'entry'"/>
@@ -1123,6 +1123,7 @@
                                                domain="[('deprecated', '=', False), ('account_type', 'not in', ('asset_receivable', 'liability_payable', 'off_balance'))]"
                                                required="display_type not in ('line_note', 'line_section')"/>
                                         <field name="analytic_distribution" widget="analytic_distribution"
+                                               string="Analytic"
                                                groups="analytic.group_analytic_accounting"
                                                optional="show"
                                                options="{'product_field': 'product_id', 'account_field': 'account_id', 'amount_field': 'price_subtotal'}"

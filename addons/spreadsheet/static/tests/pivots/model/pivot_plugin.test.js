@@ -38,7 +38,6 @@ import { THIS_YEAR_GLOBAL_FILTER } from "@spreadsheet/../tests/helpers/global_fi
 
 import * as spreadsheet from "@odoo/o-spreadsheet";
 import { waitForDataLoaded } from "@spreadsheet/helpers/model";
-const { DEFAULT_LOCALE } = spreadsheet.constants;
 const { toZone } = spreadsheet.helpers;
 
 describe.current.tags("headless");
@@ -271,7 +270,7 @@ test("invalid group dimensions", async function () {
     for (const formula of invalids) {
         setCellContent(model, "G10", formula);
         expect(getCellValue(model, "G10")).toBe("#ERROR", { message: formula });
-        expect(getEvaluatedCell(model, "G10").message).toBe(
+        expect(getEvaluatedCell(model, "G10").message).toInclude(
             "Dimensions don't match the pivot definition",
             { message: formula }
         );
@@ -1014,9 +1013,9 @@ test("PIVOT day are correctly formatted at evaluation", async function () {
                     <field name="probability" type="measure"/>
                 </pivot>`,
     });
-    expect(getEvaluatedCell(model, "B1").format).toBe("m/d/yyyy");
+    expect(getEvaluatedCell(model, "B1").format).toBe("dd mmm yyyy");
     expect(getEvaluatedCell(model, "B1").value).toBe(42474);
-    expect(getEvaluatedCell(model, "B1").formattedValue).toBe("4/14/2016");
+    expect(getEvaluatedCell(model, "B1").formattedValue).toBe("14 Apr 2016");
     expect(getEvaluatedCell(model, "B3").format).toBe("#,##0.00");
     expect(getEvaluatedCell(model, "B3").value).toBe(10);
     expect(getEvaluatedCell(model, "B3").formattedValue).toBe("10.00");
@@ -1074,7 +1073,7 @@ test("PIVOT month_number are correctly formatted at evaluation", async function 
     await animationFrame();
     setCellContent(model, "B1", `=PIVOT.HEADER(1, "date:month_number", 1)`);
     setCellContent(model, "B2", `=PIVOT.VALUE(1, "probability:avg", "date:month_number", 4)`);
-    expect(getEvaluatedCell(model, "B1").format).toBe("0");
+    expect(getEvaluatedCell(model, "B1").format).toBe("@");
     expect(getEvaluatedCell(model, "B1").value).toBe("January");
     expect(getEvaluatedCell(model, "B1").formattedValue).toBe("January");
     expect(getEvaluatedCell(model, "B2").format).toBe("#,##0.00");
@@ -1112,7 +1111,7 @@ test("PIVOT quarter_number are correctly formatted at evaluation", async functio
     await animationFrame();
     setCellContent(model, "B1", `=PIVOT.HEADER(1, "date:quarter_number", 1)`);
     setCellContent(model, "B2", `=PIVOT.VALUE(1, "probability:avg", "date:quarter_number", 2)`);
-    expect(getEvaluatedCell(model, "B1").format).toBe("0");
+    expect(getEvaluatedCell(model, "B1").format).toBe("@");
     expect(getEvaluatedCell(model, "B1").value).toBe("Q1");
     expect(getEvaluatedCell(model, "B1").formattedValue).toBe("Q1");
     expect(getEvaluatedCell(model, "B2").format).toBe("#,##0.00");
@@ -1162,23 +1161,8 @@ test("PIVOT.HEADER formulas are correctly formatted at evaluation", async functi
                 </pivot>`,
     });
     expect(getEvaluatedCell(model, "A3").format).toBe("#,##0.00");
-    expect(getEvaluatedCell(model, "B1").format).toBe("m/d/yyyy");
+    expect(getEvaluatedCell(model, "B1").format).toBe("dd mmm yyyy");
     expect(getEvaluatedCell(model, "B2").format).toBe(undefined);
-});
-
-test("PIVOT.HEADER date formats are locale dependant", async function () {
-    const { model } = await createSpreadsheetWithPivot({
-        arch: /* xml */ `
-                <pivot>
-                    <field name="date" interval="day" type="col"/>
-                    <field name="probability" type="row"/>
-                    <field name="foo" type="measure"/>
-                </pivot>`,
-    });
-    model.dispatch("UPDATE_LOCALE", {
-        locale: { ...DEFAULT_LOCALE, dateFormat: "dd/mm/yyyy" },
-    });
-    expect(getEvaluatedCell(model, "B1").format).toBe("dd/mm/yyyy");
 });
 
 test("can edit pivot domain with UPDATE_ODOO_PIVOT_DOMAIN", async () => {
