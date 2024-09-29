@@ -55,7 +55,7 @@ describe("Range collapsed", () => {
                 `<ul class="o_checklist"><li><h1 placeholder="Heading 1" class="o-we-hint">[]</h1></li></ul>`
             );
 
-            insertText(editor, "a");
+            await insertText(editor, "a");
             editor.dispatch("NORMALIZE", { node: el });
             expect(getContent(el)).toBe(`<ul class="o_checklist"><li><h1>a[]</h1></li></ul>`);
         });
@@ -205,14 +205,14 @@ describe("Range collapsed", () => {
                     <table class="table table-bordered o_selected_table">
                         <tbody>
                             <tr>
-                                <td class="o_selected_td"><ul class="o_checklist"><li placeholder="List" class="o-we-hint">[<br></li></ul></td>
-                                <td class="o_selected_td"><ul class="o_checklist"><li placeholder="List" class="o-we-hint"><br></li></ul></td>
-                                <td class="o_selected_td"><ul class="o_checklist"><li placeholder="List" class="o-we-hint"><br></li></ul></td>
+                                <td class="o_selected_td"><ul class="o_checklist"><li>[<br></li></ul></td>
+                                <td class="o_selected_td"><ul class="o_checklist"><li><br></li></ul></td>
+                                <td class="o_selected_td"><ul class="o_checklist"><li><br></li></ul></td>
                             </tr>
                             <tr>
-                                <td class="o_selected_td"><ul class="o_checklist"><li placeholder="List" class="o-we-hint"><br></li></ul></td>
-                                <td class="o_selected_td"><ul class="o_checklist"><li placeholder="List" class="o-we-hint"><br></li></ul></td>
-                                <td class="o_selected_td"><ul class="o_checklist"><li placeholder="List" class="o-we-hint">]<br></li></ul></td>
+                                <td class="o_selected_td"><ul class="o_checklist"><li><br></li></ul></td>
+                                <td class="o_selected_td"><ul class="o_checklist"><li><br></li></ul></td>
+                                <td class="o_selected_td"><ul class="o_checklist"><li>]<br></li></ul></td>
                             </tr>
                         </tbody>
                     </table>

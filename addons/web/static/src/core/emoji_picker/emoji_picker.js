@@ -19,6 +19,7 @@ import { _t } from "@web/core/l10n/translation";
 import { usePopover } from "@web/core/popover/popover_hook";
 import { fuzzyLookup } from "@web/core/utils/search";
 import { useAutofocus, useService } from "@web/core/utils/hooks";
+import { isMobileOS } from "@web/core/browser/feature_detection";
 
 /**
  *
@@ -166,6 +167,7 @@ export class EmojiPicker extends Component {
     setup() {
         this.gridRef = useRef("emoji-grid");
         this.ui = useState(useService("ui"));
+        this.isMobileOS = isMobileOS();
         this.state = useState({
             activeEmojiIndex: 0,
             categoryId: null,
@@ -268,10 +270,15 @@ export class EmojiPicker extends Component {
     }
 
     get recentEmojis() {
-        return Object.entries(this.state.recent)
+        const recent = Object.entries(this.state.recent)
             .sort(([, usage_1], [, usage_2]) => usage_2 - usage_1)
-            .slice(0, 42)
             .map(([codepoints]) => this.emojiByCodepoints[codepoints]);
+        if (this.searchTerm && recent.length > 0) {
+            return fuzzyLookup(this.searchTerm, recent, (emoji) =>
+                [emoji.name, ...emoji.keywords, ...emoji.emoticons, ...emoji.shortcodes].join(" ")
+            );
+        }
+        return recent.slice(0, 42);
     }
 
     onClick(ev) {
@@ -326,12 +333,17 @@ export class EmojiPicker extends Component {
     }
 
     getEmojis() {
+        let emojisToDisplay = [...this.emojis];
+        const recentEmojis = this.recentEmojis;
+        if (recentEmojis.length > 0 && this.searchTerm) {
+            emojisToDisplay = emojisToDisplay.filter((emoji) => !recentEmojis.includes(emoji));
+        }
         if (this.searchTerm.length > 1) {
-            return fuzzyLookup(this.searchTerm, this.emojis, (emoji) =>
+            return fuzzyLookup(this.searchTerm, emojisToDisplay, (emoji) =>
                 [emoji.name, ...emoji.keywords, ...emoji.emoticons, ...emoji.shortcodes].join(" ")
             );
         }
-        return this.emojis;
+        return emojisToDisplay;
     }
 
     selectCategory(ev) {

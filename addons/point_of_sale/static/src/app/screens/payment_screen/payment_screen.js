@@ -1,4 +1,5 @@
 import { _t } from "@web/core/l10n/translation";
+import { parseFloat } from "@web/views/fields/parsers";
 import { useErrorHandlers, useAsyncLockedMethod } from "@point_of_sale/app/utils/hooks";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
@@ -178,9 +179,6 @@ export class PaymentScreen extends Component {
             this.deletePaymentLine(this.selectedPaymentLine.uuid);
         } else {
             this.selectedPaymentLine.set_amount(amount);
-        }
-        if (!this.currentOrder.check_paymentlines_rounding()) {
-            this._display_popup_error_paymentlines_rounding();
         }
     }
     toggleIsToInvoice() {

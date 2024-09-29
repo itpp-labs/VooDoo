@@ -78,7 +78,7 @@ test("should not lose track of temporary hints on split block", async () => {
     );
 });
 
-test("temporary hint should not be displayed where there's a permanent one", async () => {
+test("hint should only Be display for focused empty block element", async () => {
     const { el, editor } = await setupEditor("<p>[]<br></p>", {});
     expect(getContent(el)).toBe(
         `<p placeholder='Type "/" for commands' class="o-we-hint">[]<br></p>`
@@ -91,7 +91,7 @@ test("temporary hint should not be displayed where there's a permanent one", asy
     await animationFrame();
     expect(getContent(el)).toBe(
         unformat(`
-            <h1 placeholder="Heading 1" class="o-we-hint"><br></h1>
+            <h1><br></h1>
             <p placeholder='Type "/" for commands' class="o-we-hint">[]<br></p>
         `)
     );
@@ -107,11 +107,29 @@ test("temporary hint should not be displayed where there's a permanent one", asy
 });
 
 test("hint for code section should have the same padding as its text content", async () => {
-    const { el, editor } = await setupEditor("<pre>[]</pre>", {});
+    const { el, editor } = await setupEditor("<pre>[]</pre>");
     expect(getContent(el)).toBe(`<pre placeholder="Code" class="o-we-hint">[]</pre>`);
     const pre = el.firstElementChild;
-    const paddingHint = getComputedStyle(pre, "::before").padding;
-    insertText(editor, "abc");
-    const paddingContent = getComputedStyle(pre).padding;
-    expect(paddingHint).toBe(paddingContent);
+    const hintStyle = getComputedStyle(pre, "::after");
+    expect(hintStyle.content).toBe('"Code"');
+    const paddingHint = hintStyle.padding;
+    await insertText(editor, "abc");
+    expect(hintStyle.content).toBe("none");
+    const paddingText = getComputedStyle(pre).padding;
+    expect(paddingHint).toBe(paddingText);
+});
+
+test("hint for blockquote should have the same padding as its text content", async () => {
+    const { el, editor } = await setupEditor("<blockquote>[]</blockquote>");
+    expect(getContent(el)).toBe(
+        `<blockquote placeholder="Quote" class="o-we-hint">[]</blockquote>`
+    );
+    const blockquote = el.firstElementChild;
+    const hintStyle = getComputedStyle(blockquote, "::after");
+    expect(hintStyle.content).toBe('"Quote"');
+    const paddingHint = hintStyle.padding;
+    await insertText(editor, "abc");
+    expect(hintStyle.content).toBe("none");
+    const paddingText = getComputedStyle(blockquote).padding;
+    expect(paddingHint).toBe(paddingText);
 });

@@ -221,11 +221,23 @@ export class SelfOrder extends Reactive {
         };
 
         if (Object.entries(selectedValues).length > 0) {
-            values.attribute_value_ids = Object.values(selectedValues).map((a) => {
-                const attrVal = this.models["product.template.attribute.value"].get(a);
-                values.price_extra += attrVal.price_extra;
-                return ["link", attrVal];
-            });
+            values.attribute_value_ids = Object.entries(selectedValues).reduce(
+                (acc, [attributeId, options]) => {
+                    const optionEntries = Object.entries(
+                        typeof options === "object" ? options : { [options]: true }
+                    ).filter(([, isSelected]) => isSelected); // Only true values
+
+                    optionEntries.forEach(([optionId]) => {
+                        const attrVal = this.models["product.template.attribute.value"].get(
+                            Number(optionId)
+                        );
+                        values.price_extra += attrVal.price_extra;
+                        acc.push(["link", attrVal]);
+                    });
+                    return acc;
+                },
+                []
+            );
 
             if (Object.values(customValues).length > 0) {
                 values.custom_attribute_value_ids = Object.values(customValues)
@@ -447,11 +459,11 @@ export class SelfOrder extends Reactive {
 
     _getKioskPrintingCategoriesChanges(categories) {
         return this.currentOrder.lines.filter((orderline) =>
-            categories.some((categId) =>
+            categories.some((category) =>
                 this.models["product.product"]
-                    .get(orderline["product_id"])
+                    .get(orderline.product_id.id)
                     .pos_categ_ids.map((categ) => categ.id)
-                    .includes(categId)
+                    .includes(category.id)
             )
         );
     }
@@ -470,7 +482,7 @@ export class SelfOrder extends Reactive {
                 const printingChanges = {
                     new: orderlines,
                     tracker: this.currentOrder.table_stand_number,
-                    trackingNumber: this.currentOrder.trackingNumber || "unknown number",
+                    trackingNumber: this.currentOrder.tracking_number || "unknown number",
                     name: this.currentOrder.pos_reference || "unknown order",
                     time: {
                         hours,

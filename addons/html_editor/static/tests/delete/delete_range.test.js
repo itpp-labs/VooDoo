@@ -250,6 +250,14 @@ describe("deleteRange method", () => {
             expect(getContent(el)).toBe(contentAfter);
         });
     });
+    describe("Fill shrunk blocks", () => {
+        test("should not fill a HR with BR", async () => {
+            const { editor, el } = await setupEditor("<hr><p>abc[</p><p>]def</p>");
+            deleteRange(editor);
+            const hr = el.firstElementChild;
+            expect(hr.childNodes.length).toBe(0);
+        });
+    });
 });
 
 describe("DELETE_SELECTION command", () => {
@@ -380,7 +388,7 @@ describe("DELETE_SELECTION command", () => {
                         `<div class="container o_text_columns">
                             <div class="row">
                                 <div class="col-6">a[]</div>
-                                <div class="col-6 o-we-hint" placeholder="Empty column"><br></div>
+                                <div class="col-6"><br></div>
                             </div>
                         </div>
                         <p>i</p>`

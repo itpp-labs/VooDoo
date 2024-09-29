@@ -158,6 +158,18 @@ export function onRpcBefore(route, callback) {
     }
 }
 
+/**
+ * Register a callback to be executed just before end of an RPC request being processed.
+ * Useful to do all server processing but delay the response received by web client.
+ *
+ * @param {string} route the route to put callback just before returning response.
+ * @param {Function} callback - The function to execute just before the end of RPC call.
+ */
+export function onRpcAfter(route, callback) {
+    const handler = registry.category("mock_rpc").get(route);
+    patchWithCleanup(handler, { after: callback });
+}
+
 let archs = {};
 export function registerArchs(newArchs) {
     archs = newArchs;
@@ -395,19 +407,20 @@ function getSizeFromWidth(width) {
  * @param {number|undefined} [params.width]
  * @param {number|undefined} [params.height]
  */
-export function patchUiSize({ height, size, width }) {
+export async function patchUiSize({ height, size, width }) {
     if ((!size && !width) || (size && width)) {
         throw new Error("Either size or width must be given to the patchUiSize function");
     }
     size = size === undefined ? getSizeFromWidth(width) : size;
     width = width || getWidthFromSize(size);
 
-    resize({ width, height });
     patchWithCleanup(uiUtils, {
         getSize() {
             return size;
         },
     });
+
+    await resize({ width, height });
 }
 
 /**
@@ -624,5 +637,5 @@ export function isInViewportOf(parent, child) {
 
 export async function hover(selector) {
     await contains(selector);
-    hootHover(selector);
+    await hootHover(selector);
 }

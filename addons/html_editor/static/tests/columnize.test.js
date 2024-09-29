@@ -20,7 +20,7 @@ function columnize(numberOfColumns) {
 }
 
 describe("2 columns", () => {
-    test("should display hint for empty columns", async () => {
+    test("should display hint for focused empty column.", async () => {
         await testEditor({
             /* eslint-disable */
             contentBefore:
@@ -31,7 +31,7 @@ describe("2 columns", () => {
             contentAfterEdit:
                 columnsContainer(
                     column(6, `<p placeholder="Empty column" class="o-we-hint">[]<br></p>`) +
-                    column(6, `<p placeholder="Empty column" class="o-we-hint"><br></p>`)
+                    column(6, `<p><br></p>`)
                 ),
             /* eslint-enable */
         });
@@ -57,7 +57,7 @@ describe("2 columns", () => {
             /* eslint-disable */
                 columnsContainer(
                     column(6, "<p>[]abcd</p>") +
-                    column(6, `<p placeholder="Empty column" class="o-we-hint"><br></p>`)
+                    column(6, `<p><br></p>`)
                 ) +
                 "<p><br></p>",
             contentAfter:
@@ -101,16 +101,16 @@ describe("2 columns", () => {
 
     test("apply '2 columns' powerbox command", async () => {
         const { el, editor } = await setupEditor("<p>ab[]cd</p>");
-        insertText(editor, "/2columns");
+        await insertText(editor, "/2columns");
         await animationFrame();
         expect(".active .o-we-command-name").toHaveText("2 columns");
 
-        press("enter");
+        await press("enter");
         expect(getContent(el)).toBe(
-            `<div class="container o_text_columns"><div class="row"><div class="col-6"><p>ab[]cd</p></div><div class="col-6"><p placeholder="Empty column" class="o-we-hint"><br></p></div></div></div><p><br></p>`
+            `<div class="container o_text_columns"><div class="row"><div class="col-6"><p>ab[]cd</p></div><div class="col-6"><p><br></p></div></div></div><p><br></p>`
         );
 
-        insertText(editor, "/columns");
+        await insertText(editor, "/columns");
         await animationFrame();
         expect(queryAllTexts(".o-we-command-name")).toEqual([
             "3 columns",
@@ -129,7 +129,7 @@ describe("3 columns", () => {
             contentBeforeEdit:
                 columnsContainer(
                     column(4, "<p>abcd</p>") +
-                    column(4, `<p placeholder="Empty column" class="o-we-hint"><br></p>`) +
+                    column(4, `<p><br></p>`) +
                     column(4, `<p placeholder="Empty column" class="o-we-hint">[]<br></p>`)
                 ),
             /* eslint-enable */
@@ -148,8 +148,8 @@ describe("3 columns", () => {
             contentAfterEdit:
                 columnsContainer(
                     column(4, "<p>ab[]cd</p>") +
-                    column(4, `<p placeholder="Empty column" class="o-we-hint"><br></p>`) +
-                    column(4, `<p placeholder="Empty column" class="o-we-hint"><br></p>`)
+                    column(4, `<p><br></p>`) +
+                    column(4, `<p><br></p>`)
                 ) + "<p><br></p>",
             contentAfter:
                 columnsContainer(
@@ -194,16 +194,16 @@ describe("3 columns", () => {
 
     test("apply '3 columns' powerbox command", async () => {
         const { el, editor } = await setupEditor("<p>ab[]cd</p>");
-        insertText(editor, "/3columns");
+        await insertText(editor, "/3columns");
         await animationFrame();
         expect(".active .o-we-command-name").toHaveText("3 columns");
 
-        press("enter");
+        await press("enter");
         expect(getContent(el)).toBe(
-            `<div class="container o_text_columns"><div class="row"><div class="col-4"><p>ab[]cd</p></div><div class="col-4"><p placeholder="Empty column" class="o-we-hint"><br></p></div><div class="col-4"><p placeholder="Empty column" class="o-we-hint"><br></p></div></div></div><p><br></p>`
+            `<div class="container o_text_columns"><div class="row"><div class="col-4"><p>ab[]cd</p></div><div class="col-4"><p><br></p></div><div class="col-4"><p><br></p></div></div></div><p><br></p>`
         );
 
-        insertText(editor, "/columns");
+        await insertText(editor, "/columns");
         await animationFrame();
         expect(queryAllTexts(".o-we-command-name")).toEqual([
             "2 columns",
@@ -280,16 +280,16 @@ describe("4 columns", () => {
 
     test("apply '4 columns' powerbox command", async () => {
         const { el, editor } = await setupEditor("<p>ab[]cd</p>");
-        insertText(editor, "/4columns");
+        await insertText(editor, "/4columns");
         await animationFrame();
         expect(".active .o-we-command-name").toHaveText("4 columns");
 
-        press("enter");
+        await press("enter");
         expect(getContent(el)).toBe(
-            `<div class="container o_text_columns"><div class="row"><div class="col-3"><p>ab[]cd</p></div><div class="col-3"><p placeholder="Empty column" class="o-we-hint"><br></p></div><div class="col-3"><p placeholder="Empty column" class="o-we-hint"><br></p></div><div class="col-3"><p placeholder="Empty column" class="o-we-hint"><br></p></div></div></div><p><br></p>`
+            `<div class="container o_text_columns"><div class="row"><div class="col-3"><p>ab[]cd</p></div><div class="col-3"><p><br></p></div><div class="col-3"><p><br></p></div><div class="col-3"><p><br></p></div></div></div><p><br></p>`
         );
 
-        insertText(editor, "/columns");
+        await insertText(editor, "/columns");
         await animationFrame();
         expect(queryAllTexts(".o-we-command-name")).toEqual([
             "2 columns",
@@ -345,7 +345,7 @@ describe("remove columns", () => {
 
     test("apply 'remove columns' powerbox command", async () => {
         const { el, editor } = await setupEditor("<p>ab[]cd</p>");
-        insertText(editor, "/columns");
+        await insertText(editor, "/columns");
         await animationFrame();
         expect(queryAllTexts(".o-we-command-name")).toEqual([
             "2 columns",
@@ -354,15 +354,15 @@ describe("remove columns", () => {
         ]);
 
         // add 2 columns
-        press("enter");
+        await press("enter");
         expect(getContent(el)).toBe(
-            `<div class="container o_text_columns"><div class="row"><div class="col-6"><p>ab[]cd</p></div><div class="col-6"><p placeholder="Empty column" class="o-we-hint"><br></p></div></div></div><p><br></p>`
+            `<div class="container o_text_columns"><div class="row"><div class="col-6"><p>ab[]cd</p></div><div class="col-6"><p><br></p></div></div></div><p><br></p>`
         );
 
-        insertText(editor, "/removecolumns");
+        await insertText(editor, "/removecolumns");
         await animationFrame();
         expect(".active .o-we-command-name").toHaveText("Remove columns");
-        press("enter");
+        await press("enter");
         expect(getContent(el)).toBe(`<p>ab[]cd</p><p><br></p><p><br></p>`);
     });
 });
@@ -413,7 +413,7 @@ describe("undo", () => {
             stepFunction: async (editor) => {
                 columnize(2)(editor);
                 undo(editor);
-                insertText(editor, "x");
+                await insertText(editor, "x");
             },
             contentAfter: "<p>x[]</p>",
         });
@@ -426,7 +426,7 @@ describe("undo", () => {
                 columnize(2)(editor);
                 undo(editor);
                 redo(editor);
-                insertText(editor, "x");
+                await insertText(editor, "x");
             },
             contentAfter:
                 columnsContainer(column(6, "<p>x[]</p>") + column(6, "<p><br></p>")) +
