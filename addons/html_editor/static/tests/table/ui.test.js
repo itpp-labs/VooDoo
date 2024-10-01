@@ -4,6 +4,7 @@ import { animationFrame } from "@odoo/hoot-mock";
 import { setupEditor } from "../_helpers/editor";
 import { unformat } from "../_helpers/format";
 import { getContent } from "../_helpers/selection";
+import { undo } from "../_helpers/user_actions";
 
 function availableCommands(menu) {
     return queryAllAttributes("span div.user-select-none", "name", { root: menu });
@@ -309,7 +310,7 @@ test("open/close table menu", async () => {
 });
 
 test("basic delete column operation", async () => {
-    const { el } = await setupEditor(
+    const { el, editor } = await setupEditor(
         unformat(`
         <table>
             <tbody>
@@ -340,10 +341,21 @@ test("basic delete column operation", async () => {
             </tbody>
         </table>`)
     );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td class="a">1[]</td><td class="b">2</td></tr>
+                <tr><td class="c">3</td><td class="d">4</td></tr>
+            </tbody>
+        </table>`)
+    );
 });
 
 test("basic delete row operation", async () => {
-    const { el } = await setupEditor(
+    const { el, editor } = await setupEditor(
         unformat(`
         <table>
             <tbody>
@@ -373,10 +385,21 @@ test("basic delete row operation", async () => {
             </tbody>
         </table>`)
     );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td class="a">1[]</td><td class="b">2</td></tr>
+                <tr><td class="c">3</td><td class="d">4</td></tr>
+            </tbody>
+        </table>`)
+    );
 });
 
 test("insert column left operation", async () => {
-    const { el } = await setupEditor(
+    const { el, editor } = await setupEditor(
         unformat(`
         <table>
             <tbody>
@@ -414,10 +437,21 @@ test("insert column left operation", async () => {
             </tbody>
         </table>`)
     );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td class="a">1[]</td><td class="b">2</td></tr>
+                <tr><td class="c">3</td><td class="d">4</td></tr>
+            </tbody>
+        </table>`)
+    );
 });
 
 test("insert column right operation", async () => {
-    const { el } = await setupEditor(
+    const { el, editor } = await setupEditor(
         unformat(`
         <table>
             <tbody>
@@ -455,10 +489,21 @@ test("insert column right operation", async () => {
             </tbody>
         </table>`)
     );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td class="a">1[]</td><td class="b">2</td></tr>
+                <tr><td class="c">3</td><td class="d">4</td></tr>
+            </tbody>
+        </table>`)
+    );
 });
 
 test("insert row above operation", async () => {
-    const { el } = await setupEditor(
+    const { el, editor } = await setupEditor(
         unformat(`
         <table>
             <tbody>
@@ -498,10 +543,21 @@ test("insert row above operation", async () => {
             </tbody>
         </table>`)
     );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td class="a">1[]</td><td class="b">2</td></tr>
+                <tr><td class="c">3</td><td class="d">4</td></tr>
+            </tbody>
+        </table>`)
+    );
 });
 
 test("insert row below operation", async () => {
-    const { el } = await setupEditor(
+    const { el, editor } = await setupEditor(
         unformat(`
         <table>
             <tbody>
@@ -541,10 +597,21 @@ test("insert row below operation", async () => {
             </tbody>
         </table>`)
     );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td class="a">1[]</td><td class="b">2</td></tr>
+                <tr><td class="c">3</td><td class="d">4</td></tr>
+            </tbody>
+        </table>`)
+    );
 });
 
 test("move column left operation", async () => {
-    const { el } = await setupEditor(
+    const { el, editor } = await setupEditor(
         unformat(`
         <table>
             <tbody>
@@ -574,10 +641,21 @@ test("move column left operation", async () => {
             </tbody>
         </table>`)
     );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td class="a">1</td><td class="b">2[]</td></tr>
+                <tr><td class="c">3</td><td class="d">4</td></tr>
+            </tbody>
+        </table>`)
+    );
 });
 
 test("move column right operation", async () => {
-    const { el } = await setupEditor(
+    const { el, editor } = await setupEditor(
         unformat(`
         <table>
             <tbody>
@@ -607,10 +685,21 @@ test("move column right operation", async () => {
             </tbody>
         </table>`)
     );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td class="a">1</td><td class="b">2[]</td></tr>
+                <tr><td class="c">3</td><td class="d">4</td></tr>
+            </tbody>
+        </table>`)
+    );
 });
 
 test("move row above operation", async () => {
-    const { el } = await setupEditor(
+    const { el, editor } = await setupEditor(
         unformat(`
         <table>
             <tbody>
@@ -637,6 +726,17 @@ test("move row above operation", async () => {
             <tbody>
             <tr><td class="c">3</td><td class="d">4</td></tr>
             <tr><td class="a">1[]</td><td class="b">2</td></tr>
+            </tbody>
+        </table>`)
+    );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td class="a">1[]</td><td class="b">2</td></tr>
+                <tr><td class="c">3</td><td class="d">4</td></tr>
             </tbody>
         </table>`)
     );
@@ -678,7 +778,7 @@ test("preserve table rows width on move row above operation", async () => {
 });
 
 test("move row below operation", async () => {
-    const { el } = await setupEditor(
+    const { el, editor } = await setupEditor(
         unformat(`
         <table>
             <tbody>
@@ -705,6 +805,17 @@ test("move row below operation", async () => {
             <tbody>
             <tr><td class="c">3</td><td class="d">4</td></tr>
             <tr><td class="a">1[]</td><td class="b">2</td></tr>
+            </tbody>
+        </table>`)
+    );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td class="a">1[]</td><td class="b">2</td></tr>
+                <tr><td class="c">3</td><td class="d">4</td></tr>
             </tbody>
         </table>`)
     );
@@ -740,6 +851,88 @@ test("preserve table rows width on move row below operation", async () => {
                 <tr><td style="width: 100px;" class="c">3</td><td style="width: 200px;" class="d">4</td></tr>
                 <tr><td style="width: 100px;" class="a">1[]</td><td style="width: 200px;" class="b">2</td></tr>
                 <tr><td style="width: 150px;" class="e">5</td><td style="width: 150px;" class="f">6</td></tr>
+            </tbody>
+        </table>`)
+    );
+});
+
+test("reset table size to remove custom width", async () => {
+    const { el, editor } = await setupEditor(
+        unformat(`
+        <table style="width: 150px;">
+            <tbody>
+            <tr><td style="width: 100px;" class="a">1[]</td></tr>
+            <tr><td style="width: 50px;" class="b">2</td></tr>
+            </tbody>
+        </table>`)
+    );
+    expect(".o-we-table-menu").toHaveCount(0);
+
+    await hover(el.querySelector("td.a"));
+    await waitFor(".o-we-table-menu");
+    expect("[data-type='row'].o-we-table-menu").toHaveCount(1);
+
+    await click("[data-type='row'].o-we-table-menu");
+    await waitFor(".dropdown-menu");
+    await click(queryOne(".dropdown-menu [name='reset_size']"));
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr><td style="" class="a">1[]</td></tr>
+                <tr><td style="" class="b">2</td></tr>
+            </tbody>
+        </table>`)
+    );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table style="width: 150px;">
+            <tbody>
+            <tr><td style="width: 100px;" class="a">1[]</td></tr>
+            <tr><td style="width: 50px;" class="b">2</td></tr>
+            </tbody>
+        </table>`)
+    );
+});
+
+test("reset table size to remove custom height", async () => {
+    const { el, editor } = await setupEditor(
+        unformat(`
+        <table>
+            <tbody>
+            <tr style="height: 100px;"><td class="a">1[]</td></tr>
+            <tr style="height: 50px;"><td class="b">2</td></tr>
+            </tbody>
+        </table>`)
+    );
+    expect(".o-we-table-menu").toHaveCount(0);
+
+    await hover(el.querySelector("td.a"));
+    await waitFor(".o-we-table-menu");
+    expect("[data-type='row'].o-we-table-menu").toHaveCount(1);
+
+    await click("[data-type='row'].o-we-table-menu");
+    await waitFor(".dropdown-menu");
+    await click(queryOne(".dropdown-menu [name='reset_size']"));
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+                <tr style=""><td class="a">1[]</td></tr>
+                <tr style=""><td class="b">2</td></tr>
+            </tbody>
+        </table>`)
+    );
+
+    undo(editor);
+    expect(getContent(el)).toBe(
+        unformat(`
+        <table>
+            <tbody>
+            <tr style="height: 100px;"><td class="a">1[]</td></tr>
+            <tr style="height: 50px;"><td class="b">2</td></tr>
             </tbody>
         </table>`)
     );
