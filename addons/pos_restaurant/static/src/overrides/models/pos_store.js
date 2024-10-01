@@ -317,7 +317,7 @@ patch(PosStore.prototype, {
         );
     },
     tableHasOrders(table) {
-        return this.getActiveOrdersOnTable(table).length > 0;
+        return Boolean(table.getOrder());
     },
     getTableFromElement(el) {
         return this.models["restaurant.table"].get(
@@ -340,6 +340,7 @@ patch(PosStore.prototype, {
             this.addPendingOrder([order.id]);
         } else {
             const destinationOrder = this.getActiveOrdersOnTable(destinationTable)[0];
+            const linesToUpdate = [];
             for (const orphanLine of order.lines) {
                 const adoptingLine = destinationOrder.lines.find((l) =>
                     l.can_be_merged_with(orphanLine)
@@ -347,11 +348,16 @@ patch(PosStore.prototype, {
                 if (adoptingLine) {
                     adoptingLine.merge(orphanLine);
                 } else {
-                    orphanLine.update({ order_id: destinationOrder.id });
+                    linesToUpdate.push(orphanLine);
                 }
             }
+            linesToUpdate.forEach((orderline) => {
+                orderline.update({ order_id: destinationOrder.id });
+            });
             this.set_order(destinationOrder);
-            this.addPendingOrder([destinationOrder.id]);
+            if (destinationOrder?.id) {
+                this.addPendingOrder([destinationOrder.id]);
+            }
             await this.deleteOrders([order]);
         }
         await this.setTable(destinationTable);

@@ -19,6 +19,9 @@
         'google_recaptcha',
         'utm',
     ],
+    'external_dependencies': {
+        'python': ['geoip2'],
+    },
     'installable': True,
     'data': [
         # security.xml first, data.xml need the group to exist (checking it)
@@ -288,6 +291,7 @@
         'web_editor.assets_wysiwyg': [
             'website/static/src/js/editor/editor.js',
             'website/static/src/xml/web_editor.xml',
+            'website/static/src/js/editor/add_snippet_dialog.js'
         ],
         'website.assets_wysiwyg': [
             ('include', 'web._assets_helpers'),
