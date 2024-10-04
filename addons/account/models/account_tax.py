@@ -473,10 +473,19 @@ class AccountTax(models.Model):
         return ''.join(list_name)
 
     @api.model
-    def _search_display_name(self, operator, value):
-        if operator in ("ilike", "like"):
-            value = AccountTax._parse_name_search(value)
-        return super()._search_display_name(operator, value)
+    def _search(self, domain, offset=0, limit=None, order=None):
+        """
+        Intercept the search on `name` to allow searching more freely on taxes
+        when using `like` or `ilike`.
+        """
+        def preprocess_name_search(leaf):
+            match leaf:
+                case ('name', 'ilike' | 'like' as operator, str() as value):
+                    return ('name', operator, AccountTax._parse_name_search(value))
+                case _:
+                    return leaf
+        domain = [preprocess_name_search(leaf) for leaf in domain]
+        return super()._search(domain, offset, limit, order)
 
     def _search_name(self, operator, value):
         if operator not in ("ilike", "like") or not isinstance(value, str):
@@ -1060,11 +1069,6 @@ class AccountTax(models.Model):
                 continue
 
             total_tax_amount = sum(taxes_data[other_tax.id]['tax_amount'] for other_tax in taxes_data[tax.id]['batch'])
-            total_tax_amount += sum(
-                reverse_charge_taxes_data[other_tax.id]['tax_amount']
-                for other_tax in taxes_data[tax.id]['batch']
-                if other_tax.has_negative_factor
-            )
             base = raw_base + taxes_data[tax.id]['extra_base_for_base']
             if taxes_data[tax.id]['price_include'] and special_mode in (False, 'total_included'):
                 base -= total_tax_amount
@@ -1645,8 +1649,12 @@ class AccountTax(models.Model):
                     continue
 
                 amount_to_distribute = total_error / nb_of_errors
-                for tax_rep in sorted_tax_reps_data[:nb_of_errors]:
+                index = 0
+                while nb_of_errors:
+                    tax_rep = sorted_tax_reps_data[index]
                     tax_rep[field] += amount_to_distribute
+                    nb_of_errors -= 1
+                    index = (index + 1) % len(sorted_tax_reps_data)
 
         subsequent_taxes = self.env['account.tax']
         subsequent_tags = self.env['account.account.tag']
