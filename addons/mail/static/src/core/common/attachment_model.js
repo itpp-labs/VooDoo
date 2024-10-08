@@ -5,6 +5,7 @@ import { rpc } from "@web/core/network/rpc";
 import { FileModelMixin } from "@web/core/file_viewer/file_model";
 
 export class Attachment extends FileModelMixin(Record) {
+    static _name = "ir.attachment";
     static id = "id";
     /** @type {Object.<number, import("models").Attachment>} */
     static records = {};
@@ -12,7 +13,11 @@ export class Attachment extends FileModelMixin(Record) {
     static get(data) {
         return super.get(data);
     }
-    /** @returns {import("models").Attachment|import("models").Attachment[]} */
+    /**
+     * @template T
+     * @param {T} data
+     * @returns {T extends any[] ? import("models").Attachment[] : import("models").Attachment}
+     */
     static insert(data) {
         return super.insert(...arguments);
     }
@@ -29,7 +34,7 @@ export class Attachment extends FileModelMixin(Record) {
 
     thread = Record.one("Thread", { inverse: "attachments" });
     res_name;
-    message = Record.one("Message", { inverse: "attachment_ids" });
+    message = Record.one("mail.message", { inverse: "attachment_ids" });
     /** @type {luxon.DateTime} */
     create_date = Record.attr(undefined, { type: "datetime" });
 

@@ -374,7 +374,9 @@ export class Composer extends Component {
                     optionTemplate: "mail.Composer.suggestionThread",
                     options: suggestions.map((suggestion) => {
                         return {
-                            label: suggestion.displayName,
+                            label: suggestion.parent_channel_id
+                                ? `${suggestion.parent_channel_id.displayName} > ${suggestion.displayName}`
+                                : suggestion.displayName,
                             thread: suggestion,
                             classList: "o-mail-Composer-suggestion",
                         };
@@ -648,7 +650,7 @@ export class Composer extends Component {
 
     /**
      * @typedef postData
-     * @property {import('@mail/attachments/attachment_model').Attachment[]} attachments
+     * @property {import("models").Attachment[]} attachments
      * @property {boolean} isNote
      * @property {number} parentId
      * @property {integer[]} mentionedChannelIds

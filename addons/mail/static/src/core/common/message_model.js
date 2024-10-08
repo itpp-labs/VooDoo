@@ -16,6 +16,7 @@ import { toRaw } from "@odoo/owl";
 
 const { DateTime } = luxon;
 export class Message extends Record {
+    static _name = "mail.message";
     static id = "id";
     /** @type {Object.<number, import("models").Message>} */
     static records = {};
@@ -23,7 +24,11 @@ export class Message extends Record {
     static get(data) {
         return super.get(data);
     }
-    /** @returns {import("models").Message|import("models").Message[]} */
+    /**
+     * @template T
+     * @param {T} data
+     * @returns {T extends any[] ? import("models").Message[] : import("models").Message}
+     */
     static insert(data) {
         return super.insert(...arguments);
     }
@@ -38,7 +43,7 @@ export class Message extends Record {
         }
     }
 
-    attachment_ids = Record.many("Attachment", { inverse: "message" });
+    attachment_ids = Record.many("ir.attachment", { inverse: "message" });
     author = Record.one("Persona");
     body = Record.attr("", { html: true });
     composer = Record.one("Composer", { inverse: "message", onDelete: (r) => r.delete() });
@@ -119,9 +124,12 @@ export class Message extends Record {
     is_note;
     /** @type {boolean} */
     is_transient;
-    linkPreviews = Record.many("LinkPreview", { inverse: "message", onDelete: (r) => r.delete() });
+    linkPreviews = Record.many("mail.link.preview", {
+        inverse: "message",
+        onDelete: (r) => r.delete(),
+    });
     /** @type {number[]} */
-    parentMessage = Record.one("Message");
+    parentMessage = Record.one("mail.message");
     /**
      * When set, this temporary/pending message failed message post, and the
      * value is a callback to re-attempt to post the message.
@@ -137,7 +145,7 @@ export class Message extends Record {
          */
         sort: (r1, r2) => r1.sequence - r2.sequence,
     });
-    notifications = Record.many("Notification", { inverse: "message" });
+    notifications = Record.many("mail.notification", { inverse: "message" });
     recipients = Record.many("Persona");
     thread = Record.one("Thread");
     threadAsNeedaction = Record.one("Thread", {

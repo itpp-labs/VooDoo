@@ -19,17 +19,8 @@ let prevLastMessageId = null;
 let temporaryIdOffset = 0.01;
 
 export const pyToJsModels = {
-    "discuss.channel.member": "ChannelMember",
-    "discuss.channel.rtc.session": "RtcSession",
     "discuss.channel": "Thread",
-    "ir.attachment": "Attachment",
-    "mail.activity": "Activity",
     "mail.guest": "Persona",
-    "mail.followers": "Follower",
-    "mail.link.preview": "LinkPreview",
-    "mail.message": "Message",
-    "mail.notification": "Notification",
-    "mail.scheduled.message": "ScheduledMessage",
     "mail.thread": "Thread",
     "res.partner": "Persona",
 };
@@ -52,34 +43,30 @@ export class Store extends BaseStore {
         return super.insert(...arguments);
     }
 
-    /** @type {typeof import("@mail/core/web/activity_model").Activity} */
-    Activity;
-    /** @type {typeof import("@mail/core/common/attachment_model").Attachment} */
-    Attachment;
-    /** @type {typeof import("@mail/core/common/canned_response_model").CannedResponse} */
-    ["mail.canned.response"];
-    /** @type {typeof import("@mail/core/common/channel_member_model").ChannelMember} */
-    ChannelMember;
     /** @type {typeof import("@mail/core/common/chat_window_model").ChatWindow} */
     ChatWindow;
     /** @type {typeof import("@mail/core/common/composer_model").Composer} */
     Composer;
     /** @type {typeof import("@mail/core/common/failure_model").Failure} */
     Failure;
+    /** @type {typeof import("@mail/core/common/attachment_model").Attachment} */
+    ["ir.attachment"];
+    /** @type {typeof import("@mail/core/web/activity_model").Activity} */
+    ["mail.activity"];
+    /** @type {typeof import("@mail/core/common/canned_response_model").CannedResponse} */
+    ["mail.canned.response"];
     /** @type {typeof import("@mail/core/common/follower_model").Follower} */
-    Follower;
+    ["mail.followers"];
     /** @type {typeof import("@mail/core/common/link_preview_model").LinkPreview} */
-    LinkPreview;
+    ["mail.link.preview"];
     /** @type {typeof import("@mail/core/common/message_model").Message} */
-    Message;
+    ["mail.message"];
+    /** @type {typeof import("@mail/core/common/notification_model").Notification} */
+    ["mail.notification"];
     /** @type {typeof import("@mail/core/common/message_reactions_model").MessageReactions} */
     MessageReactions;
-    /** @type {typeof import("@mail/core/common/notification_model").Notification} */
-    Notification;
     /** @type {typeof import("@mail/core/common/persona_model").Persona} */
     Persona;
-    /** @type {typeof import "@mail/chatter/web/scheduled_message_model).ScheduledMessage"} */
-    ScheduledMessage;
     /** @type {typeof import("@mail/core/common/settings_model").Settings} */
     Settings;
     /** @type {typeof import("@mail/core/common/thread_model").Thread} */
@@ -474,7 +461,7 @@ export class Store extends BaseStore {
 
     /** @returns {number} */
     getLastMessageId() {
-        return Object.values(this.Message.records).reduce(
+        return Object.values(this["mail.message"].records).reduce(
             (lastMessageId, message) => Math.max(lastMessageId, message.id),
             0
         );
@@ -485,9 +472,14 @@ export class Store extends BaseStore {
         { mentionedChannels = [], mentionedPartners = [], specialMentions = [] } = {}
     ) {
         const validMentions = {};
-        validMentions.threads = mentionedChannels.filter((thread) =>
-            body.includes(`#${thread.displayName}`)
-        );
+        validMentions.threads = mentionedChannels.filter((thread) => {
+            if (thread.parent_channel_id) {
+                return body.includes(
+                    `#${thread.parent_channel_id.displayName} > ${thread.displayName}`
+                );
+            }
+            return body.includes(`#${thread.displayName}`);
+        });
         validMentions.partners = mentionedPartners.filter((partner) =>
             body.includes(`@${partner.name}`)
         );
@@ -704,7 +696,7 @@ export class Store extends BaseStore {
         return {
             count,
             loadMore: messages.length === this.FETCH_LIMIT,
-            messages: this.Message.insert(messages),
+            messages: this["mail.message"].insert(messages),
         };
     }
 
@@ -745,7 +737,8 @@ export const storeService = {
     dependencies: ["bus_service", "ui"],
     /**
      * @param {import("@web/env").OdooEnv} env
-     * @param {Partial<import("services").Services>} services
+     * @param {import("services").ServiceFactories} services
+     * @returns {import("models").Store}
      */
     start(env, services) {
         const store = makeStore(env);

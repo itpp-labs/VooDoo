@@ -1,7 +1,6 @@
 declare module "models" {
     import { Attachment as AttachmentClass } from "@mail/core/common/attachment_model";
     import { CannedResponse as CannedResponseClass } from "@mail/core/common/canned_response_model";
-    import { ChannelMember as ChannelMemberClass } from "@mail/core/common/channel_member_model";
     import { ChatHub as ChatHubClass } from "@mail/core/common/chat_hub_model";
     import { ChatWindow as ChatWindowClass } from "@mail/core/common/chat_window_model";
     import { Composer as ComposerClass } from "@mail/core/common/composer_model";
@@ -21,7 +20,6 @@ declare module "models" {
     // define interfaces for jsdoc, including with patches
     export interface Attachment extends AttachmentClass {}
     export interface CannedResponse extends CannedResponseClass {}
-    export interface ChannelMember extends ChannelMemberClass {}
     export interface ChatHub extends ChatHubClass {}
     export interface ChatWindow extends ChatWindowClass {}
     export interface Composer extends ComposerClass {}
@@ -40,19 +38,18 @@ declare module "models" {
 
     // required to propagate types in relational fields
     export interface Models {
-        "Attachment": Attachment,
-        "mail.canned.response": CannedResponse,
-        "ChannelMember": ChannelMember,
         "ChatHub": ChatHub,
         "ChatWindow": ChatWindow,
         "Composer": Composer,
         "Country": Country,
         "Failure": Failure,
-        "Follower": Follower,
-        "LinkPreview": LinkPreview,
+        "ir.attachment": Attachment,
+        "mail.canned.response": CannedResponse,
+        "mail.followers": Follower,
+        "mail.link.preview": LinkPreview,
+        "mail.notification": Notification,
         "Message": Message,
         "MessageReactions": MessageReactions,
-        "Notification": Notification,
         "Persona": Persona,
         "Settings": Settings,
         "Store": Store,

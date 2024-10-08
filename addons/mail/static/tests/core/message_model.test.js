@@ -18,13 +18,13 @@ test("Message model properties", async () => {
         model: "res.partner",
         name: "general",
     });
-    store.Attachment.insert({
+    store["ir.attachment"].insert({
         filename: "test.txt",
         id: 750,
         mimetype: "text/plain",
         name: "test.txt",
     });
-    const message = store.Message.insert({
+    const message = store["mail.message"].insert({
         attachment_ids: 750,
         author: { id: 5, name: "Demo" },
         body: "<p>Test</p>",

@@ -67,12 +67,12 @@ export class Thread extends Record {
     uuid;
     /** @type {string} */
     model;
-    allMessages = Record.many("Message", {
+    allMessages = Record.many("mail.message", {
         inverse: "thread",
     });
     /** @type {boolean} */
     areAttachmentsLoaded = false;
-    attachments = Record.many("Attachment", {
+    attachments = Record.many("ir.attachment", {
         /**
          * @param {import("models").Attachment} a1
          * @param {import("models").Attachment} a2
@@ -90,32 +90,6 @@ export class Thread extends Record {
     get canUnpin() {
         return this.channel_type === "chat" && this.importantCounter === 0;
     }
-    channelMembers = Record.many("ChannelMember", {
-        inverse: "thread",
-        onDelete: (r) => r.delete(),
-        sort: (m1, m2) => m1.id - m2.id,
-    });
-    /**
-     * To be overridden.
-     * The purpose is to exclude technical channelMembers like bots and avoid
-     * "wrong" seen message indicator
-     */
-    get membersThatCanSeen() {
-        return this.channelMembers;
-    }
-    typingMembers = Record.many("ChannelMember", { inverse: "threadAsTyping" });
-    otherTypingMembers = Record.many("ChannelMember", {
-        /** @this {import("models").Thread} */
-        compute() {
-            return this.typingMembers.filter((member) => !member.persona?.eq(this.store.self));
-        },
-    });
-    hasOtherMembersTyping = Record.attr(false, {
-        /** @this {import("models").Thread} */
-        compute() {
-            return this.otherTypingMembers.length > 0;
-        },
-    });
     toggleBusSubscription = Record.attr(false, {
         compute() {
             return (
@@ -127,16 +101,10 @@ export class Thread extends Record {
             this.store.updateBusSubscription();
         },
     });
-    invitedMembers = Record.many("ChannelMember");
     composer = Record.one("Composer", {
         compute: () => ({}),
         inverse: "thread",
         onDelete: (r) => r.delete(),
-    });
-    correspondent = Record.one("ChannelMember", {
-        compute() {
-            return this.computeCorrespondent();
-        },
     });
     correspondentCountry = Record.one("Country", {
         /** @this {import("models").Thread} */
@@ -168,14 +136,14 @@ export class Thread extends Record {
             this.onPinStateUpdated();
         },
     });
-    followers = Record.many("Follower", {
+    followers = Record.many("mail.followers", {
         /** @this {import("models").Thread} */
         onAdd(r) {
             r.thread = this;
         },
         onDelete: (r) => r.delete(),
     });
-    selfFollower = Record.one("Follower", {
+    selfFollower = Record.one("mail.followers", {
         /** @this {import("models").Thread} */
         onAdd(r) {
             r.thread = this;
@@ -230,7 +198,7 @@ export class Thread extends Record {
             this.onPinStateUpdated();
         },
     });
-    mainAttachment = Record.one("Attachment");
+    mainAttachment = Record.one("ir.attachment");
     memberCount = 0;
     message_needaction_counter = 0;
     message_needaction_counter_bus_id = 0;
@@ -243,7 +211,7 @@ export class Thread extends Record {
      *
      * Content should be fetched and inserted in a controlled way.
      */
-    messages = Record.many("Message");
+    messages = Record.many("mail.message");
     /** @type {string} */
     modelName;
     /** @type {string} */
@@ -253,16 +221,13 @@ export class Thread extends Record {
      * `messages` list. This is a temporary storage to ensure nothing is lost
      * when fetching newer messages.
      */
-    pendingNewMessages = Record.many("Message");
-    needactionMessages = Record.many("Message", {
+    pendingNewMessages = Record.many("mail.message");
+    needactionMessages = Record.many("mail.message", {
         inverse: "threadAsNeedaction",
         sort: (message1, message2) => message1.id - message2.id,
     });
     /** @type {string} */
     name;
-    selfMember = Record.one("ChannelMember", {
-        inverse: "threadAsSelf",
-    });
     /** @type {'open' | 'folded' | 'closed'} */
     state;
     status = "new";
@@ -272,7 +237,7 @@ export class Thread extends Record {
      * @type {number|'bottom'}
      */
     scrollTop = "bottom";
-    transientMessages = Record.many("Message");
+    transientMessages = Record.many("mail.message");
     /** @type {string} */
     defaultDisplayMode;
     scrollUnread = true;
@@ -323,7 +288,7 @@ export class Thread extends Record {
     /** @type {"not_fetched"|"pending"|"fetched"} */
     fetchMembersState = "not_fetched";
     /** @type {integer|null} */
-    highlightMessage = Record.one("Message", {
+    highlightMessage = Record.one("mail.message", {
         onAdd(msg) {
             msg.thread = this;
         },
@@ -415,22 +380,6 @@ export class Thread extends Record {
         return this.channelMembers.filter(({ persona }) => persona.notEq(this.store.self));
     }
 
-    computeCorrespondent() {
-        if (this.channel_type === "channel") {
-            return undefined;
-        }
-        const correspondents = this.correspondents;
-        if (correspondents.length === 1) {
-            // 2 members chat.
-            return correspondents[0];
-        }
-        if (correspondents.length === 0 && this.channelMembers.length === 1) {
-            // Self-chat.
-            return this.channelMembers[0];
-        }
-        return undefined;
-    }
-
     computeIsDisplayed() {
         return this.store.ChatWindow.get({ thread: this })?.isOpen;
     }
@@ -463,14 +412,14 @@ export class Thread extends Record {
             : this.message_needaction_counter;
     }
 
-    newestMessage = Record.one("Message", {
+    newestMessage = Record.one("mail.message", {
         inverse: "threadAsNewest",
         compute() {
             return this.messages.findLast((msg) => !msg.isEmpty);
         },
     });
 
-    firstUnreadMessage = Record.one("Message", {
+    firstUnreadMessage = Record.one("mail.message", {
         /** @this {import("models").Thread} */
         compute() {
             if (!this.selfMember) {
@@ -485,7 +434,7 @@ export class Thread extends Record {
                 return null;
             }
             // try to find a perfect match according to the member's separator
-            let message = this.store.Message.get({ id: separator });
+            let message = this.store["mail.message"].get({ id: separator });
             if (!message || this.notEq(message.thread) || message.isEmpty) {
                 message = nearestGreaterThanOrEqual(messages, separator, (msg) => msg.id);
             }
@@ -497,7 +446,7 @@ export class Thread extends Record {
         return this.messages.findLast((msg) => Number.isInteger(msg.id));
     }
 
-    newestPersistentAllMessages = Record.many("Message", {
+    newestPersistentAllMessages = Record.many("mail.message", {
         compute() {
             const allPersistentMessages = this.allMessages.filter((message) =>
                 Number.isInteger(message.id)
@@ -507,13 +456,13 @@ export class Thread extends Record {
         },
     });
 
-    newestPersistentOfAllMessage = Record.one("Message", {
+    newestPersistentOfAllMessage = Record.one("mail.message", {
         compute() {
             return this.newestPersistentAllMessages[0];
         },
     });
 
-    newestPersistentNotEmptyOfAllMessage = Record.one("Message", {
+    newestPersistentNotEmptyOfAllMessage = Record.one("mail.message", {
         compute() {
             return this.newestPersistentAllMessages.find((message) => !message.isEmpty);
         },
@@ -524,10 +473,6 @@ export class Thread extends Record {
     }
 
     onPinStateUpdated() {}
-
-    get hasSelfAsMember() {
-        return Boolean(this.selfMember);
-    }
 
     hasSeenFeature = Record.attr(false, {
         /** @this {import("models").Thread} */
@@ -589,7 +534,7 @@ export class Thread extends Record {
         },
     });
 
-    lastSelfMessageSeenByEveryone = Record.one("Message", {
+    lastSelfMessageSeenByEveryone = Record.one("mail.message", {
         compute() {
             if (!this.lastMessageSeenByAllId) {
                 return false;
@@ -656,7 +601,7 @@ export class Thread extends Record {
             const { data, messages } = await this.fetchMessagesData({ after, around, before });
             this.store.insert(data, { html: true });
             this.isLoaded = true;
-            return this.store.Message.insert(messages.reverse());
+            return this.store["mail.message"].insert(messages.reverse());
         } catch (e) {
             this.hasLoadingFailed = true;
             throw e;
@@ -1012,7 +957,7 @@ export class Thread extends Record {
             };
             tmpData.author = this.store.self;
             if (parentId) {
-                tmpData.parentMessage = this.store.Message.get(parentId);
+                tmpData.parentMessage = this.store["mail.message"].get(parentId);
             }
             const prettyContent = await prettifyMessageContent(
                 body,
@@ -1021,7 +966,7 @@ export class Thread extends Record {
                     mentionedPartners,
                 })
             );
-            tmpMsg = this.store.Message.insert(
+            tmpMsg = this.store["mail.message"].insert(
                 {
                     ...tmpData,
                     body: prettyContent,
@@ -1041,8 +986,9 @@ export class Thread extends Record {
         if (!data) {
             return;
         }
-        const { Message: messages = [] } = this.store.insert(data, { html: true });
-        const [message] = messages;
+        const { "mail.message": messages = [] } = this.store.insert(data, { html: true });
+        /** @type {import("models").Message} */
+        const message = messages[0];
         this.addOrReplaceMessage(message, tmpMsg);
         if (this.selfMember?.seen_message_id?.id < message.id) {
             this.selfMember.seen_message_id = message;

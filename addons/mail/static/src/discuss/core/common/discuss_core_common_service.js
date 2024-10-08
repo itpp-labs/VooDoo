@@ -6,7 +6,7 @@ import { registry } from "@web/core/registry";
 export class DiscussCoreCommon {
     /**
      * @param {import("@web/env").OdooEnv} env
-     * @param {Partial<import("services").Services>} services
+     * @param {import("services").ServiceFactories} services
      */
     constructor(env, services) {
         this.busService = services.bus_service;
@@ -49,7 +49,7 @@ export class DiscussCoreCommon {
         this.busService.subscribe("discuss.channel/transient_message", (payload) => {
             const { body, thread } = payload;
             const lastMessageId = this.store.getLastMessageId();
-            const message = this.store.Message.insert(
+            const message = this.store["mail.message"].insert(
                 {
                     author: this.store.odoobot,
                     body,
@@ -75,7 +75,7 @@ export class DiscussCoreCommon {
         });
         this.busService.subscribe("discuss.channel.member/fetched", (payload) => {
             const { channel_id, id, last_message_id, partner_id } = payload;
-            this.store.ChannelMember.insert({
+            this.store["discuss.channel.member"].insert({
                 id,
                 fetched_message_id: { id: last_message_id },
                 persona: { type: "partner", id: partner_id },
@@ -143,11 +143,12 @@ export class DiscussCoreCommon {
         if (!channel) {
             return;
         }
-        const { Message: messages = [] } = this.store.insert(data, { html: true });
+        const { "mail.message": messages = [] } = this.store.insert(data, { html: true });
+        /** @type {import("models").Message} */
         const message = messages[0];
         if (message.notIn(channel.messages)) {
             if (!channel.loadNewer) {
-                channel.addOrReplaceMessage(message, this.store.Message.get(temporary_id));
+                channel.addOrReplaceMessage(message, this.store["mail.message"].get(temporary_id));
             } else if (channel.status === "loading") {
                 channel.pendingNewMessages.push(message);
             }
@@ -202,7 +203,7 @@ export const discussCoreCommon = {
     ],
     /**
      * @param {import("@web/env").OdooEnv} env
-     * @param {Partial<import("services").Services>} services
+     * @param {import("services").ServiceFactories} services
      */
     start(env, services) {
         const discussCoreCommon = reactive(new DiscussCoreCommon(env, services));

@@ -17,7 +17,7 @@ export class Failure extends Record {
         return super.insert(...arguments);
     }
 
-    notifications = Record.many("Notification", {
+    notifications = Record.many("mail.notification", {
         /** @this {import("models").Failure} */
         onUpdate() {
             if (this.notifications.length === 0) {
@@ -38,7 +38,7 @@ export class Failure extends Record {
             ...this.notifications.map((notif) => notif.message?.thread?.id).filter((id) => !!id),
         ]);
     }
-    lastMessage = Record.one("Message", {
+    lastMessage = Record.one("mail.message", {
         /** @this {import("models").Failure} */
         compute() {
             let lastMsg = this.notifications[0]?.message;
