@@ -25,7 +25,7 @@ class PosConfig(models.Model):
         return warehouse
 
     def _default_picking_type_id(self):
-        return self.env['stock.warehouse'].search(self.env['stock.warehouse']._check_company_domain(self.env.company), limit=1).pos_type_id.id
+        return self.env['stock.warehouse'].with_context(active_test=False).search(self.env['stock.warehouse']._check_company_domain(self.env.company), limit=1).pos_type_id.id
 
     def _default_sale_journal(self):
         journal = self.env['account.journal']._ensure_company_account_journal()
@@ -662,13 +662,23 @@ class PosConfig(models.Model):
         }
 
     def open_opened_rescue_session_form(self):
-        self.ensure_one()
-        return {
-            'res_model': 'pos.session',
-            'view_mode': 'form',
-            'res_id': self.session_ids.filtered(lambda s: s.state != 'closed' and s.rescue).id,
-            'type': 'ir.actions.act_window',
-        }
+        rescue_session_ids = self.session_ids.filtered(lambda s: s.state != 'closed' and s.rescue)
+
+        if len(rescue_session_ids) == 1:
+            return {
+                'res_model': 'pos.session',
+                'view_mode': 'form',
+                'res_id': rescue_session_ids.id,
+                'type': 'ir.actions.act_window',
+            }
+        else:
+            return {
+                'name': _('Rescue Sessions'),
+                'res_model': 'pos.session',
+                'view_mode': 'tree,form',
+                'domain': [('id', 'in', rescue_session_ids.ids)],
+                'type': 'ir.actions.act_window',
+            }
 
     def _get_available_categories(self):
         return (

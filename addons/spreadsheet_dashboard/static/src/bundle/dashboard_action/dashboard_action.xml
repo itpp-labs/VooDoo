@@ -4,17 +4,25 @@
         <ControlPanel display="controlPanelDisplay">
             <t t-set-slot="layout-actions" t-if="!state.activeDashboard?.isSample">
                 <t t-set="status" t-value="state.activeDashboard and state.activeDashboard.status"/>
-                <FilterValue
-                    t-if="status === Status.Loaded"
-                    filter="filter"
-                    model="state.activeDashboard.model"
-                    t-as="filter"
-                    t-foreach="filters"
-                    t-key="filter.id"
-                />
+                <div class="d-flex flex-wrap">
+                    <FilterValue
+                        t-if="status === Status.Loaded"
+                        filter="filter"
+                        model="state.activeDashboard.model"
+                        t-as="filter"
+                        t-foreach="filters"
+                        t-key="filter.id"
+                    />
+                </div>
             </t>
             <t t-set-slot="control-panel-navigation-additional" t-if="!state.activeDashboard?.isSample">
                 <SpreadsheetShareButton t-key="activeDashboardId" model="state.activeDashboard?.model" onSpreadsheetShared.bind="shareSpreadsheet" togglerClass="'btn-light'"/>
+                <a
+                    t-if="state.activeDashboard"
+                    title="Toggle favorite"
+                    t-on-click="toggleFavorite"
+                    t-attf-class="o_dashboard_star fa fa-lg fa-star{{!state.activeDashboard.isFavorite ? '-o' : ' favorite_button_enabled'}}"
+                />
             </t>
         </ControlPanel>
         <t t-set="dashboard" t-value="state.activeDashboard"/>
@@ -86,7 +94,7 @@
                         </div>
                         <t t-set="comp" t-value="dashboardButton"/>
                         <t t-if="comp">
-                            <t t-component="comp" t-props="{ onClick: () => this.editDashboard(dashboard.id) }"/>
+                            <t t-component="comp" t-props="{ dashboardId: dashboard.id, onClick: this.editDashboard.bind(this) }"/>
                         </t>
                     </li>
                 </ul>
