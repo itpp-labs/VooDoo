@@ -834,12 +834,9 @@ msgstr ""
 #: model:ir.module.module,description:base.module_l10n_tr_reports
 msgid ""
 "\n"
-"        Accounting reports for Turkey\n"
+"        Accounting reports for Türkiye\n"
 "    "
 msgstr ""
-"\n"
-"        터키 회계 보고서\n"
-"    "
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_uk_reports
@@ -35464,18 +35461,18 @@ msgstr "튀니지"
 
 #. module: base
 #: model:res.country,name:base.tr
-msgid "Turkey"
-msgstr "터키"
+msgid "Türkiye"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_tr
-msgid "Turkey - Accounting"
-msgstr "터키 - 회계"
+msgid "Türkiye - Accounting"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_tr_reports
-msgid "Turkey - Accounting Reports"
-msgstr "터키 - 회계 보고서"
+msgid "Türkiye - Accounting Reports"
+msgstr ""
 
 #. module: base
 #: model:res.country,name:base.tm
