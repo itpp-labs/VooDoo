@@ -13,7 +13,6 @@ from odoo.osv.expression import AND
 
 
 class PosSession(models.Model):
-    _name = 'pos.session'
     _order = 'id desc'
     _description = 'Point of Sale Session'
     _inherit = ['mail.thread', 'mail.activity.mixin', "pos.bus.mixin", 'pos.load.mixin']
@@ -130,7 +129,7 @@ class PosSession(models.Model):
     @api.model
     def _load_pos_data_models(self, config_id):
         return ['pos.config', 'pos.order', 'pos.order.line', 'pos.pack.operation.lot', 'pos.payment', 'pos.payment.method', 'pos.printer',
-            'pos.category', 'pos.bill', 'res.company', 'account.tax', 'account.tax.group', 'product.product', 'product.attribute', 'product.attribute.custom.value',
+            'pos.category', 'pos.bill', 'res.company', 'account.tax', 'account.tax.group', 'product.template', 'product.product', 'product.attribute', 'product.attribute.custom.value',
             'product.template.attribute.line', 'product.template.attribute.value', 'product.combo', 'product.combo.item', 'product.packaging', 'res.users', 'res.partner',
             'decimal.precision', 'uom.uom', 'uom.category', 'res.country', 'res.country.state', 'res.lang', 'product.pricelist', 'product.pricelist.item', 'product.category',
             'account.cash.rounding', 'account.fiscal.position', 'account.fiscal.position.tax', 'stock.picking.type', 'res.currency', 'pos.note', 'ir.ui.view']
@@ -196,14 +195,16 @@ class PosSession(models.Model):
     def get_pos_ui_product_pricelist_item_by_product(self, product_tmpl_ids, product_ids, config_id):
         pricelist_fields = self.env['product.pricelist']._load_pos_data_fields(config_id)
         pricelist_item_fields = self.env['product.pricelist.item']._load_pos_data_fields(config_id)
-
+        today = fields.Date.today()
         pricelist_item_domain = [
             '|',
             ('company_id', '=', False),
             ('company_id', '=', self.company_id.id),
             '|',
             '&', ('product_id', '=', False), ('product_tmpl_id', 'in', product_tmpl_ids),
-            ('product_id', 'in', product_ids)]
+            ('product_id', 'in', product_ids),
+            '|', ('date_start', '=', False), ('date_start', '<=', today),
+            '|', ('date_end', '=', False), ('date_end', '>=', today)]
 
         pricelist_item = self.env['product.pricelist.item'].search(pricelist_item_domain)
         pricelist = pricelist_item.pricelist_id
@@ -473,6 +474,10 @@ class PosSession(models.Model):
                     Markup("<br/><ul>%s</ul>") % Markup().join(Markup("<li>%s</li>") % order._get_html_link() for order in edited_orders)
                 )
                 self.message_post(body=body)
+
+        # Make sure to trigger reordering rules
+        self.picking_ids.move_ids.sudo()._trigger_scheduler()
+
         self.write({'state': 'closed'})
         return True
 
@@ -1800,6 +1805,7 @@ class PosSession(models.Model):
 
     def find_product_by_barcode(self, barcode, config_id):
         product_fields = self.env['product.product']._load_pos_data_fields(config_id)
+        product_template_fields = self.env['product.template']._load_pos_data_fields(config_id)
         product_packaging_fields = self.env['product.packaging']._load_pos_data_fields(config_id)
         product = self.env['product.product'].search([
             ('barcode', '=', barcode),
@@ -1807,7 +1813,11 @@ class PosSession(models.Model):
             ('available_in_pos', '=', True),
         ])
         if product:
-            return {'product.product': product.with_context({'display_default_code': False}).read(product_fields, load=False)}
+            product = product.with_context({'display_default_code': False})
+            return {
+                'product.product': product.read(product_fields, load=False),
+                'product.template': product.product_tmpl_id.read(product_template_fields, load=False)
+            }
 
         domain = [('barcode', 'not in', ['', False])]
         loaded_data = self._context.get('loaded_data')
@@ -1823,14 +1833,13 @@ class PosSession(models.Model):
         }
         packaging_params['search_params']['domain'] = [['barcode', '=', barcode]]
         packaging = self.env['product.packaging'].search(packaging_params['search_params']['domain'])
-
-        if packaging and packaging.product_id:
-            return {'product.product': packaging.product_id.with_context({'display_default_code': False}).read(product_fields, load=False), 'product.packaging': packaging.read(product_packaging_fields, load=False)}
-        else:
-            return {
-                'product.product': [],
-                'product.packaging': [],
-            }
+        product = packaging.product_id.with_context({'display_default_code': False})
+        condition = packaging and packaging.product_id
+        return {
+            'product.product': product.read(product_fields, load=False) if condition else [],
+            'product.template': product.product_tmpl_id.read(product_template_fields, load=False) if condition else [],
+            'product.packaging': packaging.read(product_packaging_fields, load=False) if condition else [],
+        }
 
     def get_total_discount(self):
         amount = 0
@@ -1872,8 +1881,9 @@ class PosSession(models.Model):
     def _get_closed_orders(self):
         return self.order_ids.filtered(lambda o: o.state not in ['draft', 'cancel'])
 
+
 class ProcurementGroup(models.Model):
-    _inherit = 'procurement.group'
+    _inherit = ['procurement.group']
 
     @api.model
     def _run_scheduler_tasks(self, use_new_cursor=False, company_id=False):

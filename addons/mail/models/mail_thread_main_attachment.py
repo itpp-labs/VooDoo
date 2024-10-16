@@ -5,14 +5,13 @@ from odoo import fields, models
 from odoo.addons.mail.tools.discuss import Store
 
 
-class MailMainAttachmentMixin(models.AbstractModel):
+class MailThreadMainAttachment(models.AbstractModel):
     """ Mixin that adds main attachment support to the MailThread class. """
 
-    _name = 'mail.thread.main.attachment'
-    _inherit = 'mail.thread'
+    _inherit = ['mail.thread']
     _description = 'Mail Main Attachment management'
 
-    message_main_attachment_id = fields.Many2one(string="Main Attachment", comodel_name='ir.attachment', copy=False)
+    message_main_attachment_id = fields.Many2one(string="Main Attachment", comodel_name='ir.attachment', copy=False, index='btree_not_null')
 
     def _message_post_after_hook(self, message, msg_values):
         """ Set main attachment field if necessary """

@@ -77,7 +77,6 @@ EMPTY = object()
 
 
 class AccountMove(models.Model):
-    _name = "account.move"
     _inherit = ['portal.mixin', 'mail.thread.main.attachment', 'mail.activity.mixin', 'sequence.mixin', 'product.catalog.mixin']
     _description = "Journal Entry"
     _order = 'date desc, name desc, invoice_date desc, id desc'
@@ -5157,7 +5156,7 @@ class AccountMove(models.Model):
 
         self._check_draftable()
         # We remove all the analytics entries for this journal
-        self.mapped('line_ids.analytic_line_ids').unlink()
+        self.mapped('line_ids.analytic_line_ids').with_context(force_analytic_line_delete=True).unlink()
         self.mapped('line_ids').remove_move_reconcile()
         self.state = 'draft'
 

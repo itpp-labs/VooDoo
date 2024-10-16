@@ -27,8 +27,8 @@ comma (eg: 'tests, assets').
 ALLOWED_DEBUG_MODES = ['', '1', 'assets', 'tests', 'disable-t-cache']
 
 
-class Http(models.AbstractModel):
-    _inherit = 'ir.http'
+class IrHttp(models.AbstractModel):
+    _inherit = ['ir.http']
 
     bots = ["bot", "crawl", "slurp", "spider", "curl", "wget", "facebookexternalhit", "whatsapp", "trendsmapresolver", "pinterest", "instagram"]
 
@@ -136,7 +136,7 @@ class Http(models.AbstractModel):
             # but is still included in some other calls (e.g. '/web/session/authenticate')
             # to avoid access errors and unnecessary information, it is only included for users
             # with access to the backend ('internal'-type users)
-            menus = self.env['ir.ui.menu'].load_menus(request.session.debug)
+            menus = self.env['ir.ui.menu'].with_context(lang=request.session.context['lang']).load_menus(request.session.debug)
             ordered_menus = {str(k): v for k, v in menus.items()}
             menu_json_utf8 = json.dumps(ordered_menus, sort_keys=True).encode()
             session_info['cache_hashes'].update({

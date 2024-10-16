@@ -19,8 +19,7 @@ AVAILABLE_PRIORITIES = [
 ]
 
 
-class Applicant(models.Model):
-    _name = "hr.applicant"
+class HrApplicant(models.Model):
     _description = "Applicant"
     _order = "priority desc, id desc"
     _inherit = ['mail.thread.cc',
@@ -38,7 +37,7 @@ class Applicant(models.Model):
 
     candidate_id = fields.Many2one('hr.candidate', required=True, index=True)
     partner_id = fields.Many2one(related="candidate_id.partner_id")
-    partner_name = fields.Char(related="candidate_id.partner_name", inverse="_inverse_name")
+    partner_name = fields.Char(compute="_compute_partner_name", search="_search_partner_name", inverse="_inverse_name", compute_sudo=True)
     email_from = fields.Char(related="candidate_id.email_from", readonly=False)
     email_normalized = fields.Char(related="candidate_id.email_normalized")
     partner_phone = fields.Char(related="candidate_id.partner_phone", readonly=False)
@@ -120,6 +119,14 @@ class Applicant(models.Model):
             ON hr_applicant(job_id, stage_id)
             WHERE active IS TRUE
         """)
+
+    @api.depends("candidate_id.partner_name")
+    def _compute_partner_name(self):
+        for applicant in self:
+            applicant.partner_name = applicant.candidate_id.partner_name
+
+    def _search_partner_name(self, operator, value):
+        return [('candidate_id.partner_name', operator, value)]
 
     def _inverse_name(self):
         for applicant in self:
@@ -511,7 +518,7 @@ class Applicant(models.Model):
         }
 
     def _track_template(self, changes):
-        res = super(Applicant, self)._track_template(changes)
+        res = super()._track_template(changes)
         applicant = self[0]
         # When applcant is unarchived, they are put back to the default stage automatically. In this case,
         # don't post automated message related to the stage change.
@@ -533,7 +540,7 @@ class Applicant(models.Model):
         record = self[0]
         if 'stage_id' in init_values and record.stage_id:
             return self.env.ref('hr_recruitment.mt_applicant_stage_changed')
-        return super(Applicant, self)._track_subtype(init_values)
+        return super()._track_subtype(init_values)
 
     def _notify_get_reply_to(self, default=None):
         """ Override to set alias of applicants to their job definition if any. """
@@ -541,7 +548,7 @@ class Applicant(models.Model):
         res = {app.id: aliases.get(app.job_id.id) for app in self}
         leftover = self.filtered(lambda rec: not rec.job_id)
         if leftover:
-            res.update(super(Applicant, leftover)._notify_get_reply_to(default=default))
+            res.update(super(HrApplicant, leftover)._notify_get_reply_to(default=default))
         return res
 
     def _message_get_suggested_recipients(self):
@@ -623,7 +630,7 @@ class Applicant(models.Model):
                 self.search([
                     ('partner_id', '=', False), email_domain, ('stage_id.fold', '=', False)
                 ]).write({'partner_id': new_partner[0].id})
-        return super(Applicant, self)._message_post_after_hook(message, msg_vals)
+        return super()._message_post_after_hook(message, msg_vals)
 
     def create_employee_from_applicant(self):
         self.ensure_one()
@@ -667,7 +674,7 @@ class Applicant(models.Model):
 
     def toggle_active(self):
         self = self.with_context(just_unarchived=True)
-        res = super(Applicant, self).toggle_active()
+        res = super().toggle_active()
         active_applicants = self.filtered(lambda applicant: applicant.active)
         if active_applicants:
             active_applicants.reset_applicant()

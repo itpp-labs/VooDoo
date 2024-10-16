@@ -4,9 +4,8 @@ from odoo import api, fields, models, _
 from odoo.addons.base.models.res_partner import WARNING_MESSAGE, WARNING_HELP
 
 
-class res_partner(models.Model):
-    _name = 'res.partner'
-    _inherit = 'res.partner'
+class ResPartner(models.Model):
+    _inherit = ['res.partner']
 
     def _compute_purchase_order_count(self):
         self.purchase_order_count = 0
@@ -53,7 +52,7 @@ class res_partner(models.Model):
 
     @api.model
     def _commercial_fields(self):
-        return super(res_partner, self)._commercial_fields()
+        return super()._commercial_fields()
 
     property_purchase_currency_id = fields.Many2one(
         'res.currency', string="Supplier Currency", company_dependent=True,
@@ -64,7 +63,7 @@ class res_partner(models.Model):
         compute='_compute_purchase_order_count',
     )
     supplier_invoice_count = fields.Integer(compute='_compute_supplier_invoice_count', string='# Vendor Bills')
-    purchase_warn = fields.Selection(WARNING_MESSAGE, 'Purchase Order', help=WARNING_HELP, default="no-message")
+    purchase_warn = fields.Selection(WARNING_MESSAGE, 'Purchase Order Warning', help=WARNING_HELP, default="no-message")
     purchase_warn_msg = fields.Text('Message for Purchase Order')
 
     receipt_reminder_email = fields.Boolean('Receipt Reminder', company_dependent=True,

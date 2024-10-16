@@ -6,9 +6,8 @@ from odoo.addons.account_edi_ubl_cii.models.account_edi_xml_ubl_20 import UBL_NA
 from stdnum.no import mva
 
 
-class AccountEdiXmlUBLBIS3(models.AbstractModel):
-    _name = "account.edi.xml.ubl_bis3"
-    _inherit = 'account.edi.xml.ubl_21'
+class AccountEdiXmlUbl_Bis3(models.AbstractModel):
+    _inherit = ['account.edi.xml.ubl_21']
     _description = "UBL BIS Billing 3.0.12"
 
     """
@@ -359,6 +358,9 @@ class AccountEdiXmlUBLBIS3(models.AbstractModel):
                 constraints.update({f'cen_en16931_{role}_vat_country_code': _(
                     "The VAT of the %s should be prefixed with its country code.", role)})
 
+        if invoice.partner_shipping_id:
+            # [BR-57]-Each Deliver to address (BG-15) shall contain a Deliver to country code (BT-80).
+            constraints['cen_en16931_delivery_address'] = self._check_required_fields(invoice.partner_shipping_id, 'country_id')
         return constraints
 
     def _invoice_constraints_peppol_en16931_ubl(self, invoice, vals):

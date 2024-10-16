@@ -92,7 +92,6 @@ DEFAULT_BLOCKED_THIRD_PARTY_DOMAINS = '\n'.join([  # noqa: FLY002
 
 class Website(models.Model):
 
-    _name = "website"
     _description = "Website"
     _order = "sequence, id"
 
@@ -251,6 +250,15 @@ class Website(models.Model):
 
     def _get_blocked_third_party_domains_list(self):
         return self.blocked_third_party_domains.split('\n')
+
+    def _get_blocked_iframe_containers_classes(self):
+        return {
+            's_map',
+            's_instagram_page',
+            'o_facebook_page',
+            'o_background_video',
+            'media_iframe_video',
+        }
 
     # self.env.uid for ir.rule groups on menu
     @tools.ormcache('self.env.uid', 'self.id', cache='templates')

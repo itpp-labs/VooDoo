@@ -9,7 +9,7 @@ from odoo.tools.image import image_data_uri
 
 
 class AccountMove(models.Model):
-    _inherit = "account.move"
+    _inherit = ["account.move"]
 
     l10n_in_gst_treatment = fields.Selection([
             ('regular', 'Registered Business - Regular'),
@@ -193,3 +193,7 @@ class AccountMove(models.Model):
                 'taxes_data': line.tax_ids,
             })
         return self.env['account.tax']._l10n_in_get_hsn_summary_table(base_lines, display_uom)
+
+    def _l10n_in_get_bill_from_irn(self, irn):
+        # TO OVERRIDE
+        return False
