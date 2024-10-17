@@ -11,7 +11,6 @@ import * as Order from "@point_of_sale/../tests/tours/utils/generic_components/o
 import { registry } from "@web/core/registry";
 
 registry.category("web_tour.tours").add("RefundStayCurrentTableTour", {
-    test: true,
     steps: () =>
         [
             Chrome.startPoS(),
@@ -37,7 +36,7 @@ registry.category("web_tour.tours").add("RefundStayCurrentTableTour", {
             FloorScreen.clickTable("4"),
             ProductScreen.orderIsEmpty(),
             ...ProductScreen.clickRefund(),
-            TicketScreen.selectOrder("-0001"),
+            TicketScreen.selectOrder("-00001"),
             Order.hasLine({
                 productName: "Coca-Cola",
             }),
