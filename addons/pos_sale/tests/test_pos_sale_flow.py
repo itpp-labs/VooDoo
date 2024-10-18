@@ -1,11 +1,11 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import odoo
-from uuid import uuid4
 
 from odoo.addons.point_of_sale.tests.test_frontend import TestPointOfSaleHttpCommon
 from odoo.tests import Form
 from odoo import fields
+from odoo.tools import format_date
 
 @odoo.tests.tagged('post_install', '-at_install')
 class TestPoSSale(TestPointOfSaleHttpCommon):
@@ -468,16 +468,13 @@ class TestPoSSale(TestPointOfSaleHttpCommon):
               'sale_order_origin_id': sale_order.id,
               'qty': 1,
               'tax_ids': []}]],
-           'name': 'Order 00044-003-0014',
            'session_id': current_session.id,
-           'sequence_number': self.main_pos_config.journal_id.id,
            'payment_ids': [[0,
              0,
              {'amount': 10,
               'name': fields.Datetime.now(),
               'payment_method_id': self.main_pos_config.payment_method_ids[0].id}]],
            'user_id': self.env.uid,
-           'uuid': str(uuid4()),
             }
 
         self.env['pos.order'].sync_from_ui([pos_order])
@@ -666,6 +663,10 @@ class TestPoSSale(TestPointOfSaleHttpCommon):
         self.assertEqual(invoice_pdf_content.count('Product A'), 1)
         self.assertEqual(invoice_pdf_content.count('Product B'), 1)
         self.assertEqual(invoice_pdf_content.count('Product C'), 1)
+
+        for order_line in sale_order.order_line.filtered(lambda l: l.product_id == self.downpayment_product):
+            order_line = order_line.with_context(lang=partner_test.lang)
+            self.assertIn(format_date(order_line.env, order_line.order_id.date_order), order_line.name)
 
     def test_settle_so_with_pos_downpayment(self):
         so = self.env['sale.order'].create({

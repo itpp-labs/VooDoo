@@ -8,7 +8,6 @@ import * as Chrome from "@point_of_sale/../tests/tours/utils/chrome_util";
 import { registry } from "@web/core/registry";
 
 registry.category("web_tour.tours").add("PosResTicketScreenTour", {
-    test: true,
     checkDelay: 50,
     steps: () =>
         [
@@ -26,7 +25,7 @@ registry.category("web_tour.tours").add("PosResTicketScreenTour", {
             Chrome.clickPlanButton(),
             FloorScreen.orderCountSyncedInTableIs("5", "1"),
             Chrome.clickMenuOption("Orders"),
-            TicketScreen.deleteOrder("-0001"),
+            TicketScreen.deleteOrder("-00001"),
             Dialog.confirm(),
             TicketScreen.clickDiscard(),
             Chrome.clickPlanButton(),
@@ -37,7 +36,6 @@ registry.category("web_tour.tours").add("PosResTicketScreenTour", {
 });
 
 registry.category("web_tour.tours").add("OrderNumberConflictTour", {
-    test: true,
     checkDelay: 50,
     steps: () =>
         [
@@ -48,9 +46,8 @@ registry.category("web_tour.tours").add("OrderNumberConflictTour", {
             Chrome.clickPlanButton(),
             Chrome.clickMenuOption("Orders"),
             TicketScreen.nthColumnContains(1, 2, "Order"),
-            TicketScreen.nthColumnContains(1, 3, "1"),
+            TicketScreen.nthColumnContains(1, 3, "002"),
             TicketScreen.nthColumnContains(2, 2, "Self-Order"),
-            TicketScreen.nthColumnContains(2, 3, "S"),
-            TicketScreen.nthColumnContains(2, 3, "1"),
+            TicketScreen.nthColumnContains(2, 3, "S001"),
         ].flat(),
 });
