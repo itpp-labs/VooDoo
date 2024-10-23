@@ -27,6 +27,7 @@ class HrEmployee(models.Model):
     _order = 'name'
     _inherit = ['hr.employee.base', 'mail.thread.main.attachment', 'mail.activity.mixin', 'resource.mixin', 'avatar.mixin']
     _mail_post_access = 'read'
+    _primary_email = 'work_email'
 
     @api.model
     def _lang_get(self):
@@ -396,12 +397,11 @@ class HrEmployee(models.Model):
 
     def get_formview_id(self, access_uid=None):
         """ Override this method in order to redirect many2one towards the right model depending on access_uid """
+        user = self.env.user
         if access_uid:
-            self_sudo = self.with_user(access_uid)
-        else:
-            self_sudo = self
+            user = self.env['res.users'].browse(access_uid).sudo()
 
-        if self_sudo.browse().has_access('read'):
+        if user.has_group('hr.group_hr_user'):
             return super().get_formview_id(access_uid=access_uid)
         # Hardcode the form view for public employee
         return self.env.ref('hr.hr_employee_public_view_form').id
@@ -409,12 +409,11 @@ class HrEmployee(models.Model):
     def get_formview_action(self, access_uid=None):
         """ Override this method in order to redirect many2one towards the right model depending on access_uid """
         res = super().get_formview_action(access_uid=access_uid)
+        user = self.env.user
         if access_uid:
-            self_sudo = self.with_user(access_uid)
-        else:
-            self_sudo = self
+            user = self.env['res.users'].browse(access_uid).sudo()
 
-        if not self_sudo.browse().has_access('read'):
+        if not user.has_group('hr.group_hr_user'):
             res['res_model'] = 'hr.employee.public'
 
         return res
@@ -694,4 +693,4 @@ class HrEmployee(models.Model):
         return ['mobile_phone']
 
     def _mail_get_partner_fields(self, introspect_fields=False):
-        return ['user_partner_id']
+        return ['work_contact_id', 'user_partner_id']

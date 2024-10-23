@@ -119,7 +119,7 @@ export class MailMessage extends models.ServerModel {
             MailNotification._filter([["mail_message_id", "in", ids]]).map((n) => n.id)
         );
         for (const message of MailMessage.browse(ids)) {
-            const [data] = this.read(message.id, fields, makeKwArgs({ load: false }));
+            const [data] = this._read_format(message.id, fields, makeKwArgs({ load: false }));
             const thread = message.model && this.env[message.model].browse(message.res_id)[0];
             if (thread) {
                 const thread_data = { module_icon: "/base/static/description/icon.png" };
@@ -155,7 +155,7 @@ export class MailMessage extends models.ServerModel {
                         ? ResFake._message_compute_subject([message.res_id])
                         : MailThread._message_compute_subject([message.res_id])
                     ).get(message.res_id),
-                linkPreviews: mailDataHelpers.Store.many(
+                link_preview_ids: mailDataHelpers.Store.many(
                     MailLinkPreview.browse(message.link_preview_ids)
                 ),
                 notifications: mailDataHelpers.Store.many(

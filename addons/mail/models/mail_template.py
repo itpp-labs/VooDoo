@@ -50,6 +50,7 @@ class MailTemplate(models.Model):
     # recipients
     use_default_to = fields.Boolean(
         'Default recipients',
+        default=True,
         help="Default recipients of the record:\n"
              "- partner (using id on a partner or the partner_id field) OR\n"
              "- email (using email_from or email field)")
@@ -142,6 +143,14 @@ class MailTemplate(models.Model):
             return [('id', 'in' if operator == "=" else 'not in', value_templates.ids)]
 
         raise NotImplementedError(_('Operation not supported'))
+
+    @api.onchange("model")
+    def _onchange_model(self):
+        for template in self.filtered("model"):
+            target = self.env[template.model]
+            if hasattr(target, "_mail_template_default_values"):
+                upd_values = target._mail_template_default_values()
+                template.update(upd_values)
 
     # ------------------------------------------------------------
     # CRUD
@@ -386,7 +395,7 @@ class MailTemplate(models.Model):
         existing_pids = set()
         if all_partner_to:
             existing_pids = set(self.env['res.partner'].sudo().browse(list(all_partner_to)).exists().ids)
-        for res_id, record_values in render_results.items():
+        for record_values in render_results.values():
             partner_to = record_values.pop('partner_to', '')
             if partner_to:
                 tpl_partner_ids = set(self._parse_partner_to(partner_to)) & existing_pids
@@ -484,7 +493,7 @@ class MailTemplate(models.Model):
         }
 
         render_results = {}
-        for _lang, (template, template_res_ids) in self._classify_per_lang(res_ids).items():
+        for (template, template_res_ids) in self._classify_per_lang(res_ids).values():
             # render fields not rendered by sub methods
             fields_torender = {
                 field for field in render_fields_set

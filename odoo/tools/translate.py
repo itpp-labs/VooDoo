@@ -1416,7 +1416,7 @@ class TranslationModuleReader(TranslationReader):
 
         for (path, recursive) in self._path_list:
             _logger.debug("Scanning files of modules at %s", path)
-            for root, dummy, files in os.walk(path, followlinks=True):
+            for root, _dummy, files in os.walk(path, followlinks=True):
                 for fname in fnmatch.filter(files, '*.py'):
                     self._babel_extract_terms(fname, path, root, 'python',
                                               extra_comments=[PYTHON_TRANSLATION_COMMENT],
@@ -1636,20 +1636,6 @@ class TranslationImporter:
         env.registry.clear_cache()
         if self.verbose:
             _logger.info("translations are loaded successfully")
-
-
-def trans_load(cr, filepath, lang, verbose=True, overwrite=False):
-    warnings.warn('The function trans_load is deprecated in favor of TranslationImporter', DeprecationWarning)
-    translation_importer = TranslationImporter(cr, verbose=verbose)
-    translation_importer.load_file(filepath, lang)
-    translation_importer.save(overwrite=overwrite)
-
-
-def trans_load_data(cr, fileobj, fileformat, lang, verbose=True, overwrite=False):
-    warnings.warn('The function trans_load_data is deprecated in favor of TranslationImporter', DeprecationWarning)
-    translation_importer = TranslationImporter(cr, verbose=verbose)
-    translation_importer.load(fileobj, fileformat, lang)
-    translation_importer.save(overwrite=overwrite)
 
 
 def get_locales(lang=None):

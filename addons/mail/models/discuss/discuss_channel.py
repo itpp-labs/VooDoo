@@ -494,7 +494,7 @@ class DiscussChannel(models.Model):
                     "invitedMembers": Store.many(
                         members,
                         "DELETE",
-                        fields={"channel": [], "persona": ["name", "im_status"]},
+                        fields={"channel": [], "persona": ["name", "im_status", "write_date"]},
                     ),
                 },
             )
@@ -888,7 +888,7 @@ class DiscussChannel(models.Model):
                ORDER BY discuss_channel_member.id ASC
         """, {'channel_ids': tuple(self.ids), 'current_partner_id': current_partner.id or None, 'current_guest_id': current_guest.id or None})
         all_needed_members = self.env['discuss.channel.member'].browse([m['id'] for m in self.env.cr.dictfetchall()])
-        all_needed_members._to_store(Store())  # prefetch in batch
+        Store(all_needed_members)  # prefetch in batch
         members_by_channel = defaultdict(lambda: self.env['discuss.channel.member'])
         invited_members_by_channel = defaultdict(lambda: self.env['discuss.channel.member'])
         member_of_current_user_by_channel = defaultdict(lambda: self.env['discuss.channel.member'])
@@ -936,7 +936,9 @@ class DiscussChannel(models.Model):
             # add RTC sessions info
             invited_members = invited_members_by_channel[channel]
             info["invitedMembers"] = Store.many(
-                invited_members, "ADD", fields={"channel": [], "persona": ["name", "im_status"]}
+                invited_members,
+                "ADD",
+                fields={"channel": [], "persona": ["name", "im_status", "write_date"]},
             )
             # sudo: discuss.channel.rtc.session - reading sessions of accessible channel is acceptable
             info["rtcSessions"] = Store.many(channel.sudo().rtc_session_ids, "ADD", extra=True)

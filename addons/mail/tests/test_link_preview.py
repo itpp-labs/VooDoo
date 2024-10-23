@@ -17,6 +17,7 @@ class TestLinkPreview(MailCommon):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.maxDiff = None
         cls.test_partner = cls.env['res.partner'].create({'name': 'a partner'})
         cls.existing_message = cls.test_partner.message_post(body='Test')
         cls.title = 'Test title'
@@ -137,7 +138,7 @@ class TestLinkPreview(MailCommon):
                                     {
                                         "id": message.link_preview_ids.id,
                                         "image_mimetype": False,
-                                        "message": message.id,
+                                        "message_id": message.id,
                                         "og_description": self.og_description,
                                         "og_image": self.og_image,
                                         "og_mimetype": False,
@@ -150,7 +151,7 @@ class TestLinkPreview(MailCommon):
                                 "mail.message": self._filter_messages_fields(
                                     {
                                         "id": message.id,
-                                        "linkPreviews": [message.link_preview_ids.id],
+                                        "link_preview_ids": [message.link_preview_ids.id],
                                     },
                                 ),
                             },
@@ -182,6 +183,7 @@ class TestLinkPreview(MailCommon):
                 ("http://localhost:8069/", "http://localhost:8069/web/test", 0),
                 ("http://localhost:8069/", "http://localhost:8069/", 1),
                 ("http://localhost:8069/", "http://localhost:8069/odoo-experience", 1),
+                ("http://localhost:8069/", "http://localhost:8069/chat/5/bFtIfYHRco", 0),
                 ("https://www.odoo.com/", "https://www.odoo.com/web", 0),
                 ("https://www.odoo.com/", "https://www.odoo.com/odoo", 0),
                 ("https://www.odoo.com/", "https://www.odoo.com/odoo/", 0),
@@ -190,8 +192,12 @@ class TestLinkPreview(MailCommon):
                 ("https://www.odoo.com/", "https://www.odoo.com/odoo-experience", 1),
                 ("https://www.odoo.com/", "https://www.odoo.com/odoo/1519/tasks/4102866", 0),
                 ("http://www.odoo.com/", "https://www.odoo.com/odoo/1519/tasks/4102866", 1),
-                ("https://clients.odoo.com/", "https://www.odoo.com/odoo/1519/tasks/4102866", 1),
                 ("https://www.odoo.com/", "https://wwwaodoo.com/odoo/", 1),
+                ("https://www.odoo.com/", "https://www.odoo.com/chat/", 0),
+                ("https://www.odoo.com/", "https://www.odoo.com/chat/5/bFtIfYHRco", 0),
+                ("http://www.odoo.com/", "https://www.odoo.com/chat/5/bFtIfYHRco", 1),
+                ("https://clients.odoo.com/", "https://www.odoo.com/odoo/1519/tasks/4102866", 1),
+                ("https://clients.odoo.com/", "https://www.odoo.com/chat/5/bFtIfYHRco", 1),
             ]
             for request_url, url, counter in urls:
                 with self.subTest(request_url=request_url, url=url, counter=counter):

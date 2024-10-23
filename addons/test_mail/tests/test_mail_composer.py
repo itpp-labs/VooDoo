@@ -102,6 +102,7 @@ class TestMailComposer(MailCommon, TestRecipients):
             'model_id': cls.env['ir.model']._get('mail.test.ticket.mc').id,
             'reply_to': '{{ ctx.get("custom_reply_to") or "info@test.example.com" }}',
             'scheduled_date': '{{ (object.create_date or datetime.datetime(2022, 12, 26, 18, 0, 0)) + datetime.timedelta(days=2) }}',
+            'use_default_to': False,
         })
 
         # activate translations
@@ -2516,7 +2517,13 @@ class TestComposerResultsMass(TestMailComposer):
                     )
 
         # expect duplicates
-        for composer_attachment, template_changes in zip([False, composer_attachment, [], composer_attachment], [[], [], [same_attachments], [same_attachments]]):
+        cases = [
+            (False, []),
+            (composer_attachment, []),
+            ([], [same_attachments]),
+            (composer_attachment, [same_attachments]),
+        ]
+        for composer_attachment, template_changes in cases:
             test_template_values = dict(base_template_values)
             for change in template_changes:
                 test_template_values.update(change)

@@ -852,7 +852,7 @@ class BaseModel(metaclass=MetaModel):
         # collect onchange methods on the model's class
         cls = self.env.registry[self._name]
         methods = defaultdict(list)
-        for attr, func in getmembers(cls, is_onchange):
+        for _attr, func in getmembers(cls, is_onchange):
             missing = []
             for name in func._onchange:
                 if name not in cls._fields:
@@ -1809,16 +1809,6 @@ class BaseModel(metaclass=MetaModel):
                 defaults[field.name] = field._add_default_values(self.env, defaults)
 
         return defaults
-
-    @classmethod
-    def clear_caches(cls):
-        """ Clear the caches
-
-        This clears the caches associated to methods decorated with
-        ``tools.ormcache``.
-        """
-        warnings.warn("Deprecated model.clear_cache(), use registry.clear_cache() instead", DeprecationWarning)
-        cls.pool.clear_all_caches()
 
     @api.model
     def _read_group(self, domain, groupby=(), aggregates=(), having=(), offset=0, limit=None, order=None) -> list[tuple]:
@@ -3358,7 +3348,7 @@ class BaseModel(metaclass=MetaModel):
         cr = self._cr
         foreign_key_re = re.compile(r'\s*foreign\s+key\b.*', re.I)
 
-        for (key, definition, message) in self._sql_constraints:
+        for (key, definition, _message) in self._sql_constraints:
             conname = '%s_%s' % (self._table, key)
             if len(conname) > 63:
                 hashed_conname = sql.make_identifier(conname)
@@ -4327,7 +4317,7 @@ class BaseModel(metaclass=MetaModel):
         """
         warnings.warn(
             "check_access_rights() is deprecated since 18.0; use check_access() instead.",
-            DeprecationWarning, 1,
+            DeprecationWarning, stacklevel=2,
         )
         if raise_exception:
             return self.browse().check_access(operation)
@@ -4342,7 +4332,7 @@ class BaseModel(metaclass=MetaModel):
         """
         warnings.warn(
             "check_access_rule() is deprecated since 18.0; use check_access() instead.",
-            DeprecationWarning, 1,
+            DeprecationWarning, stacklevel=2,
         )
         self.check_access(operation)
 
@@ -4350,14 +4340,14 @@ class BaseModel(metaclass=MetaModel):
         """ Return the subset of ``self`` for which ``operation`` is allowed. """
         warnings.warn(
             "_filter_access_rules() is deprecated since 18.0; use _filtered_access() instead.",
-            DeprecationWarning, 1,
+            DeprecationWarning, stacklevel=2,
         )
         return self._filtered_access(operation)
 
     def _filter_access_rules_python(self, operation):
         warnings.warn(
             "_filter_access_rules_python() is deprecated since 18.0; use _filtered_access() instead.",
-            DeprecationWarning, 1,
+            DeprecationWarning, stacklevel=2,
         )
         return self._filtered_access(operation)
 
@@ -5535,7 +5525,11 @@ class BaseModel(metaclass=MetaModel):
         Note that ``order=None`` actually means no order, so if you expect some
         fallback order, you have to provide it yourself.
         """
-        warnings.warn("Since 18.0, _flush_search are deprecated")
+        warnings.warn(
+            "Deprecated since 18.0, use `flush_query` on query objects, or "
+            "`execute_query` which does that for you (but check if you still "
+            "need explicit flushes).",
+            DeprecationWarning, stacklevel=2)
         if seen is None:
             seen = set()
         elif self._name in seen:
@@ -5887,11 +5881,11 @@ class BaseModel(metaclass=MetaModel):
         return bool(cr.fetchone())
 
     def _check_recursion(self, parent=None):
-        warnings.warn("Since 18.0, one must use not _has_cycle() instead", DeprecationWarning, 2)
+        warnings.warn("Deprecated since 18.0, use _has_cycle() instead", DeprecationWarning, stacklevel=2)
         return not self._has_cycle(parent)
 
     def _check_m2m_recursion(self, field_name):
-        warnings.warn("Since 18.0, one must use not _has_cycle() instead", DeprecationWarning, 2)
+        warnings.warn("Deprecated since 18.0, use _has_cycle() instead", DeprecationWarning, stacklevel=2)
         return not self._has_cycle(field_name)
 
     def _get_external_ids(self):

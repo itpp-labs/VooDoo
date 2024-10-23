@@ -7,7 +7,7 @@
     'category': 'Sales/Point of Sale',
     'sequence': 40,
     'summary': 'User-friendly PoS interface for shops and restaurants',
-    'depends': ['stock_account', 'barcodes', 'web_editor', 'digest'],
+    'depends': ['stock_account', 'barcodes', 'web_editor', 'digest', 'phone_validation'],
     'uninstall_hook': 'uninstall_hook',
     'data': [
         'security/point_of_sale_security.xml',
@@ -15,7 +15,6 @@
         'data/default_barcode_patterns.xml',
         'data/digest_data.xml',
         'data/pos_note_data.xml',
-        'data/mail_template_data.xml',
         'data/point_of_sale_tour.xml',
         'wizard/pos_details.xml',
         'wizard/pos_payment.xml',

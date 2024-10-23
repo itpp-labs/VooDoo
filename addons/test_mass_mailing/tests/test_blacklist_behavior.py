@@ -63,20 +63,23 @@ class TestAutoBlacklist(common.TestMassMailCommon):
             # is not sufficient
             with freeze_time(new_dt), patch.object(Cursor, 'now', lambda *args, **kwargs: new_dt):
                 traces += self._create_bounce_trace(new_mailing, target, dt=datetime.datetime.now() - datetime.timedelta(weeks=idx+2))
-                self.gateway_mail_bounce(new_mailing, target, bounce_base_values)
+                self.gateway_mail_trace_bounce(new_mailing, target, bounce_base_values)
 
         # mass mail record: ok, not blacklisted yet
         with self.mock_mail_gateway(mail_unlink_sent=False):
             mailing.action_send_mail()
 
         self.assertMailTraces(
-            [{'email': 'test.record.00@test.example.com'}],
+            [{
+                'email': 'test.record.00@test.example.com',
+                'email_to_mail': '"TestCustomer 00" <test.record.00@test.example.com>',
+            }],
             mailing, target,
             check_mail=True
         )
 
         # call bounced
-        self.gateway_mail_bounce(mailing, target, bounce_base_values)
+        self.gateway_mail_trace_bounce(mailing, target, bounce_base_values)
 
         # check blacklist
         blacklist_record = self.env['mail.blacklist'].sudo().search([('email', '=', target.email_normalized)])
@@ -88,6 +91,11 @@ class TestAutoBlacklist(common.TestMassMailCommon):
         with self.mock_mail_gateway(mail_unlink_sent=False):
             new_mailing.action_send_mail()
         self.assertMailTraces(
-            [{'email': 'test.record.00@test.example.com', 'trace_status': 'cancel', 'failure_type': 'mail_bl'}],
+            [{
+                'email': 'test.record.00@test.example.com',
+                'email_to_mail': '"TestCustomer 00" <test.record.00@test.example.com>',
+                'failure_type': 'mail_bl',
+                'trace_status': 'cancel',
+            }],
             new_mailing, target, check_mail=True
         )

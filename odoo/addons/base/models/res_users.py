@@ -1177,7 +1177,7 @@ class ResUsers(models.Model):
         the current request is in debug mode.
         """
         self.ensure_one()
-        if not (self.env.su or self == self.env.user or self._has_group('base.group_user')):
+        if not (self.env.su or self == self.env.user or self.env.user._has_group('base.group_user')):
             # this prevents RPC calls from non-internal users to retrieve
             # information about other users
             raise AccessError(_("You can ony call user.has_group() with your current user."))
@@ -2075,7 +2075,7 @@ class ResUsers(models.Model):  # noqa: F811
     def fields_get(self, allfields=None, attributes=None):
         res = super().fields_get(allfields, attributes=attributes)
         # add reified groups fields
-        for app, kind, gs, category_name in self.env['res.groups'].sudo().get_groups_by_application():
+        for app, kind, gs, _category_name in self.env['res.groups'].sudo().get_groups_by_application():
             if kind == 'selection':
                 # 'User Type' should not be 'False'. A user is either 'employee', 'portal' or 'public' (required).
                 selection_vals = [(False, '')]
