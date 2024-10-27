@@ -4011,7 +4011,7 @@ test(`currency_field is taken into account when formatting monetary values`, asy
             <list>
                 <field name="company_currency_id" column_invisible="1"/>
                 <field name="currency_id" column_invisible="1"/>
-                <field name="amount"/>
+                <field name="amount" sum="Sum"/>
                 <field name="amount_currency"/>
             </list>
         `,
@@ -4024,6 +4024,10 @@ test(`currency_field is taken into account when formatting monetary values`, asy
     });
     expect(`tfoot td:eq(1)`).toHaveText("—", {
         message: "aggregates monetary should never work if different currencies are used",
+    });
+    expect(`tfoot td:eq(2)`).toHaveText("", {
+        message:
+            "monetary aggregation should only be attempted with an active aggregation function when using different currencies",
     });
 });
 
@@ -4432,7 +4436,7 @@ test(`fields are translatable in list view`, async () => {
     await contains(`.o_data_row .o_data_cell`).click();
     expect(`.o_data_row:eq(0)`).toHaveClass("o_selected_row");
 
-    await contains(`span.o_field_translate`).click();
+    await contains(`button.o_field_translate`).click();
     expect(`.o_translation_dialog`).toHaveCount(1);
     expect(`.o_translation_dialog .translation > input.o_field_char`).toHaveCount(2, {
         message: "modal should have 2 languages to translate",

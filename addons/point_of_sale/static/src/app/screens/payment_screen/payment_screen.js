@@ -65,6 +65,14 @@ export class PaymentScreen extends Component {
         if (this.payment_methods_from_config.length == 1 && this.paymentLines.length == 0) {
             this.addNewPaymentLine(this.payment_methods_from_config[0]);
         }
+
+        //Activate the invoice option for refund orders if the original order was invoiced.
+        if (
+            this.currentOrder._isRefundOrder() &&
+            this.currentOrder.lines[0].refunded_orderline_id?.order_id?.is_to_invoice()
+        ) {
+            this.currentOrder.set_to_invoice(true);
+        }
     }
 
     getNumpadButtons() {
@@ -111,6 +119,19 @@ export class PaymentScreen extends Component {
         return this.currentOrder.get_selected_paymentline();
     }
     async addNewPaymentLine(paymentMethod) {
+        if (
+            paymentMethod.type === "pay_later" &&
+            (!this.currentOrder.to_invoice ||
+                this.pos.data["ir.module.module"].find((m) => m.name === "pos_settle_due")
+                    ?.state !== "installed")
+        ) {
+            this.notification.add(
+                _t(
+                    "To ensure due balance follow-up, generate an invoice or download the accounting application. "
+                ),
+                { autocloseDelay: 7000, title: _t("Warning") }
+            );
+        }
         if (this.pos.paymentTerminalInProgress && paymentMethod.use_payment_terminal) {
             this.dialog.add(AlertDialog, {
                 title: _t("Error"),

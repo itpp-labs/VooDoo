@@ -18,13 +18,21 @@ class ProductTemplate(models.Model):
         translate=True
     )
 
+    def create_product_variant_from_pos(self, attribute_value_ids, config_id):
+        """ Create a product variant from the POS interface. """
+        self.ensure_one()
+        product_template_attribute_value_ids = self.env['product.template.attribute.value'].browse(attribute_value_ids)
+        product_variant = self._create_product_variant(product_template_attribute_value_ids)
+        return {
+            'product.product': product_variant.read(self.env['product.product']._load_pos_data_fields(config_id), load=False),
+        }
+
     @api.model
     def _load_pos_data_domain(self, data):
         domain = [
             *self.env['product.template']._check_company_domain(data['pos.config']['data'][0]['company_id']),
             ('available_in_pos', '=', True),
             ('sale_ok', '=', True),
-            ('product_variant_ids', '!=', False),
         ]
         limited_categories = data['pos.config']['data'][0]['limit_categories']
         if limited_categories:
@@ -149,9 +157,10 @@ class ProductTemplate(models.Model):
         product_ctx = dict(self.env.context or {}, active_test=False)
         if self.with_context(product_ctx).search_count([('id', 'in', self.ids), ('available_in_pos', '=', True)]):
             if self.env['pos.session'].sudo().search_count([('state', '!=', 'closed')]):
-                raise UserError(_("To delete a product, make sure all point of sale sessions are closed.\n\n"
-                    "Deleting a product available in a session would be like attempting to snatch a"
-                    "hamburger from a customer’s hand mid-bite; chaos will ensue as ketchup and mayo go flying everywhere!"))
+                raise UserError(_(
+                    "To delete a product, make sure all point of sale sessions are closed.\n\n"
+                    "Deleting a product available in a session would be like attempting to snatch a hamburger from a customer’s hand mid-bite; chaos will ensue as ketchup and mayo go flying everywhere!",
+                ))
 
     @api.onchange('sale_ok')
     def _onchange_sale_ok(self):

@@ -170,13 +170,13 @@ export class PosStore extends Reactive {
 
     reset_cashier() {
         this.cashier = false;
-        sessionStorage.removeItem("connected_cashier");
+        this._resetConnectedCashier();
     }
 
     checkPreviousLoggedCashier() {
-        const saved_cashier_id = Number(sessionStorage.getItem("connected_cashier"));
-        if (saved_cashier_id) {
-            this.set_cashier(this.models["res.users"].get(saved_cashier_id));
+        const savedCashier = this._getConnectedCashier();
+        if (savedCashier) {
+            this.set_cashier(savedCashier);
         }
     }
 
@@ -186,7 +186,23 @@ export class PosStore extends Reactive {
         }
 
         this.cashier = user;
-        sessionStorage.setItem("connected_cashier", user.id);
+        this._storeConnectedCashier(user);
+    }
+
+    _getConnectedCashier() {
+        const cashier_id = Number(sessionStorage.getItem(`connected_cashier_${this.config.id}`));
+        if (cashier_id && this.models["res.users"].get(cashier_id)) {
+            return this.models["res.users"].get(cashier_id);
+        }
+        return false;
+    }
+
+    _storeConnectedCashier(user) {
+        sessionStorage.setItem(`connected_cashier_${this.config.id}`, user.id);
+    }
+
+    _resetConnectedCashier() {
+        sessionStorage.removeItem(`connected_cashier_${this.config.id}`);
     }
 
     useProxy() {
@@ -299,6 +315,12 @@ export class PosStore extends Reactive {
                 ["id", "not in", [...productIds]],
                 ["product_tmpl_id", "in", [...productTmplIds]],
             ]);
+        }
+
+        for (const product of this.models["product.product"].filter(
+            (p) => !productIds.has(p.id) && p.product_template_variant_value_ids.length > 0
+        )) {
+            productByTmplId[product.raw.product_tmpl_id].push(product);
         }
 
         for (const products of Object.values(productByTmplId)) {
@@ -578,17 +600,33 @@ export class PosStore extends Reactive {
 
             if (payload) {
                 // Find candidate based on instantly created variants.
-                const instantlySelectedIds = this.models["product.template.attribute.value"]
+                const attributeValues = this.models["product.template.attribute.value"]
                     .readMany(payload.attribute_value_ids)
-                    .filter((value) => value.attribute_id.create_variant === "always")
                     .map((value) => value.id);
 
-                const candidate = productTemplate.product_variant_ids.find((variant) => {
+                let candidate = productTemplate.product_variant_ids.find((variant) => {
                     const attributeIds = variant.product_template_variant_value_ids.map(
                         (value) => value.id
                     );
-                    return instantlySelectedIds.every((id) => attributeIds.includes(id));
+                    return (
+                        attributeValues.every((id) => attributeIds.includes(id)) &&
+                        attributeValues.length
+                    );
                 });
+
+                const isDynamic = productTemplate.attribute_line_ids.some(
+                    (line) => line.attribute_id.create_variant === "dynamic"
+                );
+
+                if (!candidate && isDynamic) {
+                    // Need to create the new product.
+                    const result = await this.data.callRelated(
+                        "product.template",
+                        "create_product_variant_from_pos",
+                        [productTemplate.id, payload.attribute_value_ids, this.config.id]
+                    );
+                    candidate = result["product.product"][0];
+                }
 
                 Object.assign(values, {
                     attribute_value_ids: payload.attribute_value_ids
@@ -623,13 +661,16 @@ export class PosStore extends Reactive {
             } else {
                 return;
             }
-        } else if (values.product_tmpl_id.attribute_line_ids.length > 0) {
+        } else if (values.product_id.product_template_variant_value_ids.length > 0) {
             // Verify price extra of variant products
             const priceExtra = values.product_id.product_template_variant_value_ids
                 .filter((attr) => attr.attribute_id.create_variant !== "always")
                 .reduce((acc, attr) => acc + attr.price_extra, 0);
 
             values.price_extra += priceExtra;
+            values.attribute_value_ids = values.product_id.product_template_variant_value_ids.map(
+                (attr) => ["link", attr]
+            );
         }
 
         // In case of clicking a combo product a popup will be shown to the user
@@ -1191,7 +1232,7 @@ export class PosStore extends Reactive {
         // check back-end method `get_product_info_pos` to see what it returns
         // We do this so it's easier to override the value returned and use it in the component template later
         const productInfo = await this.data.call("product.product", "get_product_info_pos", [
-            [product.id],
+            [product?.id],
             productTemplate.get_price(order.pricelist_id, quantity, priceExtra, false, product),
             quantity,
             this.config.id,
@@ -1377,6 +1418,9 @@ export class PosStore extends Reactive {
         );
     }
     showScreen(name, props) {
+        if (name === "ProductScreen") {
+            this.get_order()?.deselect_orderline();
+        }
         this.previousScreen = this.mainScreen.component?.name;
         const component = registry.category("pos_screens").get(name);
         this.mainScreen = { component, props };
@@ -1549,7 +1593,7 @@ export class PosStore extends Reactive {
         });
     }
     async closePos() {
-        sessionStorage.removeItem("connected_cashier");
+        this._resetConnectedCashier();
         // If pos is not properly loaded, we just go back to /web without
         // doing anything in the order data.
         if (!this) {

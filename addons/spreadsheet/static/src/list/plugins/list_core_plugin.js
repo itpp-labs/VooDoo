@@ -117,8 +117,10 @@ export class ListCorePlugin extends OdooCorePlugin {
                 break;
             }
             case "DUPLICATE_ODOO_LIST": {
-                const { listId, newListId } = cmd;
-                this._addList(newListId, deepCopy(this.lists[listId].definition));
+                const { listId, newListId, duplicatedListName } = cmd;
+                const duplicatedList = deepCopy(this.lists[listId].definition);
+                duplicatedList.name = duplicatedListName ?? duplicatedList.name + " (copy)";
+                this._addList(newListId, duplicatedList);
                 this.history.update("nextId", parseInt(newListId, 10) + 1);
                 break;
             }
@@ -182,7 +184,7 @@ export class ListCorePlugin extends OdooCorePlugin {
      * @returns {string}
      */
     getListName(id) {
-        return _t(this.lists[id].definition.name);
+        return this.lists[id].definition.name;
     }
 
     /**

@@ -1120,7 +1120,7 @@ class TestXMLTranslation(TransactionCase):
     </div>
     <div class="s_table_of_content_main" data-name="Content">
         <section class="pb16">
-            <h1 data-anchor="true" class="o_default_snippet_text" id="table_of_content_heading_1672668075678_4">%s</h1>
+            <h1 data-anchor="true" id="table_of_content_heading_1672668075678_4">%s</h1>
         </section>
     </div>
 </form>'''
@@ -1170,7 +1170,7 @@ class TestXMLTranslation(TransactionCase):
     </div>
     <div class="s_table_of_content_main" data-name="Content">
         <section class="pb16">
-            <h1 data-anchor="true" class="o_default_snippet_text" id="table_of_content_heading_1672668075678_4">%s</h1>
+            <h1 data-anchor="true" id="table_of_content_heading_1672668075678_4">%s</h1>
         </section>
     </div>
 </form>'''
@@ -1696,7 +1696,7 @@ class TestLanguageInstallPerformance(TransactionCase):
         self.assertFalse(fr_BE.active)
 
         t0 = time.time()
-        fr_BE.toggle_active()
+        fr_BE.action_unarchive()
         t1 = time.time()
         _stats_logger.info("installed language fr_BE in %.3fs", t1 - t0)
 
