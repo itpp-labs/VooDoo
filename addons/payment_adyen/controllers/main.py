@@ -18,6 +18,7 @@ from odoo.tools import py_to_js_locale
 from odoo.addons.payment import utils as payment_utils
 from odoo.addons.payment_adyen import utils as adyen_utils
 
+
 _logger = logging.getLogger(__name__)
 
 
@@ -25,7 +26,7 @@ class AdyenController(http.Controller):
 
     _webhook_url = '/payment/adyen/notification'
 
-    @http.route('/payment/adyen/payment_methods', type='json', auth='public')
+    @http.route('/payment/adyen/payment_methods', type='jsonrpc', auth='public')
     def adyen_payment_methods(self, provider_id, formatted_amount=None, partner_id=None):
         """ Query the available payment methods based on the payment context.
 
@@ -58,7 +59,7 @@ class AdyenController(http.Controller):
         _logger.info("paymentMethods request response:\n%s", pprint.pformat(response_content))
         return response_content
 
-    @http.route('/payment/adyen/payments', type='json', auth='public')
+    @http.route('/payment/adyen/payments', type='jsonrpc', auth='public')
     def adyen_payments(
         self, provider_id, reference, converted_amount, currency_id, partner_id, payment_method,
         access_token, browser_info=None
@@ -143,7 +144,7 @@ class AdyenController(http.Controller):
         )
         return response_content
 
-    @http.route('/payment/adyen/payments/details', type='json', auth='public')
+    @http.route('/payment/adyen/payments/details', type='jsonrpc', auth='public')
     def adyen_payment_details(self, provider_id, reference, payment_details):
         """ Submit the details of the additional actions and handle the notification data.
 

@@ -447,6 +447,7 @@ export class PosStore extends Reactive {
         }
 
         const openOrders = this.data.models["pos.order"].filter((order) => !order.finalized);
+        this.syncAllOrders();
 
         if (!this.config.module_pos_restaurant) {
             this.selectedOrderUuid = openOrders.length
@@ -1791,7 +1792,7 @@ export class PosStore extends Reactive {
     getReceiptHeaderData(order) {
         return {
             company: this.company,
-            cashier: _t("Served by %s", this.get_cashier()?.name),
+            cashier: _t("Served by %s", order.getCashierName() || this.get_cashier()?.name),
             header: this.config.receipt_header,
         };
     }

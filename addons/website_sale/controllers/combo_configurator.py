@@ -2,7 +2,9 @@
 
 from odoo.http import request, route
 
-from odoo.addons.sale.controllers.combo_configurator import SaleComboConfiguratorController
+from odoo.addons.sale.controllers.combo_configurator import (
+    SaleComboConfiguratorController,
+)
 from odoo.addons.website_sale.controllers.main import WebsiteSale
 
 
@@ -10,7 +12,7 @@ class WebsiteSaleComboConfiguratorController(SaleComboConfiguratorController, We
 
     @route(
         route='/website_sale/combo_configurator/get_data',
-        type='json',
+        type='jsonrpc',
         auth='public',
         website=True,
     )
@@ -20,7 +22,7 @@ class WebsiteSaleComboConfiguratorController(SaleComboConfiguratorController, We
 
     @route(
         route='/website_sale/combo_configurator/get_price',
-        type='json',
+        type='jsonrpc',
         auth='public',
         website=True,
     )
@@ -30,7 +32,7 @@ class WebsiteSaleComboConfiguratorController(SaleComboConfiguratorController, We
 
     @route(
         route='/website_sale/combo_configurator/update_cart',
-        type='json',
+        type='jsonrpc',
         auth='public',
         methods=['POST'],
         website=True,

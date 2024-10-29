@@ -133,7 +133,7 @@ class TestUiHtmlEditor(HttpCaseWithUserDemo):
         # disable undraw, no third party should be called in tests
         # Mocked for the previews in the media dialog
         mock_media_library_search.routing_type = 'json'
-        Web_Editor.media_library_search = http.route(['/web_editor/media_library_search'], type='json', auth='user', website=True)(mock_media_library_search)
+        Web_Editor.media_library_search = http.route(['/web_editor/media_library_search'], type='jsonrpc', auth='user', website=True)(mock_media_library_search)
 
         self.start_tour("/", 'website_media_dialog_undraw', login='admin')
 
@@ -674,3 +674,6 @@ class TestUi(odoo.tests.HttpCase):
 
         self.env['website.menu'].save(website.id, {'data': [parent_menu, child_menu]})
         self.start_tour(self.env['website'].get_client_action_url('/'), 'edit_menus_delete_parent', login='admin')
+
+    def test_snippet_carousel(self):
+        self.start_tour('/', 'snippet_carousel', login='admin')

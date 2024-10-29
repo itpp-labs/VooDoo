@@ -241,14 +241,6 @@ class MailTestTicket(models.Model):
             elif group_name == 'customer':
                 group_data['active'] = True
                 group_data['has_button_access'] = True
-                group_data['actions'] = [{
-                    'url': self._notify_get_action_link(
-                        'controller',
-                        controller='/test_mail/do_stuff',
-                        **local_msg_vals
-                    ),
-                    'title': _('NotificationButtonTitle')
-                }]
 
         return groups
 
@@ -455,3 +447,14 @@ class MailTestMailTrackingDuration(models.Model):
 
     def _mail_get_partner_fields(self, introspect_fields=False):
         return ['customer_id']
+
+
+class MailTestPublicThread(models.Model):
+    """A model inheriting from mail.thread with public read and write access
+    to test some public and guest interactions."""
+
+    _description = "Portal Public Thread"
+    _name = "mail.test.public"
+    _inherit = ["mail.thread"]
+
+    name = fields.Char("Name")

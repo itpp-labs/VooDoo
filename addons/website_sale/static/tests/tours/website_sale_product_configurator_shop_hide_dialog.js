@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { registry } from '@web/core/registry';
 import * as wsTourUtils from '@website_sale/js/tours/tour_utils';
 
@@ -10,8 +8,8 @@ registry
         steps: () => [
             {
                 content: "Click on the cart button",
-                trigger: '.oe_product:has(a:contains("Main product")) div.o_wsale_product_btn a',
-                run: 'click',
+                trigger: ".oe_product:has(a:contains(Main product))",
+                run: "hover && click .oe_product:has(a:contains(Main product)) div.o_wsale_product_btn a",
             },
             wsTourUtils.goToCart(),
             // Assert that the configurator wasn't shown.

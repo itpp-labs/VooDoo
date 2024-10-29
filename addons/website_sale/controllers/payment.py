@@ -8,6 +8,7 @@ from odoo.tools import float_compare
 
 from odoo.addons.payment.controllers import portal as payment_portal
 
+
 # TODO ANVFE part of payment routes ? /shop/payment ? express_checkout ?
 
 class PaymentPortal(payment_portal.PaymentPortal):
@@ -19,7 +20,7 @@ class PaymentPortal(payment_portal.PaymentPortal):
         """
         return
 
-    @route('/shop/payment/transaction/<int:order_id>', type='json', auth='public', website=True)
+    @route('/shop/payment/transaction/<int:order_id>', type='jsonrpc', auth='public', website=True)
     def shop_payment_transaction(self, order_id, access_token, **kwargs):
         """ Create a draft transaction and return its processing values.
 

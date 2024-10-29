@@ -268,7 +268,7 @@ class WebsiteForm(http.Controller):
 
         authenticate_message = False
         email_field_name = request.env[model_name]._mail_get_primary_email_field()
-        if email_field_name and hasattr(record, '_message_log'):
+        if email_field_name and hasattr(record, '_message_log') and email_field_name in values:
             warning_icon = ""
             if request.session.uid:
                 user_email = request.env.user.email
@@ -304,7 +304,7 @@ class WebsiteForm(http.Controller):
             # If there isn't, put the custom data in a message instead
             if default_field.name:
                 if default_field.ttype == 'html' or model_name == 'mail.mail':
-                    custom_content = nl2br_enclose(custom_content)
+                    custom_content = nl2br(custom_content)
                 record.update({default_field.name: custom_content})
             elif hasattr(record, '_message_log'):
                 record._message_log(

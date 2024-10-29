@@ -7,7 +7,7 @@ from odoo.tools import float_round
 from werkzeug.exceptions import NotFound, BadRequest, Unauthorized
 
 class PosSelfOrderController(http.Controller):
-    @http.route("/pos-self-order/process-order/<device_type>/", auth="public", type="json", website=True)
+    @http.route("/pos-self-order/process-order/<device_type>/", auth="public", type="jsonrpc", website=True)
     def process_order(self, order, access_token, table_identifier, device_type):
         is_takeaway = order.get('takeaway')
         pos_config, table = self._verify_authorization(access_token, table_identifier, is_takeaway)
@@ -15,7 +15,11 @@ class PosSelfOrderController(http.Controller):
 
         # Create the order
         tracking_prefix, ref_prefix = self._get_prefixes(device_type)
-        pos_reference, sequence_number, tracking_number = pos_session.get_next_order_refs(ref_prefix=ref_prefix, tracking_prefix=tracking_prefix)
+        sequence_number = order.get('sequence_number')
+        pos_reference = order.get('pos_reference')
+        tracking_number = order.get('tracking_number')
+        if not (sequence_number and pos_reference and tracking_number):
+            pos_reference, sequence_number, tracking_number = pos_session.get_next_order_refs(ref_prefix=ref_prefix, tracking_prefix=tracking_prefix)
         fiscal_position = (
             pos_config.takeaway_fp_id
             if is_takeaway
@@ -115,7 +119,7 @@ class PosSelfOrderController(http.Controller):
                     })
                 lst_price = 0
 
-    @http.route('/pos-self-order/get-orders', auth='public', type='json', website=True)
+    @http.route('/pos-self-order/get-orders', auth='public', type='jsonrpc', website=True)
     def get_orders_by_access_token(self, access_token, order_access_tokens):
         pos_config = self._verify_pos_config(access_token)
         session = pos_config.current_session_id
@@ -129,7 +133,7 @@ class PosSelfOrderController(http.Controller):
 
         return self._generate_return_values(orders, pos_config)
 
-    @http.route('/kiosk/payment/<int:pos_config_id>/<device_type>', auth='public', type='json', website=True)
+    @http.route('/kiosk/payment/<int:pos_config_id>/<device_type>', auth='public', type='jsonrpc', website=True)
     def pos_self_order_kiosk_payment(self, pos_config_id, order, payment_method_id, access_token, device_type):
         pos_config = self._verify_pos_config(access_token)
         results = self.process_order(order, access_token, None, device_type)
@@ -150,7 +154,7 @@ class PosSelfOrderController(http.Controller):
 
         return {'order': order_sudo.read(order_sudo._load_pos_data_fields(pos_config.id), load=False), 'payment_status': status}
 
-    @http.route('/pos-self-order/change-printer-status', auth='public', type='json', website=True)
+    @http.route('/pos-self-order/change-printer-status', auth='public', type='jsonrpc', website=True)
     def change_printer_status(self, access_token, has_paper):
         pos_config = self._verify_pos_config(access_token)
         if has_paper != pos_config.has_paper:

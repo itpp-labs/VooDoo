@@ -9,12 +9,13 @@ from odoo.http import request
 
 from odoo.addons.payment import utils as payment_utils
 
+
 _logger = logging.getLogger(__name__)
 
 
 class AuthorizeController(http.Controller):
 
-    @http.route('/payment/authorize/payment', type='json', auth='public')
+    @http.route('/payment/authorize/payment', type='jsonrpc', auth='public')
     def authorize_payment(self, reference, partner_id, access_token, opaque_data):
         """ Make a payment request and handle the response.
 
