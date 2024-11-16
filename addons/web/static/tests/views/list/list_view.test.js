@@ -981,7 +981,7 @@ test(`list view: buttons handler is called once on double click`, async () => {
 });
 
 test(`list view: click on an action button saves the record before executing the action`, async () => {
-    onRpc("/web/dataset/call_button", () => true);
+    onRpc("/web/dataset/call_button/*", () => true);
     stepAllNetworkCalls();
 
     await mountView({
@@ -2408,45 +2408,6 @@ test(`opening records when clicking on record`, async () => {
     await contains(`th.o_group_name`).click();
     await contains(`tr:not(.o_group_header) td:not(.o_list_record_selector)`).click();
     expect.verifySteps(["openRecord", "openRecord"]);
-});
-
-test(`open invalid but unchanged record`, async () => {
-    const listView = registry.category("views").get("list");
-    class CustomListController extends listView.Controller {
-        openRecord(record) {
-            expect.step(`open record ${record.resId}`);
-            return super.openRecord(record);
-        }
-    }
-    registry.category("views").add(
-        "custom_list",
-        {
-            ...listView,
-            Controller: CustomListController,
-        },
-        { force: true }
-    );
-
-    mockService("notification", {
-        add() {
-            expect.step("should not display a notification");
-        },
-    });
-
-    await mountView({
-        resModel: "foo",
-        type: "list",
-        arch: `
-            <list js_class="custom_list">
-                <field name="foo"/>
-                <field name="date" required="1"/>
-            </list>`,
-    });
-
-    // second record is invalid as date is not set
-    expect(".o_data_row:eq(1) .o_data_cell[name=date]").toHaveText("");
-    await contains(".o_data_row:eq(1) .o_data_cell").click();
-    expect.verifySteps(["open record 2"]);
 });
 
 test(`execute an action before and after each valid save in a list view`, async () => {
@@ -6973,7 +6934,7 @@ test(`list view, editable, with a button`, async () => {
     onRpc("web_save", () => {
         expect.step("web_save");
     });
-    onRpc("/web/dataset/call_button", () => {
+    onRpc("/web/dataset/call_button/*", () => {
         expect.step("call_button");
         return true;
     });
@@ -14954,15 +14915,61 @@ test(`list view with default_group_by`, async () => {
     });
     expect(`.o_list_renderer table`).toHaveClass("o_list_table_grouped");
     expect(`.o_group_header`).toHaveCount(2);
+    // open search bar in mobile
+    if (queryAll(".o_control_panel_navigation > button").length) {
+        await contains(".o_control_panel_navigation > button").click();
+    }
+    expect(`.o_searchview_facet`).toHaveCount(1);
+    expect(`.o_searchview_facet`).toHaveText("Bar");
     expect.verifySteps(["web_read_group1"]);
 
     await selectGroup("m2m");
     expect(`.o_group_header`).toHaveCount(4);
+    expect(`.o_searchview_facet`).toHaveCount(1);
+    expect(`.o_searchview_facet`).toHaveText("M2m");
     expect.verifySteps(["web_read_group2"]);
 
     await toggleMenuItem("M2m");
     expect(`.o_group_header`).toHaveCount(2);
+    expect(`.o_searchview_facet`).toHaveCount(1);
+    expect(`.o_searchview_facet`).toHaveText("Bar");
     expect.verifySteps(["web_read_group3"]);
+});
+
+test(`list view with multi-fields default_group_by`, async () => {
+    let readGroupCount = 0;
+    onRpc("web_read_group", ({ kwargs }) => {
+        readGroupCount++;
+        expect.step(`web_read_group${readGroupCount}`);
+        switch (readGroupCount) {
+            case 1:
+                return expect(kwargs.groupby).toEqual(["foo"]);
+            case 2:
+                return expect(kwargs.groupby).toEqual(["bar"]);
+        }
+    });
+
+    await mountView({
+        resModel: "foo",
+        type: "list",
+        arch: `
+            <list default_group_by="foo,bar">
+                <field name="bar"/>
+            </list>
+        `,
+    });
+    expect(`.o_list_renderer table`).toHaveClass("o_list_table_grouped");
+    expect(`.o_group_header`).toHaveCount(3);
+    // open search bar in mobile
+    if (queryAll(".o_control_panel_navigation > button").length) {
+        await contains(".o_control_panel_navigation > button").click();
+    }
+    expect(`.o_searchview_facet`).toHaveCount(1);
+    expect(`.o_searchview_facet`).toHaveText("Foo\n>\nBar");
+    expect.verifySteps(["web_read_group1"]);
+    await contains(`.o_group_header`).click();
+    expect(`.o_group_header`).toHaveCount(5);
+    expect.verifySteps(["web_read_group2"]);
 });
 
 test(`ungrouped list, apply filter, decrease limit`, async () => {
@@ -15807,7 +15814,7 @@ test(`Invisible Properties`, async () => {
 });
 
 test(`header buttons in list view`, async () => {
-    onRpc("/web/dataset/call_button", async (request) => {
+    onRpc("/web/dataset/call_button/*", async (request) => {
         const { params } = await request.json();
         expect.step(params.method);
         return true;
@@ -15964,10 +15971,8 @@ test(`context keys not passed down the stack and not to fields`, async () => {
         Bar._records.push({ id: i, name: `Value ${i}` });
     }
 
-    onRpc(({ model, method, kwargs }) => {
-        if (["foo", "bar"].includes(model) && method) {
-            expect.step({ model, method, context: kwargs.context });
-        }
+    onRpc(["foo", "bar"], "*", ({ model, method, kwargs }) => {
+        expect.step({ model, method, context: kwargs.context });
     });
 
     await mountWithCleanup(WebClient);
@@ -16245,4 +16250,49 @@ test("Pass context when duplicating data in list view", async () => {
     await contains(`.o_cp_action_menus .dropdown-toggle`).click();
     await toggleMenuItem("Duplicate");
     expect.verifySteps(["copy"]);
+});
+
+test(`properties do not disappear after domain change`, async () => {
+    const definition0 = {
+        type: "char",
+        name: "property_char",
+        string: "Property char",
+    };
+    Bar._records[0].definitions = [definition0];
+    for (const record of Foo._records) {
+        if (record.m2o === 1) {
+            record.properties = [{ ...definition0, value: "AA" }];
+        }
+    }
+
+    await mountView({
+        resModel: "foo",
+        type: "list",
+        arch: `
+            <list editable="bottom">
+                <field name="m2o"/>
+                <field name="properties"/>
+            </list>
+        `,
+        searchViewArch: `
+            <search>
+                <filter name="properties_filter" string="My filter" domain="[['properties.property_char', '=', 'AA']]"/>
+                <group>
+                    <!-- important -->
+                    <filter name="properties_groupby" string="My groupby" context="{'group_by':'properties'}"/>
+                </group>
+            </search>
+        `,
+    });
+
+    await contains(`.o_optional_columns_dropdown_toggle`).click();
+    await contains(`.o-dropdown-item input[type="checkbox"]`).click();
+    expect(`.o_list_renderer th[data-name="properties.property_char"]`).toHaveCount(1);
+
+    await toggleSearchBarMenu();
+    await toggleMenuItem("My filter");
+    expect(`.o_list_renderer th[data-name="properties.property_char"]`).toHaveCount(1);
+
+    await toggleMenuItem("My filter");
+    expect(`.o_list_renderer th[data-name="properties.property_char"]`).toHaveCount(1);
 });

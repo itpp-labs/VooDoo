@@ -9,7 +9,7 @@ from odoo.tools import float_round
 
 
 class HrEmployee(models.Model):
-    _inherit = ["hr.employee"]
+    _inherit = "hr.employee"
 
     attendance_manager_id = fields.Many2one(
         'res.users', store=True, readonly=False,
@@ -208,7 +208,7 @@ class HrEmployee(models.Model):
                 "create": 0
             },
             "domain": [('employee_id', '=', self.id),
-                       ('check_in', ">=", fields.datetime.today().replace(day=1, hour=0, minute=0))]
+                       ('check_in', ">=", fields.Datetime.today().replace(day=1))]
         }
 
     def action_open_last_month_overtime(self):

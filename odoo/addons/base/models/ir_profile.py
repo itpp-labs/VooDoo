@@ -18,6 +18,7 @@ _logger = logging.getLogger(__name__)
 
 
 class IrProfile(models.Model):
+    _name = 'ir.profile'
     _description = 'Profiling results'
     _log_access = False  # avoid useless foreign key on res_user
     _order = 'session desc, id desc'
@@ -89,7 +90,7 @@ class IrProfile(models.Model):
             limit = self._enabled_until()
             _logger.info("User %s started profiling", self.env.user.name)
             if not limit:
-                request.session.profile_session = None
+                request.session['profile_session'] = None
                 if self.env.user._is_system():
                     return {
                             'type': 'ir.actions.act_window',
@@ -99,30 +100,31 @@ class IrProfile(models.Model):
                             'views': [[False, 'form']],
                         }
                 raise UserError(_('Profiling is not enabled on this database. Please contact an administrator.'))
-            if not request.session.profile_session:
-                request.session.profile_session = make_session(self.env.user.name)
-                request.session.profile_expiration = limit
-                if request.session.profile_collectors is None:
-                    request.session.profile_collectors = []
-                if request.session.profile_params is None:
-                    request.session.profile_params = {}
+            if not request.session.get('profile_session'):
+                request.session['profile_session'] = make_session(self.env.user.name)
+                request.session['profile_expiration'] = limit
+                if request.session.get('profile_collectors') is None:
+                    request.session['profile_collectors'] = []
+                if request.session.get('profile_params') is None:
+                    request.session['profile_params'] = {}
         elif profile is not None:
-            request.session.profile_session = None
+            request.session['profile_session'] = None
 
         if collectors is not None:
-            request.session.profile_collectors = collectors
+            request.session['profile_collectors'] = collectors
 
         if params is not None:
-            request.session.profile_params = params
+            request.session['profile_params'] = params
 
         return {
-            'session': request.session.profile_session,
-            'collectors': request.session.profile_collectors,
-            'params': request.session.profile_params,
+            'session': request.session.get('profile_session'),
+            'collectors': request.session.get('profile_collectors'),
+            'params': request.session.get('profile_params'),
         }
 
 
 class BaseEnableProfilingWizard(models.TransientModel):
+    _name = 'base.enable.profiling.wizard'
     _description = "Enable profiling for some time"
 
     duration = fields.Selection([

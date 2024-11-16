@@ -21,7 +21,11 @@ export const changesToOrder = (
         }
     }
 
-    return { new: toAdd, cancelled: toRemove, generalNote: orderChanges.generalNote };
+    return {
+        new: toAdd,
+        cancelled: toRemove,
+        general_customer_note: orderChanges.general_customer_note,
+    };
 };
 
 /**
@@ -59,7 +63,7 @@ export const getOrderChanges = (order, skipped = false, orderPreparationCategori
                     uuid: orderline.uuid,
                     name: orderline.get_full_product_name(),
                     product_id: product.id,
-                    attribute_value_ids: orderline.attribute_value_ids,
+                    attribute_value_ids: orderline.attribute_value_ids.map((a) => a.id),
                     quantity: quantityDiff,
                     note: note,
                     pos_categ_id: product.pos_categ_ids[0]?.id ?? 0,
@@ -110,10 +114,14 @@ export const getOrderChanges = (order, skipped = false, orderPreparationCategori
         count: changesCount,
     };
 
-    // if `generalNote` key is present, then there is a change in the generalNote
-    const lastGeneralNote = order.last_order_preparation_change.generalNote;
-    if (lastGeneralNote !== order.general_note) {
-        result.generalNote = order.general_note;
+    // if `generalCustomerNote` key is present, then there is a change in the generalCustomerNote
+    const lastGeneralCustomerNote = order.last_order_preparation_change.general_customer_note || "";
+    if (lastGeneralCustomerNote !== order.general_customer_note) {
+        result.general_customer_note = order.general_customer_note;
+    }
+    const lastInternalNote = order.last_order_preparation_change.internal_note || "";
+    if (lastInternalNote !== order.internal_note) {
+        result.internal_note = order.internal_note;
     }
     return result;
 };

@@ -23,6 +23,7 @@ ROUTE_NAMES = {
 
 
 class StockWarehouse(models.Model):
+    _name = 'stock.warehouse'
     _description = "Warehouse"
     _order = 'sequence,id'
     _check_company_auto = True
@@ -90,10 +91,14 @@ class StockWarehouse(models.Model):
         help="Routes will be created for these resupply warehouses and you can select them on products and product categories", copy=False)
     sequence = fields.Integer(default=10,
         help="Gives the sequence of this line when displaying the warehouses.")
-    _sql_constraints = [
-        ('warehouse_name_uniq', 'unique(name, company_id)', 'The name of the warehouse must be unique per company!'),
-        ('warehouse_code_uniq', 'unique(code, company_id)', 'The short name of the warehouse must be unique per company!'),
-    ]
+    _warehouse_name_uniq = models.Constraint(
+        'unique(name, company_id)',
+        'The name of the warehouse must be unique per company!',
+    )
+    _warehouse_code_uniq = models.Constraint(
+        'unique(code, company_id)',
+        'The short name of the warehouse must be unique per company!',
+    )
 
     @api.onchange('company_id')
     def _onchange_company_id(self):
@@ -451,7 +456,7 @@ class StockWarehouse(models.Model):
                 'depends': ['delivery_steps'],
                 'create_values': {
                     'active': True,
-                    'procure_method': 'mts_else_mto',
+                    'procure_method': 'make_to_order',
                     'company_id': self.company_id.id,
                     'action': 'pull',
                     'auto': 'manual',
@@ -1104,42 +1109,42 @@ class StockWarehouse(models.Model):
         return {
             'in_type_id': {
                 'name': _('%(name)s Sequence in', name=name),
-                'prefix': code + '/IN/', 'padding': 5,
+                'prefix': code + '/' + (self.in_type_id.sequence_code or 'IN') + '/', 'padding': 5,
                 'company_id': self.company_id.id,
             },
             'out_type_id': {
                 'name': _('%(name)s Sequence out', name=name),
-                'prefix': code + '/OUT/', 'padding': 5,
+                'prefix': code + '/' + (self.out_type_id.sequence_code or 'OUT') + '/', 'padding': 5,
                 'company_id': self.company_id.id,
             },
             'pack_type_id': {
                 'name': _('%(name)s Sequence packing', name=name),
-                'prefix': code + '/PACK/', 'padding': 5,
+                'prefix': code + '/' + (self.pack_type_id.sequence_code or 'PACK') + '/', 'padding': 5,
                 'company_id': self.company_id.id,
             },
             'pick_type_id': {
-                'name': name + ' ' + _('Sequence picking'),
-                'prefix': code + '/PICK/', 'padding': 5,
+                'name': _('%(name)s Sequence picking', name=name),
+                'prefix': code + '/' + (self.pick_type_id.sequence_code or 'PICK') + '/', 'padding': 5,
                 'company_id': self.company_id.id,
             },
             'qc_type_id': {
                 'name': _('%(name)s Sequence quality control', name=name),
-                'prefix': code + '/QC/', 'padding': 5,
+                'prefix': code + '/' + (self.qc_type_id.sequence_code or 'QC') + '/', 'padding': 5,
                 'company_id': self.company_id.id,
             },
             'store_type_id': {
                 'name': _('%(name)s Sequence storage', name=name),
-                'prefix': code + '/STOR/', 'padding': 5,
+                'prefix': code + '/' + (self.store_type_id.sequence_code or 'STOR') + '/', 'padding': 5,
                 'company_id': self.company_id.id,
             },
             'int_type_id': {
                 'name': _('%(name)s Sequence internal', name=name),
-                'prefix': code + '/INT/', 'padding': 5,
+                'prefix': code + '/' + (self.int_type_id.sequence_code or 'INT') + '/', 'padding': 5,
                 'company_id': self.company_id.id,
             },
             'xdock_type_id': {
                 'name': _('%(name)s Sequence cross dock', name=name),
-                'prefix': code + '/XD/', 'padding': 5,
+                'prefix': code + '/' + (self.xdock_type_id.sequence_code or 'XD') + '/', 'padding': 5,
                 'company_id': self.company_id.id,
             },
         }

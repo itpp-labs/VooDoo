@@ -13,7 +13,6 @@ from odoo.http import request
 from odoo.osv import expression
 from odoo.tools import (
     SQL,
-    create_index,
     float_is_zero,
     format_amount,
     format_date,
@@ -42,16 +41,16 @@ SALE_ORDER_STATE = [
 
 
 class SaleOrder(models.Model):
+    _name = 'sale.order'
     _inherit = ['portal.mixin', 'product.catalog.mixin', 'mail.thread', 'mail.activity.mixin', 'utm.mixin']
     _description = "Sales Order"
     _order = 'date_order desc, id desc'
     _check_company_auto = True
 
-    _sql_constraints = [
-        ('date_order_conditional_required',
-         "CHECK((state = 'sale' AND date_order IS NOT NULL) OR state != 'sale')",
-         "A confirmed sales order requires a confirmation date."),
-    ]
+    _date_order_conditional_required = models.Constraint(
+        "CHECK((state = 'sale' AND date_order IS NOT NULL) OR state != 'sale')",
+        'A confirmed sales order requires a confirmation date.',
+    )
 
     @property
     def _rec_names_search(self):
@@ -312,8 +311,7 @@ class SaleOrder(models.Model):
     show_update_pricelist = fields.Boolean(
         string="Has Pricelist Changed", store=False)  # True if the pricelist was changed
 
-    def init(self):
-        create_index(self._cr, 'sale_order_date_order_id_idx', 'sale_order', ["date_order desc", "id desc"])
+    _date_order_id_idx = models.Index("(date_order desc, id desc)")
 
     #=== COMPUTE METHODS ===#
 
@@ -1046,7 +1044,9 @@ class SaleOrder(models.Model):
         :rtype: record of `mail.template` or `None` if not found
         """
         self.ensure_one()
-        if self.env.context.get('proforma') or self.state != 'sale':
+        if self.env.context.get('proforma'):
+            return self.env.ref('sale.email_template_proforma', raise_if_not_found=False)
+        elif self.state != 'sale':
             return self.env.ref('sale.email_template_edi_sale', raise_if_not_found=False)
         else:
             return self._get_confirmation_template()
@@ -1282,7 +1282,7 @@ class SaleOrder(models.Model):
 
     def _recompute_taxes(self):
         lines_to_recompute = self.order_line.filtered(lambda line: not line.display_type)
-        lines_to_recompute._compute_tax_id()
+        lines_to_recompute._compute_tax_ids()
         self.show_update_fpos = False
 
     def action_update_prices(self):
@@ -1450,6 +1450,12 @@ class SaleOrder(models.Model):
 
         return self.env['sale.order.line'].browse(invoiceable_line_ids + down_payment_line_ids)
 
+    def _create_account_invoices(self, invoice_vals_list, final):
+        """Small method to allow overriding the behavior right after an invoice is created."""
+        # Manage the creation of invoices in sudo because a salesperson must be able to generate an invoice from a
+        # sale order without "billing" access rights. However, he should not be able to create an invoice from scratch.
+        return self.env['account.move'].sudo().with_context(default_move_type='out_invoice').create(invoice_vals_list)
+
     def _create_invoices(self, grouped=False, final=False, date=None):
         """ Create invoice(s) for the given Sales Order(s).
 
@@ -1566,9 +1572,7 @@ class SaleOrder(models.Model):
                     line[2]['sequence'] = SaleOrderLine._get_invoice_line_sequence(new=sequence, old=line[2]['sequence'])
                     sequence += 1
 
-        # Manage the creation of invoices in sudo because a salesperson must be able to generate an invoice from a
-        # sale order without "billing" access rights. However, he should not be able to create an invoice from scratch.
-        moves = self.env['account.move'].sudo().with_context(default_move_type='out_invoice').create(invoice_vals_list)
+        moves = self._create_account_invoices(invoice_vals_list, final)
 
         # 4) Some moves might actually be refunds: convert them if the total amount is negative
         # We do this after the moves have been created since we need taxes, etc. to know if the total

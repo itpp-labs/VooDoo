@@ -5,6 +5,7 @@ from odoo.tools import html2plaintext, cleanup_xml_node
 
 
 class PurchaseEdiXmlUbl_Bis3(models.AbstractModel):
+    _name = 'purchase.edi.xml.ubl_bis3'
     _inherit = ['account.edi.xml.ubl_bis3']
     _description = "UBL BIS 3 Peppol Order transaction 3.4"
 
@@ -120,7 +121,7 @@ class PurchaseEdiXmlUbl_Bis3(models.AbstractModel):
         # Price subtotal with discount / quantity:
         gross_price_unit = gross_price_subtotal / line.product_qty if line.product_qty else 0.0
 
-        uom = self._get_uom_unece_code(line.product_uom)
+        uom = self._get_uom_unece_code(line.product_uom_id)
 
         vals = {
             'currency_id': line.currency_id.name,
@@ -169,7 +170,7 @@ class PurchaseEdiXmlUbl_Bis3(models.AbstractModel):
             return {
                 'id': order_line_id,
                 'quantity': order_line.product_qty,
-                'quantity_unit_code': self._get_uom_unece_code(order_line.product_uom),
+                'quantity_unit_code': self._get_uom_unece_code(order_line.product_uom_id),
                 'line_extension_amount': order_line.price_subtotal,
                 'currency_id': order_line.currency_id.name,
                 'currency_dp': self._get_currency_decimal_places(order_line.currency_id),

@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { Component, useEffect, useRef } from "@odoo/owl";
 import { usePosition } from "@web/core/position/position_hook";
 
@@ -69,6 +67,7 @@ export class TourPointer extends Component {
         };
         Object.defineProperty(positionOptions, "position", {
             get: () => this.position,
+            set: () => {}, // do not let the position hook change the position
             enumerable: true,
         });
         const position = usePosition(

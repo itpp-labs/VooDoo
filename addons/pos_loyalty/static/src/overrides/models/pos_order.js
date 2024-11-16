@@ -2,7 +2,7 @@ import { PosOrder } from "@point_of_sale/app/models/pos_order";
 import { patch } from "@web/core/utils/patch";
 import { roundDecimals, roundPrecision } from "@web/core/utils/numbers";
 import { _t } from "@web/core/l10n/translation";
-import { loyaltyIdsGenerator } from "./pos_store";
+import { loyaltyIdsGenerator } from "@pos_loyalty/app/services/pos_store";
 import {
     compute_price_force_price_include,
     getTaxesAfterFiscalPosition,
@@ -988,8 +988,9 @@ patch(PosOrder.prototype, {
                 continue;
             }
             remainingAmountPerLine[line.uuid] = line.get_price_with_tax();
+            const product_id = line.combo_parent_id?.product_id.id || line.get_product().id;
             if (
-                applicableProductIds.has(line.get_product().id) ||
+                applicableProductIds.has(product_id) ||
                 (line._reward_product_id && applicableProductIds.has(line._reward_product_id.id))
             ) {
                 linesToDiscount.push(line);

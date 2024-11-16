@@ -1,18 +1,19 @@
 import * as BillScreen from "@pos_restaurant/../tests/tours/utils/bill_screen_util";
-import * as PaymentScreen from "@point_of_sale/../tests/tours/utils/payment_screen_util";
-import * as Dialog from "@point_of_sale/../tests/tours/utils/dialog_util";
-import * as ReceiptScreen from "@point_of_sale/../tests/tours/utils/receipt_screen_util";
-import * as ChromePos from "@point_of_sale/../tests/tours/utils/chrome_util";
+import * as PaymentScreen from "@point_of_sale/../tests/pos/tours/utils/payment_screen_util";
+import * as Dialog from "@point_of_sale/../tests/generic_helpers/dialog_util";
+import * as ReceiptScreen from "@point_of_sale/../tests/pos/tours/utils/receipt_screen_util";
+import * as ChromePos from "@point_of_sale/../tests/pos/tours/utils/chrome_util";
 import * as ChromeRestaurant from "@pos_restaurant/../tests/tours/utils/chrome";
 const Chrome = { ...ChromePos, ...ChromeRestaurant };
 import * as FloorScreen from "@pos_restaurant/../tests/tours/utils/floor_screen_util";
-import * as ProductScreenPos from "@point_of_sale/../tests/tours/utils/product_screen_util";
+import * as ProductScreenPos from "@point_of_sale/../tests/pos/tours/utils/product_screen_util";
 import * as ProductScreenResto from "@pos_restaurant/../tests/tours/utils/product_screen_util";
-import * as Order from "@point_of_sale/../tests/tours/utils/generic_components/order_widget_util";
-import * as TicketScreen from "@point_of_sale/../tests/tours/utils/ticket_screen_util";
-import { inLeftSide, negateStep } from "@point_of_sale/../tests/tours/utils/common";
+import * as Order from "@point_of_sale/../tests/generic_helpers/order_widget_util";
+import * as TicketScreen from "@point_of_sale/../tests/pos/tours/utils/ticket_screen_util";
+import { inLeftSide } from "@point_of_sale/../tests/pos/tours/utils/common";
+import { negateStep } from "@point_of_sale/../tests/generic_helpers/utils";
 import { registry } from "@web/core/registry";
-import * as Numpad from "@point_of_sale/../tests/tours/utils/numpad_util";
+import * as Numpad from "@point_of_sale/../tests/generic_helpers/numpad_util";
 
 const ProductScreen = { ...ProductScreenPos, ...ProductScreenResto };
 
@@ -74,9 +75,9 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
             Chrome.activeTableOrOrderIs("Table"),
 
             // Create first order
-            FloorScreen.clickTable("5"),
+            FloorScreen.clickTable("105"),
             ProductScreen.orderBtnIsPresent(),
-            Chrome.isTabActive("5"),
+            Chrome.isTabActive("105"),
             ProductScreen.clickDisplayedProduct("Coca-Cola", true),
             inLeftSide(Order.hasLine({ productName: "Coca-Cola", run: "dblclick" })),
             ProductScreen.clickDisplayedProduct("Water", true),
@@ -95,7 +96,7 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
 
             // Create 2nd order (paid)
             Chrome.clickPlanButton(),
-            FloorScreen.clickTable("2"),
+            FloorScreen.clickTable("102"),
             ProductScreen.clickDisplayedProduct("Coca-Cola", true),
             ProductScreen.clickDisplayedProduct("Minute Maid", true),
             ProductScreen.totalAmountIs("4.40"),
@@ -116,8 +117,8 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
             Chrome.activeTableOrOrderIs("Table"),
 
             // order on another table with a product variant
-            FloorScreen.orderCountSyncedInTableIs("5", "1"),
-            FloorScreen.clickTable("4"),
+            FloorScreen.orderCountSyncedInTableIs("105", "1"),
+            FloorScreen.clickTable("104"),
             ProductScreen.orderBtnIsPresent(),
             ProductScreen.clickDisplayedProduct("Desk Organizer", false),
             {
@@ -125,7 +126,7 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
                 content: "validate the variant dialog (with default values)",
             },
             ProductScreen.selectedOrderlineHas("Desk Organizer"),
-            checkOrderChanges([{ name: "Desk Organizer (S, Leather)", quantity: 1 }]),
+            checkOrderChanges([{ name: "Desk Organizer (Leather, S)", quantity: 1 }]),
             ProductScreen.clickOrderButton(),
             {
                 ...Dialog.confirm(),
@@ -143,17 +144,17 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
 
             // After clicking next order, floor screen is shown.
             // It should have 1 as number of draft synced order.
-            FloorScreen.orderCountSyncedInTableIs("5", "1"),
-            FloorScreen.clickTable("5"),
+            FloorScreen.orderCountSyncedInTableIs("105", "1"),
+            FloorScreen.clickTable("105"),
             ProductScreen.totalAmountIs("4.40"),
 
             // Create another draft order and go back to floor
             Chrome.clickPlanButton(),
-            FloorScreen.clickTable("2"),
+            FloorScreen.clickTable("102"),
             ProductScreen.clickDisplayedProduct("Coca-Cola", true),
             ProductScreen.clickDisplayedProduct("Minute Maid", true),
             Chrome.clickPlanButton(),
-            FloorScreen.orderCountSyncedInTableIs("5", "1"),
+            FloorScreen.orderCountSyncedInTableIs("105", "1"),
 
             // Delete the first order then go back to floor
             Chrome.clickMenuOption("Orders"),
@@ -173,7 +174,7 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
             Chrome.clickPlanButton(),
 
             // There should be 0 synced draft order as we already deleted -00002.
-            FloorScreen.clickTable("5"),
+            FloorScreen.clickTable("105"),
             ProductScreen.orderIsEmpty(),
         ].flat(),
 });
@@ -293,5 +294,27 @@ registry.category("web_tour.tours").add("CategLabelCheck", {
             FloorScreen.clickTable("5"),
             ProductScreen.clickDisplayedProduct("Test Multi Category Product"),
             ProductScreen.OrderButtonNotContain("Drinks"),
+        ].flat(),
+});
+registry.category("web_tour.tours").add("OrderChange", {
+    steps: () =>
+        [
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
+            FloorScreen.clickTable("5"),
+            ProductScreen.clickDisplayedProduct("Coca-Cola", true, "1.0"),
+            ProductScreen.clickOrderButton(),
+            {
+                ...Dialog.confirm(),
+                content:
+                    "acknowledge printing error ( because we don't have printer in the test. )",
+            },
+            ProductScreen.orderlinesHaveNoChange(),
+            ProductScreen.clickPayButton(),
+            PaymentScreen.clickPaymentMethod("Cash"),
+            PaymentScreen.clickNumpad("+10"),
+            PaymentScreen.clickValidate(),
+            ReceiptScreen.isShown(),
+            TicketScreen.receiptChangeIs("7.80"),
         ].flat(),
 });

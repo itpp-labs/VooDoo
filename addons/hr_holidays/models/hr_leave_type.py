@@ -19,6 +19,7 @@ _logger = logging.getLogger(__name__)
 
 
 class HrLeaveType(models.Model):
+    _name = 'hr.leave.type'
     _description = "Time Off Type"
     _order = 'sequence'
 
@@ -104,14 +105,13 @@ class HrLeaveType(models.Model):
     # negative time off
     allows_negative = fields.Boolean(string='Allow Negative Cap',
         help="If checked, users request can exceed the allocated days and balance can go in negative.")
-    max_allowed_negative = fields.Integer(string="Amount in Negative",
+    max_allowed_negative = fields.Integer(string="Maximum Excess Amount",
         help="Define the maximum level of negative days this kind of time off can reach. Value must be at least 1.")
 
-    _sql_constraints = [(
-        'check_negative',
+    _check_negative = models.Constraint(
         'CHECK(NOT allows_negative OR max_allowed_negative > 0)',
-        'The negative amount must be greater than 0. If you want to set 0, disable the negative cap instead.'
-    )]
+        'The maximum excess amount should be greater than 0. If you want to set 0, disable the negative cap instead.'
+    )
 
     @api.model
     def _search_valid(self, operator, value):

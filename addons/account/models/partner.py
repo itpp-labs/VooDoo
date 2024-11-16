@@ -20,6 +20,7 @@ _logger = logging.getLogger(__name__)
 
 
 class AccountFiscalPosition(models.Model):
+    _name = 'account.fiscal.position'
     _description = 'Fiscal Position'
     _order = 'sequence'
     _check_company_auto = True
@@ -290,6 +291,7 @@ class AccountFiscalPosition(models.Model):
 
 
 class AccountFiscalPositionTax(models.Model):
+    _name = 'account.fiscal.position.tax'
     _description = 'Tax Mapping of Fiscal Position'
     _rec_name = 'position_id'
     _check_company_auto = True
@@ -302,14 +304,14 @@ class AccountFiscalPositionTax(models.Model):
     tax_dest_id = fields.Many2one('account.tax', string='Tax to Apply', check_company=True)
     tax_dest_active = fields.Boolean(related="tax_dest_id.active")
 
-    _sql_constraints = [
-        ('tax_src_dest_uniq',
-         'unique (position_id,tax_src_id,tax_dest_id)',
-         'A tax fiscal position could be defined only one time on same taxes.')
-    ]
+    _tax_src_dest_uniq = models.Constraint(
+        'unique (position_id,tax_src_id,tax_dest_id)',
+        'A tax fiscal position could be defined only one time on same taxes.',
+    )
 
 
 class AccountFiscalPositionAccount(models.Model):
+    _name = 'account.fiscal.position.account'
     _description = 'Accounts Mapping of Fiscal Position'
     _rec_name = 'position_id'
     _check_company_auto = True
@@ -325,15 +327,14 @@ class AccountFiscalPositionAccount(models.Model):
         check_company=True, required=True,
         domain="[('deprecated', '=', False)]")
 
-    _sql_constraints = [
-        ('account_src_dest_uniq',
-         'unique (position_id,account_src_id,account_dest_id)',
-         'An account fiscal position could be defined only one time on same accounts.')
-    ]
+    _account_src_dest_uniq = models.Constraint(
+        'unique (position_id,account_src_id,account_dest_id)',
+        'An account fiscal position could be defined only one time on same accounts.',
+    )
 
 
 class ResPartner(models.Model):
-    _inherit = ['res.partner']
+    _inherit = 'res.partner'
 
     fiscal_country_codes = fields.Char(compute='_compute_fiscal_country_codes')
     partner_vat_placeholder = fields.Char(compute='_compute_partner_vat_placeholder')

@@ -13,7 +13,7 @@ _logger = logging.getLogger(__name__)
 
 
 class CrmTeamMember(models.Model):
-    _inherit = ['crm.team.member']
+    _inherit = 'crm.team.member'
 
     # assignment
     assignment_enabled = fields.Boolean(related="crm_team_id.assignment_enabled")
@@ -29,7 +29,7 @@ class CrmTeamMember(models.Model):
 
     @api.depends('user_id', 'crm_team_id')
     def _compute_lead_day_count(self):
-        day_date = fields.datetime.now() - datetime.timedelta(hours=24)
+        day_date = fields.Datetime.now() - datetime.timedelta(hours=24)
         daily_leads_counts = self._get_lead_from_date(day_date)
 
         for member in self:

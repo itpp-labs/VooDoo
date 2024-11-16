@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { checkFileSize, DEFAULT_MAX_FILE_SIZE } from "@web/core/utils/files";
@@ -429,7 +427,7 @@ export class BaseImportModel {
             const parameters = {
                 tracking_disable: this.importOptions.tracking_disable,
                 delayAfterEachBatch: this.binaryFilesParams.delayAfterEachBatch.value,
-                maxSizePerBatch: this.binaryFilesParams.maxSizePerBatch.value,
+                maxBatchSize: this.binaryFilesParams.maxSizePerBatch.value * 1024 * 1024,
             };
 
             if (!this.binaryFilesParams.binaryFiles) {

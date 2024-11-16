@@ -64,6 +64,7 @@ def att_names(name):
 
 
 class IrUiViewCustom(models.Model):
+    _name = 'ir.ui.view.custom'
     _description = 'Custom View'
     _order = 'create_date desc'  # search(limit=1) should return the last customization
     _rec_name = 'user_id'
@@ -73,11 +74,7 @@ class IrUiViewCustom(models.Model):
     user_id = fields.Many2one('res.users', string='User', index=True, required=True, ondelete='cascade')
     arch = fields.Text(string='View Architecture', required=True)
 
-    def _auto_init(self):
-        res = super()._auto_init()
-        tools.create_index(self._cr, 'ir_ui_view_custom_user_id_ref_id',
-                           self._table, ['user_id', 'ref_id'])
-        return res
+    _user_id_ref_id = models.Index('(user_id, ref_id)')
 
 
 def _hasclass(context, *cls):
@@ -140,6 +137,7 @@ WRONGCLASS = re.compile(r"(@class\s*=|=\s*@class|contains\(@class)")
 
 
 class IrUiView(models.Model):
+    _name = 'ir.ui.view'
     _description = 'View'
     _order = "priority,name,id"
     _allow_sudo_commands = False
@@ -408,14 +406,16 @@ actual arch.
                     ))
                     err.context = e.context
                     raise err.with_traceback(e.__traceback__) from None
-                elif err.__context__:
+                elif e.__context__:
                     err = ValidationError(_(
                         "Error while validating view (%(view)s):\n\n%(error)s", view=view.key or view.id, error=e.__context__,
                     ))
                     err.context = {'name': 'invalid view'}
                     raise err.with_traceback(e.__context__.__traceback__) from None
                 else:
-                    raise
+                    raise ValidationError(_(
+                        "Error while validating view (%(view)s):\n\n%(error)s", view=view.key or view.id, error=e,
+                    ))
 
         return True
 
@@ -434,21 +434,15 @@ actual arch.
         if self._has_cycle('inherit_id'):
             raise ValidationError(_('You cannot create recursive inherited views.'))
 
-    _sql_constraints = [
-        ('inheritance_mode',
-         "CHECK (mode != 'extension' OR inherit_id IS NOT NULL)",
-         "Invalid inheritance mode: if the mode is 'extension', the view must"
-         " extend an other view"),
-        ('qweb_required_key',
-         "CHECK (type != 'qweb' OR key IS NOT NULL)",
-         "Invalid key: QWeb view should have a key"),
-    ]
-
-    def _auto_init(self):
-        res = super()._auto_init()
-        tools.create_index(self._cr, 'ir_ui_view_model_type_inherit_id',
-                           self._table, ['model', 'inherit_id'])
-        return res
+    _inheritance_mode = models.Constraint(
+        "CHECK (mode != 'extension' OR inherit_id IS NOT NULL)",
+        "Invalid inheritance mode: if the mode is 'extension', the view must extend an other view",
+    )
+    _qweb_required_key = models.Constraint(
+        "CHECK (type != 'qweb' OR key IS NOT NULL)",
+        "Invalid key: QWeb view should have a key",
+    )
+    _model_type_inherit_id = models.Index('(model, inherit_id)')
 
     def _compute_defaults(self, values):
         if 'inherit_id' in values:
@@ -2357,8 +2351,7 @@ class ResetViewArchWizard(models.TransientModel):
 
 
 class Base(models.AbstractModel):
-
-    _inherit = ['base']
+    _inherit = 'base'
 
     _date_name = 'date'         #: field to use for default calendar view
 
@@ -2409,7 +2402,7 @@ class Base(models.AbstractModel):
         left_group = E.group()
         right_group = E.group()
         for fname, field in self._fields.items():
-            if field.automatic:
+            if fname in models.MAGIC_COLUMNS or (fname == 'display_name' and field.readonly):
                 continue
             elif field.type in ('one2many', 'many2many', 'text', 'html'):
                 # append to sheet left and right group if needed

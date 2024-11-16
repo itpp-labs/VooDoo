@@ -92,18 +92,22 @@ class StockWarehouseOrderpoint(models.Model):
 
     unwanted_replenish = fields.Boolean('Unwanted Replenish', compute="_compute_unwanted_replenish")
 
-    _sql_constraints = [
-        ('qty_multiple_check', 'CHECK( qty_multiple >= 0 )', 'Qty Multiple must be greater than or equal to zero.'),
-        ('product_location_check', 'unique (product_id, location_id, company_id)', 'A replenishment rule already exists for this product on this location.'),
-    ]
+    _qty_multiple_check = models.Constraint(
+        'CHECK( qty_multiple >= 0 )',
+        'Qty Multiple must be greater than or equal to zero.',
+    )
+    _product_location_check = models.Constraint(
+        'unique (product_id, location_id, company_id)',
+        'A replenishment rule already exists for this product on this location.',
+    )
 
     @api.depends('warehouse_id')
     def _compute_allowed_location_ids(self):
-        loc_domain = [('usage', 'in', ('internal', 'view'))]
         # We want to keep only the locations
         #  - strictly belonging to our warehouse
         #  - not belonging to any warehouses
         for orderpoint in self:
+            loc_domain = [('usage', 'in', ('internal', 'view'))]
             other_warehouses = self.env['stock.warehouse'].search([('id', '!=', orderpoint.warehouse_id.id)])
             for view_location_id in other_warehouses.mapped('view_location_id'):
                 loc_domain = expression.AND([loc_domain, ['!', ('id', 'child_of', view_location_id.id)]])
@@ -462,7 +466,7 @@ class StockWarehouseOrderpoint(models.Model):
                     ploc_per_day[(lead_days, loc)].add(product.id)
 
         # recompute virtual_available with lead days
-        today = fields.datetime.now().replace(hour=23, minute=59, second=59)
+        today = fields.Datetime.now().replace(hour=23, minute=59, second=59)
         for (days, loc), product_ids in ploc_per_day.items():
             products = self.env['product.product'].browse(product_ids)
             qties = products.with_context(

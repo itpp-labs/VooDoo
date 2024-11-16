@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { queryOne } from "@odoo/hoot-dom";
 import {
     changeOption,
@@ -442,7 +440,7 @@ registerWebsitePreviewTour("website_form_editor_tour", {
         trigger: ":iframe .s_website_form_field.s_website_form_custom.s_website_form_required" +
                     ":has(label:contains('State'))" +
                     ":has(select[required])" +
-                    ":has(option[selected]:contains('Belgium'))" +
+                    ":has(option:contains('Belgium')):not([selected])" +
                     ":has(option:contains('France'))" +
                     ":has(option:contains('Canada'))" +
                     ":has(option:contains('44 - UK'))" +
@@ -959,8 +957,9 @@ registerWebsitePreviewTour("website_form_editable_content", {
         content: "Check that the new text value was correctly set",
         trigger: ":iframe section.s_website_form h5:contains(/^ABC$/)",
     },
-    {   content: "Remove the dropped column",
-        trigger: ":iframe .oe_overlay.oe_active .oe_snippet_remove",
+    {
+        content: "Remove the dropped column",
+        trigger: ":iframe .oe_overlay.oe_active .oe_snippet_remove:not(:visible)",
         run: "click",
     },
     ...clickOnSave(),

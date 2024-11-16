@@ -5,13 +5,13 @@ from odoo.tools.sql import column_exists, create_column
 
 
 class StockRoute(models.Model):
-    _inherit = ["stock.route"]
+    _inherit = "stock.route"
 
     shipping_selectable = fields.Boolean("Applicable on Shipping Methods")
 
 
 class StockMove(models.Model):
-    _inherit = ['stock.move']
+    _inherit = 'stock.move'
 
     def _auto_init(self):
         if not column_exists(self.env.cr, "stock_move", "weight"):
@@ -49,18 +49,18 @@ class StockMove(models.Model):
 
 
 class StockMoveLine(models.Model):
-    _inherit = ['stock.move.line']
+    _inherit = 'stock.move.line'
 
     sale_price = fields.Float(compute='_compute_sale_price')
     destination_country_code = fields.Char(related='picking_id.destination_country_code')
     carrier_id = fields.Many2one(related='picking_id.carrier_id')
 
-    @api.depends('quantity', 'product_uom_id', 'product_id', 'move_id.sale_line_id', 'move_id.sale_line_id.price_reduce_taxinc', 'move_id.sale_line_id.product_uom')
+    @api.depends('quantity', 'product_uom_id', 'product_id', 'move_id.sale_line_id', 'move_id.sale_line_id.price_reduce_taxinc', 'move_id.sale_line_id.product_uom_id')
     def _compute_sale_price(self):
         for move_line in self:
             if move_line.move_id.sale_line_id:
                 unit_price = move_line.move_id.sale_line_id.price_reduce_taxinc
-                qty = move_line.product_uom_id._compute_quantity(move_line.quantity, move_line.move_id.sale_line_id.product_uom)
+                qty = move_line.product_uom_id._compute_quantity(move_line.quantity, move_line.move_id.sale_line_id.product_uom_id)
             else:
                 unit_price = move_line.product_id.list_price
                 qty = move_line.product_uom_id._compute_quantity(move_line.quantity, move_line.product_id.uom_id)

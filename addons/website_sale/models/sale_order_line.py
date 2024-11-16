@@ -4,7 +4,7 @@ from odoo import api, fields, models
 
 
 class SaleOrderLine(models.Model):
-    _inherit = ['sale.order.line']
+    _inherit = 'sale.order.line'
 
     name_short = fields.Char(compute='_compute_name_short')
     shop_warning = fields.Char(string="Warning")
@@ -33,7 +33,7 @@ class SaleOrderLine(models.Model):
             return self.env['product.pricelist.item']._compute_price_before_discount(
                 product=self.product_id.with_context(**self._get_product_price_context()),
                 quantity=self.product_uom_qty or 1.0,
-                uom=self.product_uom,
+                uom=self.product_uom_id,
                 date=self.order_id.date_order,
                 currency=self.currency_id,
             )
@@ -51,7 +51,7 @@ class SaleOrderLine(models.Model):
         show_tax = self.order_id.website_id.show_line_subtotals_tax_selection
         tax_display = 'total_excluded' if show_tax == 'tax_excluded' else 'total_included'
 
-        return self.tax_id.compute_all(
+        return self.tax_ids.compute_all(
             self.price_unit, self.currency_id, 1, self.product_id, self.order_partner_id,
         )[tax_display]
 

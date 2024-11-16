@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 
 
 class StockPicking(models.Model):
-    _inherit = ['stock.picking']
+    _inherit = 'stock.picking'
 
     move_line_ids_without_package = fields.One2many(
         domain=['&', '|', ('location_dest_id.usage', '!=', 'production'), ('move_id.picking_code', '!=', 'outgoing'),
@@ -155,7 +155,8 @@ class StockPicking(models.Model):
             'location_dest_id': subcontract_move.picking_id.partner_id.with_company(subcontract_move.company_id).property_stock_subcontractor.id,
             'product_qty': subcontract_move.product_uom_qty or subcontract_move.quantity,
             'picking_type_id': warehouse.subcontracting_type_id.id,
-            'date_start': subcontract_move.date - relativedelta(days=bom.produce_delay)
+            'date_start': subcontract_move.date - relativedelta(days=bom.produce_delay),
+            'origin': self.name,
         }
         return vals
 

@@ -20,6 +20,7 @@ _logger = logging.getLogger(__name__)
 
 
 class PosOrder(models.Model):
+    _name = 'pos.order'
     _inherit = ["portal.mixin", "pos.bus.mixin", "pos.load.mixin", "mail.thread"]
     _description = "Point of Sale Orders"
     _order = "date_order desc, name desc, id desc"
@@ -201,6 +202,7 @@ class PosOrder(models.Model):
                 'is_change': True,
             }
             order.add_payment(return_payment_vals)
+            order._compute_prices()
 
     def _prepare_tax_base_line_values(self):
         """ Convert pos order lines into dictionaries that would be used to compute taxes later.
@@ -251,7 +253,11 @@ class PosOrder(models.Model):
                     'name': line.customer_note,
                     'display_type': 'line_note',
                 }))
-
+        if self.general_customer_note:
+            invoice_lines.append((0, None, {
+                'name': self.general_customer_note,
+                'display_type': 'line_note',
+            }))
         return invoice_lines
 
     def _get_pos_anglo_saxon_price_unit(self, product, partner_id, quantity):
@@ -306,7 +312,8 @@ class PosOrder(models.Model):
     procurement_group_id = fields.Many2one('procurement.group', 'Procurement Group', copy=False)
 
     floating_order_name = fields.Char(string='Order Name')
-    general_note = fields.Text(string='General Note')
+    general_customer_note = fields.Text(string='General Customer Note')
+    internal_note = fields.Text(string='Internal Note')
     nb_print = fields.Integer(string='Number of Print', readonly=True, copy=False, default=0)
     pos_reference = fields.Char(string='Receipt Number', readonly=True, copy=False, index=True, help="""
         Human readable reference for this order.
@@ -427,10 +434,10 @@ class PosOrder(models.Model):
                 raise UserError(_("You can't: create a pos order from the backend interface, or unset the pricelist, or create a pos.order in a python test with Form tool, or edit the form view in studio if no PoS order exist"))
             currency = order.currency_id
             order.amount_paid = sum(payment.amount for payment in order.payment_ids)
-            order.amount_return = sum(payment.amount < 0 and payment.amount or 0 for payment in order.payment_ids)
+            order.amount_return = -sum(payment.amount < 0 and payment.amount or 0 for payment in order.payment_ids)
             order.amount_tax = currency.round(sum(self._amount_line_tax(line, order.fiscal_position_id) for line in order.lines))
             order.amount_total = order.amount_tax + currency.round(sum(line.price_subtotal for line in order.lines))
-            order.amount_difference = order.amount_paid - order.amount_total
+            order.amount_difference = currency.round(order.amount_paid - order.amount_total) or 0
 
     def _compute_batch_amount_all(self):
         """
@@ -1273,6 +1280,7 @@ class PosOrder(models.Model):
 
 
 class PosOrderLine(models.Model):
+    _name = 'pos.order.line'
     _description = "Point of Sale Order Lines"
     _rec_name = "product_id"
     _inherit = ['pos.load.mixin']
@@ -1572,8 +1580,12 @@ class PosOrderLine(models.Model):
     @api.depends('price_subtotal', 'total_cost')
     def _compute_margin(self):
         for line in self:
-            line.margin = line.price_subtotal - line.total_cost
-            line.margin_percent = not float_is_zero(line.price_subtotal, precision_rounding=line.currency_id.rounding) and line.margin / line.price_subtotal or 0
+            if line.product_id.type == 'combo':
+                line.margin = 0
+                line.margin_percent = 0
+            else:
+                line.margin = line.price_subtotal - line.total_cost
+                line.margin_percent = not float_is_zero(line.price_subtotal, precision_rounding=line.currency_id.rounding) and line.margin / line.price_subtotal or 0
 
     def _prepare_tax_base_line_values(self):
         """ Convert pos order lines into dictionaries that would be used to compute taxes later.
@@ -1640,6 +1652,7 @@ class PosOrderLine(models.Model):
 
 
 class PosPackOperationLot(models.Model):
+    _name = 'pos.pack.operation.lot'
     _description = "Specify product lot/serial number in pos order line"
     _rec_name = "lot_name"
     _inherit = ['pos.load.mixin']
@@ -1659,6 +1672,7 @@ class PosPackOperationLot(models.Model):
 
 
 class AccountCashRounding(models.Model):
+    _name = 'account.cash.rounding'
     _inherit = ['account.cash.rounding', 'pos.load.mixin']
 
     @api.constrains('rounding', 'rounding_method', 'strategy')

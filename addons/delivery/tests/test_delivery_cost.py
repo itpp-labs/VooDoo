@@ -109,7 +109,6 @@ class TestDeliveryCost(DeliveryCommon, SaleCommon):
                 Command.create({
                     'product_id': self.product_consultant.id,
                     'product_uom_qty': 24,
-                    'product_uom': self.product_uom_hour.id,
                     'price_unit': 75.00,
                 }),
                 Command.create({
@@ -425,7 +424,7 @@ class TestDeliveryCost(DeliveryCommon, SaleCommon):
         delivery_line = sale_order.order_line.filtered(lambda l: l.is_delivery)
 
         # delivery line should have taxes from the branch company
-        self.assertRecordValues(delivery_line, [{'product_id': delivery_product.id, 'tax_id': tax_b.ids}])
+        self.assertRecordValues(delivery_line, [{'product_id': delivery_product.id, 'tax_ids': tax_b.ids}])
 
         # update delivery product by setting only the tax from parent company
         delivery_product.write({'taxes_id': [Command.set((tax_a).ids)]})
@@ -439,7 +438,7 @@ class TestDeliveryCost(DeliveryCommon, SaleCommon):
         delivery_line = sale_order.order_line.filtered(lambda l: l.is_delivery)
 
         # delivery line should have taxes from the parent company as there is no tax from the branch company
-        self.assertRecordValues(delivery_line, [{'product_id': delivery_product.id, 'tax_id': tax_a.ids}])
+        self.assertRecordValues(delivery_line, [{'product_id': delivery_product.id, 'tax_ids': tax_a.ids}])
 
     def test_update_weight_in_shipping_when_change_quantity(self):
         product_test = self.env['product.product'].create({
@@ -452,7 +451,6 @@ class TestDeliveryCost(DeliveryCommon, SaleCommon):
                 Command.create({
                     'product_id': product_test.id,
                     'product_uom_qty': 10,
-                    'product_uom': self.uom_unit.id,
                 }),
             ],
         })
@@ -545,7 +543,6 @@ class TestDeliveryCost(DeliveryCommon, SaleCommon):
                 'name': 'PC Assamble + 2GB RAM',
                 'product_id': self.product.id,
                 'product_uom_qty': 1,
-                'product_uom': self.uom_unit.id,
                 'price_unit': 750.00,
             })],
         })

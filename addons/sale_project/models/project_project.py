@@ -12,7 +12,7 @@ from odoo.tools.translate import _
 
 
 class ProjectProject(models.Model):
-    _inherit = ['project.project']
+    _inherit = 'project.project'
 
     def _domain_sale_line_id(self):
         domain = expression.AND([
@@ -22,13 +22,13 @@ class ProjectProject(models.Model):
                 ('order_partner_id', '=?', unquote("partner_id")),
             ],
         ])
-        return str(domain)
+        return domain
 
     allow_billable = fields.Boolean("Billable")
     sale_line_id = fields.Many2one(
         'sale.order.line', 'Sales Order Item', copy=False,
         compute="_compute_sale_line_id", store=True, readonly=False, index='btree_not_null',
-        domain=_domain_sale_line_id,
+        domain=lambda self: str(self._domain_sale_line_id()),
         help="Sales order item that will be selected by default on the tasks and timesheets of this project,"
             " except if the employee set on the timesheets is explicitely linked to another sales order item on the project.\n"
             "It can be modified on each task and timesheet entry individually if necessary.")
@@ -434,7 +434,7 @@ class ProjectProject(models.Model):
             'sol_items': [{
                 **sol_read,
                 **get_action(sol_read['id']),
-            } for sol_read in all_sols.with_context(with_price_unit=True)._read_format(['name', 'product_uom_qty', 'qty_delivered', 'qty_invoiced', 'product_uom', 'product_id'])],
+            } for sol_read in all_sols.with_context(with_price_unit=True)._read_format(['name', 'product_uom_qty', 'qty_delivered', 'qty_invoiced', 'product_uom_id', 'product_id'])],
             'displayLoadMore': display_load_more,
         }
 
@@ -608,12 +608,14 @@ class ProjectProject(models.Model):
     def _get_revenues_items_from_invoices_domain(self, domain=None):
         if domain is None:
             domain = []
+        included_invoice_line_ids = self._get_already_included_profitability_invoice_line_ids()
         return expression.AND([
             domain,
             [('move_id.move_type', 'in', self.env['account.move'].get_sale_types()),
             ('parent_state', 'in', ['draft', 'posted']),
             ('price_subtotal', '!=', 0),
-            ('is_downpayment', '=', False)],
+            ('is_downpayment', '=', False),
+            ('id', 'not in', included_invoice_line_ids)],
         ])
 
     def _get_revenues_items_from_invoices(self, excluded_move_line_ids=None, with_action=True):

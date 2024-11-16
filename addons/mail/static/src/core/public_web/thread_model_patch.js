@@ -16,10 +16,13 @@ patch(Thread.prototype, {
     },
 
     _computeDiscussAppCategory() {
+        if (this.parent_channel_id) {
+            return;
+        }
         if (["group", "chat"].includes(this.channel_type)) {
             return this.store.discuss.chats;
         }
-        if (this.channel_type === "channel" && !this.parent_channel_id) {
+        if (this.channel_type === "channel") {
             return this.store.discuss.channels;
         }
     },
@@ -36,9 +39,6 @@ patch(Thread.prototype, {
      * @param {import("models").Message} message
      */
     notifyMessageToUser(message) {
-        if (this.isCorrespondentOdooBot) {
-            return;
-        }
         const channel_notifications =
             this.custom_notifications || this.store.settings.channel_notifications;
         if (
@@ -87,6 +87,14 @@ patch(Thread.prototype, {
         const activeId =
             typeof this.id === "string" ? `mail.box_${this.id}` : `discuss.channel_${this.id}`;
         router.pushState({ active_id: activeId });
+        if (
+            this.store.action_discuss_id &&
+            this.store.env.services.action?.currentController?.action.id ===
+                this.store.action_discuss_id
+        ) {
+            // Keep the action stack up to date (used by breadcrumbs).
+            this.store.env.services.action.currentController.action.context.active_id = activeId;
+        }
     },
     open(options) {
         if (this.store.env.services.ui.isSmall) {

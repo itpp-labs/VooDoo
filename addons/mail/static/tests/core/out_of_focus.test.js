@@ -1,15 +1,20 @@
 import {
-    assertSteps,
     contains,
     defineMailModels,
     onRpcBefore,
     openDiscuss,
     start,
     startServer,
-    step,
 } from "@mail/../tests/mail_test_helpers";
 import { describe, test } from "@odoo/hoot";
-import { Command, mockService, serverState, withUser } from "@web/../tests/web_test_helpers";
+import {
+    asyncStep,
+    Command,
+    mockService,
+    serverState,
+    waitForSteps,
+    withUser,
+} from "@web/../tests/web_test_helpers";
 
 import { rpc } from "@web/core/network/rpc";
 
@@ -17,9 +22,9 @@ describe.current.tags("desktop");
 defineMailModels();
 
 test("Spaces in notifications are not encoded", async () => {
-    onRpcBefore("/mail/action", (args) => {
+    onRpcBefore("/mail/data", (args) => {
         if (args.init_messaging) {
-            step(`/mail/action - ${JSON.stringify(args)}`);
+            asyncStep(`/mail/data - ${JSON.stringify(args)}`);
         }
     });
     mockService("presence", { isOdooFocused: () => false });
@@ -34,8 +39,8 @@ test("Spaces in notifications are not encoded", async () => {
         ],
     });
     await start();
-    await assertSteps([
-        `/mail/action - ${JSON.stringify({
+    await waitForSteps([
+        `/mail/data - ${JSON.stringify({
             init_messaging: {},
             failures: true,
             systray_get_activities: true,

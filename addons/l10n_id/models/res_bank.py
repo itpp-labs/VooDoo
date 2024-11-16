@@ -26,7 +26,7 @@ def _l10n_id_make_qris_request(endpoint, params):
 
 
 class ResPartnerBank(models.Model):
-    _inherit = ["res.partner.bank"]
+    _inherit = "res.partner.bank"
 
     l10n_id_qris_api_key = fields.Char("QRIS API Key", groups="base.group_system")
     l10n_id_qris_mid = fields.Char("QRIS Merchant ID", groups="base.group_system")
@@ -91,6 +91,8 @@ class ResPartnerBank(models.Model):
                 "cliTrxAmount": int(amount)
             }
             response = _l10n_id_make_qris_request('show_qris.php', params)
+            if response.get("status") == "failed":
+                raise ValidationError(response.get("data"))
             data = response.get('data')
 
             # create a new transaction line while also converting the qris_request_date to UTC time

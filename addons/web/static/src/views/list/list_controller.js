@@ -192,7 +192,7 @@ export class ListController extends Component {
     }
 
     get modelParams() {
-        const { defaultGroupBy, rawExpand } = this.archInfo;
+        const { rawExpand } = this.archInfo;
         const { activeFields, fields } = extractFieldsFromArchInfo(
             this.archInfo,
             this.props.fields
@@ -218,7 +218,6 @@ export class ListController extends Component {
             limit: this.archInfo.limit || this.props.limit,
             countLimit: this.archInfo.countLimit,
             defaultOrderBy: this.archInfo.defaultOrder,
-            defaultGroupBy: this.props.searchMenuTypes.includes("groupBy") ? defaultGroupBy : false,
             groupsLimit: this.archInfo.groupsLimit,
             multiEdit: this.archInfo.multiEdit,
             activeIdsLimit: session.active_ids_limit,
@@ -466,6 +465,7 @@ export class ListController extends Component {
             this.props.archInfo.columns
                 .filter((col) => col.type === "field")
                 .filter((col) => !col.optional || this.optionalActiveFields[col.name])
+                .filter((col) => !evaluateBooleanExpr(col.column_invisible, this.props.context))
                 .map((col) => this.props.fields[col.name])
                 .filter((field) => field.exportable !== false)
         );

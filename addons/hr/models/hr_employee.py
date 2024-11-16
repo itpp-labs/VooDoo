@@ -180,10 +180,14 @@ class HrEmployee(models.Model):
     message_has_error_counter = fields.Integer(groups="hr.group_hr_user")
     message_attachment_count = fields.Integer(groups="hr.group_hr_user")
 
-    _sql_constraints = [
-        ('barcode_uniq', 'unique (barcode)', "The Badge ID must be unique, this one is already assigned to another employee."),
-        ('user_uniq', 'unique (user_id, company_id)', "A user cannot be linked to multiple employees in the same company.")
-    ]
+    _barcode_uniq = models.Constraint(
+        'unique (barcode)',
+        'The Badge ID must be unique, this one is already assigned to another employee.',
+    )
+    _user_uniq = models.Constraint(
+        'unique (user_id, company_id)',
+        'A user cannot be linked to multiple employees in the same company.',
+    )
 
     @api.model
     def check_field_access_rights(self, operation, field_names):
@@ -448,9 +452,20 @@ class HrEmployee(models.Model):
         if self.resource_calendar_id and not self.tz:
             self.tz = self.resource_calendar_id.tz
 
+    def _remove_work_contact_id(self, user, employee_company):
+        """ Remove work_contact_id for previous employee if the user is assigned to a new employee """
+        employee_company = employee_company or self.company_id.id
+        # For employees with a user_id, the constraint (user can't be linked to multiple employees) is triggered
+        old_partner_employee_ids = user.partner_id.employee_ids.filtered(lambda e:
+            not e.user_id
+            and e.company_id.id == employee_company
+            and e != self
+        )
+        old_partner_employee_ids.work_contact_id = None
+
     def _sync_user(self, user, employee_has_image=False):
         vals = dict(
-            work_contact_id=user.partner_id.id,
+            work_contact_id=user.partner_id.id if user else self.work_contact_id.id,
             user_id=user.id,
         )
         if not employee_has_image:
@@ -479,6 +494,7 @@ class HrEmployee(models.Model):
                 user = self.env['res.users'].browse(vals['user_id'])
                 vals.update(self._sync_user(user, bool(vals.get('image_1920'))))
                 vals['name'] = vals.get('name', user.name)
+                self._remove_work_contact_id(user, vals.get('company_id'))
         employees = super().create(vals_list)
         # Sudo in case HR officer doesn't have the Contact Creation group
         employees.filtered(lambda e: not e.work_contact_id).sudo()._create_work_contacts()
@@ -518,10 +534,11 @@ class HrEmployee(models.Model):
             self.message_unsubscribe(self.work_contact_id.ids)
             if vals['work_contact_id']:
                 self._message_subscribe([vals['work_contact_id']])
-        if 'user_id' in vals:
+        if vals.get('user_id'):
             # Update the profile pictures with user, except if provided
-            vals.update(self._sync_user(self.env['res.users'].browse(vals['user_id']),
-                                        (bool(all(emp.image_1920 for emp in self)))))
+            user = self.env['res.users'].browse(vals['user_id'])
+            vals.update(self._sync_user(user, (bool(all(emp.image_1920 for emp in self)))))
+            self._remove_work_contact_id(user, vals.get('company_id'))
         if 'work_permit_expiration_date' in vals:
             vals['work_permit_scheduled_activity'] = False
         res = super().write(vals)
@@ -547,6 +564,11 @@ class HrEmployee(models.Model):
 
     def _get_user_m2o_to_empty_on_archived_employees(self):
         return []
+
+    def _get_departure_date(self):
+        # for overloads
+        self.ensure_one()
+        return self.departure_date
 
     def action_unarchive(self):
         res = super().action_unarchive()

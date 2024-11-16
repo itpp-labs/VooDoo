@@ -4,7 +4,7 @@ from odoo import models
 
 
 class StockMove(models.Model):
-    _inherit = ["stock.move"]
+    _inherit = "stock.move"
 
     def _l10n_in_get_product_price_unit(self):
         self.ensure_one()
@@ -26,6 +26,6 @@ class StockMove(models.Model):
         if line_id := self.sale_line_id:
             return {
                 'is_from_order': True,
-                'taxes': line_id.tax_id,
+                'taxes': line_id.tax_ids,
             }
         return super()._l10n_in_get_product_tax()

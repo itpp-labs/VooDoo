@@ -12,6 +12,7 @@ from .utils import timezone_datetime, make_aware, Intervals
 
 
 class ResourceResource(models.Model):
+    _name = 'resource.resource'
     _description = "Resources"
     _order = "name"
 
@@ -50,9 +51,10 @@ class ResourceResource(models.Model):
         _tz_get, string='Timezone', required=True,
         default=lambda self: self._context.get('tz') or self.env.user.tz or 'UTC')
 
-    _sql_constraints = [
-        ('check_time_efficiency', 'CHECK(time_efficiency>0)', 'Time efficiency must be strictly positive'),
-    ]
+    _check_time_efficiency = models.Constraint(
+        'CHECK(time_efficiency>0)',
+        'Time efficiency must be strictly positive',
+    )
 
     @api.depends('user_id')
     def _compute_avatar_128(self):

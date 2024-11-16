@@ -7,6 +7,7 @@ from odoo import fields, models
 
 
 class EventTrackTag(models.Model):
+    _name = 'event.track.tag'
     _description = 'Event Track Tag'
     _order = "category_id, sequence, name"
 
@@ -21,6 +22,7 @@ class EventTrackTag(models.Model):
     sequence = fields.Integer('Sequence', default=10)
     category_id = fields.Many2one('event.track.tag.category', string="Category", ondelete="set null")
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (name)', "Tag name already exists!"),
-    ]
+    _name_uniq = models.Constraint(
+        'unique (name)',
+        'Tag name already exists!',
+    )

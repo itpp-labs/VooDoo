@@ -6,7 +6,7 @@ import json
 
 
 class PosSession(models.Model):
-    _inherit = ['pos.session']
+    _inherit = 'pos.session'
 
     @api.model
     def _load_pos_data_models(self, config_id):
@@ -21,7 +21,7 @@ class PosSession(models.Model):
             order = self.env['pos.order'].browse(order_id)
             last_order_preparation_change = {
                 'lines': {},
-                'generalNote': '',
+                'generalCustomerNote': '',
             }
             for orderline in order['lines']:
                 last_order_preparation_change['lines'][orderline.uuid + " - "] = {

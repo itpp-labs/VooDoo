@@ -21,7 +21,7 @@
                         'btn-primary active': state.composerType === 'note',
                         'btn-secondary': state.composerType !== 'note',
                         'my-2': !props.compactHeight
-                    }" data-hotkey="shift+m" t-on-click="() => this.toggleComposer('note')">
+                    }" t-att-disabled="!state.thread.hasWriteAccess and !(state.thread.hasReadAccess and state.thread.canPostOnReadonly) and props.threadId" data-hotkey="shift+m" t-on-click="() => this.toggleComposer('note')">
                         Log note
                     </button>
                     <button t-if="props.has_activities" class="o-mail-Chatter-activity btn btn-secondary text-nowrap" t-att-class="{ 'my-2': !props.compactHeight }" data-hotkey="shift+a" t-on-click="scheduleActivity">
@@ -78,7 +78,7 @@
             </div>
             <t t-if="state.composerType">
                 <t t-if="state.composerType === 'message'">
-                    <div class="d-flex flex-shrink-0 pt-3 text-truncate small mb-2 ms-5 gap-1">
+                    <div class="d-flex flex-shrink-0 text-truncate small ms-5 gap-1" t-att-class="{ 'my-1': state.thread.recipients.length > 0 }">
                         <span class="fw-bold">To: </span>
                         <BaseRecipientsList
                             t-if="state.thread.recipients.length > 0"

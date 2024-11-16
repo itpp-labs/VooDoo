@@ -911,9 +911,11 @@ class MailCase(MockEmail):
              'active': partner.active,
              'is_follower': partner in record.message_partner_ids if record else False,
              'groups': partner.user_ids.groups_id.ids,
+             'lang': partner.lang,
              'notif': partner.user_ids.notification_type or 'email',
              'share': partner.partner_share,
              'type': 'user' if partner.user_ids and not partner.partner_share else partner.user_ids and 'portal' or 'customer',
+             'uid': partner.user_ids[0].id if partner.user_ids else False,
              'ushare': all(user.share for user in partner.user_ids) if partner.user_ids else False,
             } for partner in partners
         ]
@@ -1431,7 +1433,16 @@ class MailCommon(common.TransactionCase, MailCase):
             notification_type='inbox',
             signature='--\nEnguerrand'
         )
+        cls.user_employee_c3 = mail_new_test_user(
+            cls.env, login='employee_c3',
+            company_id=cls.company_3.id,
+            company_ids=[(4, cls.company_3.id)],
+            email='freudenbergerg@example.com',
+            name='Freudenbergerg Employee C3',
+            notification_type='inbox'
+        )
         cls.partner_employee_c2 = cls.user_employee_c2.partner_id
+        cls.partner_employee_c3 = cls.user_employee_c3.partner_id
 
         # test erp manager employee
         cls.user_erp_manager = mail_new_test_user(

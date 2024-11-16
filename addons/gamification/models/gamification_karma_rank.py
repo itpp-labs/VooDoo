@@ -5,6 +5,7 @@ from odoo.tools.translate import html_translate
 
 
 class GamificationKarmaRank(models.Model):
+    _name = 'gamification.karma.rank'
     _description = 'Rank based on karma'
     _inherit = ['image.mixin']
     _order = 'karma_min'
@@ -19,9 +20,10 @@ class GamificationKarmaRank(models.Model):
     user_ids = fields.One2many('res.users', 'rank_id', string='Users')
     rank_users_count = fields.Integer("# Users", compute="_compute_rank_users_count")
 
-    _sql_constraints = [
-        ('karma_min_check', "CHECK( karma_min > 0 )", 'The required karma has to be above 0.')
-    ]
+    _karma_min_check = models.Constraint(
+        'CHECK( karma_min > 0 )',
+        'The required karma has to be above 0.',
+    )
 
     @api.depends('user_ids')
     def _compute_rank_users_count(self):

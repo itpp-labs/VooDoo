@@ -1,6 +1,5 @@
 import {
     SIZES,
-    assertSteps,
     click,
     contains,
     defineMailModels,
@@ -13,20 +12,22 @@ import {
     scroll,
     start,
     startServer,
-    step,
     triggerHotkey,
 } from "@mail/../tests/mail_test_helpers";
 import { describe, expect, test } from "@odoo/hoot";
 import { Deferred, advanceTime } from "@odoo/hoot-mock";
 import {
+    asyncStep,
     defineActions,
     getService,
     mockService,
     onRpc,
     serverState,
+    waitForSteps,
 } from "@web/../tests/web_test_helpers";
 
 import { DELAY_FOR_SPINNER } from "@mail/chatter/web_portal/chatter";
+import { queryFirst } from "@odoo/hoot-dom";
 
 describe.current.tags("desktop");
 defineMailModels();
@@ -35,12 +36,12 @@ test("simple chatter on a record", async () => {
     const pyEnv = await startServer();
     onRpcBefore((route, args) => {
         if (route.startsWith("/mail") || route.startsWith("/discuss")) {
-            step(`${route} - ${JSON.stringify(args)}`);
+            asyncStep(`${route} - ${JSON.stringify(args)}`);
         }
     });
     await start();
-    await assertSteps([
-        `/mail/action - ${JSON.stringify({
+    await waitForSteps([
+        `/mail/data - ${JSON.stringify({
             init_messaging: {},
             failures: true,
             systray_get_activities: true,
@@ -51,7 +52,7 @@ test("simple chatter on a record", async () => {
     await openFormView("res.partner", partnerId);
     await contains(".o-mail-Chatter-topbar");
     await contains(".o-mail-Thread");
-    await assertSteps([
+    await waitForSteps([
         `/mail/thread/data - {"request_list":["activities","attachments","followers","scheduledMessages","suggestedRecipients"],"thread_id":${partnerId},"thread_model":"res.partner"}`,
         `/mail/thread/messages - {"thread_id":${partnerId},"thread_model":"res.partner","limit":30}`,
     ]);
@@ -61,7 +62,7 @@ test("can post a message on a record thread", async () => {
     const pyEnv = await startServer();
     const partnerId = pyEnv["res.partner"].create({ name: "John Doe" });
     onRpcBefore("/mail/message/post", (args) => {
-        step("/mail/message/post");
+        asyncStep("/mail/message/post");
         const expected = {
             context: args.context,
             post_data: {
@@ -84,14 +85,14 @@ test("can post a message on a record thread", async () => {
     await contains(".o-mail-Message", { count: 0 });
     await click(".o-mail-Composer button[aria-label='Send']:enabled");
     await contains(".o-mail-Message");
-    await assertSteps(["/mail/message/post"]);
+    await waitForSteps(["/mail/message/post"]);
 });
 
 test("can post a note on a record thread", async () => {
     const pyEnv = await startServer();
     const partnerId = pyEnv["res.partner"].create({ name: "John Doe" });
     onRpcBefore("/mail/message/post", (args) => {
-        step("/mail/message/post");
+        asyncStep("/mail/message/post");
         const expected = {
             context: args.context,
             post_data: {
@@ -114,7 +115,7 @@ test("can post a note on a record thread", async () => {
     await contains(".o-mail-Message", { count: 0 });
     await click(".o-mail-Composer button:enabled", { text: "Log" });
     await contains(".o-mail-Message");
-    await assertSteps(["/mail/message/post"]);
+    await waitForSteps(["/mail/message/post"]);
 });
 
 test("No attachment loading spinner when creating records", async () => {
@@ -346,7 +347,7 @@ test("show attachment box", async () => {
     await contains(".o-mail-AttachmentBox");
 });
 
-test("composer show/hide on log note/send message [REQUIRE FOCUS]", async () => {
+test("composer show/hide on log note/send message", async () => {
     const pyEnv = await startServer();
     const partnerId = pyEnv["res.partner"].create({});
     await start();
@@ -420,22 +421,22 @@ test("scroll position is kept when navigating from one record to another", async
     await start();
     await openFormView("res.partner", partnerId_1);
     await contains(".o-mail-Message", { count: 20 });
-    const clientHeight1 = $(".o-mail-Chatter")[0].clientHeight; // client height might change (cause: breadcrumb)
-    const scrollValue1 = $(".o-mail-Chatter")[0].scrollHeight / 2;
+    const clientHeight1 = queryFirst(".o-mail-Chatter:first").clientHeight; // client height might change (cause: breadcrumb)
+    const scrollValue1 = queryFirst(".o-mail-Chatter:first").scrollHeight / 2;
     await contains(".o-mail-Chatter", { scroll: 0 });
     await scroll(".o-mail-Chatter", scrollValue1);
     await openFormView("res.partner", partnerId_2);
     await contains(".o-mail-Message", { count: 30 });
-    const clientHeight2 = $(".o-mail-Chatter")[0].clientHeight;
-    const scrollValue2 = $(".o-mail-Chatter")[0].scrollHeight / 3;
+    const clientHeight2 = queryFirst(".o-mail-Chatter:first").clientHeight;
+    const scrollValue2 = queryFirst(".o-mail-Chatter:first").scrollHeight / 3;
     await scroll(".o-mail-Chatter", scrollValue2);
     await openFormView("res.partner", partnerId_1);
     await contains(".o-mail-Message", { count: 20 });
-    const clientHeight3 = $(".o-mail-Chatter")[0].clientHeight;
+    const clientHeight3 = queryFirst(".o-mail-Chatter:first").clientHeight;
     await contains(".o-mail-Chatter", { scroll: scrollValue1 - (clientHeight3 - clientHeight1) });
     await openFormView("res.partner", partnerId_2);
     await contains(".o-mail-Message", { count: 30 });
-    const clientHeight4 = $(".o-mail-Chatter")[0].clientHeight;
+    const clientHeight4 = queryFirst(".o-mail-Chatter:first").clientHeight;
     await contains(".o-mail-Chatter", { scroll: scrollValue2 - (clientHeight4 - clientHeight2) });
 });
 
@@ -575,13 +576,13 @@ test("schedule activities on draft record should prompt with scheduling an activ
             if (action.res_model === "res.partner") {
                 return super.doAction(...arguments);
             } else if (action.res_model === "mail.activity.schedule") {
-                step("mail.activity.schedule");
+                asyncStep("mail.activity.schedule");
                 expect(action.context.active_model).toBe("res.partner");
                 expect(Number(action.context.active_id)).toBeGreaterThan(0);
                 options.onClose();
                 wizardOpened.resolve();
             } else {
-                step("Unexpected action" + action.res_model);
+                asyncStep("Unexpected action" + action.res_model);
             }
         },
     });
@@ -597,7 +598,7 @@ test("schedule activities on draft record should prompt with scheduling an activ
     });
     await click("button", { text: "Activities" });
     await wizardOpened;
-    await assertSteps(["mail.activity.schedule"]);
+    await waitForSteps(["mail.activity.schedule"]);
 });
 
 test("upload attachment on draft record", async () => {

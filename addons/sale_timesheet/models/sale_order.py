@@ -8,7 +8,7 @@ from odoo.tools import float_compare
 
 
 class SaleOrder(models.Model):
-    _inherit = ['sale.order']
+    _inherit = 'sale.order'
 
     timesheet_count = fields.Float(string='Timesheet activities', compute='_compute_timesheet_count', groups="hr_timesheet.group_hr_timesheet_user", export_string_translation=False)
     timesheet_encode_uom_id = fields.Many2one('uom.uom', related='company_id.timesheet_encode_uom_id', export_string_translation=False)
@@ -142,7 +142,7 @@ class SaleOrder(models.Model):
     def _reset_has_displayed_warning_upsell_order_lines(self):
         precision = self.env['decimal.precision'].precision_get('Product Unit of Measure')
         for line in self.order_line:
-            if line.has_displayed_warning_upsell and line.product_uom and float_compare(line.qty_delivered, line.product_uom_qty, precision_digits=precision) == 0:
+            if line.has_displayed_warning_upsell and line.product_uom_id and float_compare(line.qty_delivered, line.product_uom_qty, precision_digits=precision) == 0:
                 line.has_displayed_warning_upsell = False
 
     def _create_invoices(self, grouped=False, final=False, date=None):

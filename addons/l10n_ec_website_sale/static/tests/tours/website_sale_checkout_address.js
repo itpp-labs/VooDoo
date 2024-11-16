@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { registry } from "@web/core/registry";
 import * as tourUtils from "@website_sale/js/tours/tour_utils";
 
@@ -25,7 +23,6 @@ registry.category("web_tour.tours").add("shop_checkout_address_ec", {
 });
 
 registry.category("web_tour.tours").add("tour_new_billing_ec", {
-    test: true,
     url: "/shop",
     steps: () => [
         ...tourUtils.addToCart({ productName: "Test Product" }),

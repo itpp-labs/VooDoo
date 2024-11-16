@@ -1,10 +1,10 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import models, fields, api, tools
+from odoo import api, fields, models
 
 
 class Test_PerformanceBase(models.Model):
+    _name = 'test_performance.base'
     _description = 'Test Performance Base'
 
     name = fields.Char()
@@ -47,23 +47,24 @@ class Test_PerformanceBase(models.Model):
 
 
 class Test_PerformanceLine(models.Model):
+    _name = 'test_performance.line'
     _description = 'Test Performance Line'
 
     base_id = fields.Many2one('test_performance.base', required=True, ondelete='cascade')
     value = fields.Integer()
 
-    def init(self):
-        # line values should be unique per "base" - useful for testing corner cases with unique lines
-        tools.create_unique_index(self._cr, 'test_performance_line_uniq', self._table, ['base_id', 'value'])
+    _line_uniq = models.UniqueIndex('(base_id, value)', "base_id and value should be unique")
 
 
 class Test_PerformanceTag(models.Model):
+    _name = 'test_performance.tag'
     _description = 'Test Performance Tag'
 
     name = fields.Char()
 
 
 class Test_PerformanceBacon(models.Model):
+    _name = 'test_performance.bacon'
     _description = 'Test Performance Bacon'
 
     property_eggs = fields.Many2one(
@@ -71,12 +72,14 @@ class Test_PerformanceBacon(models.Model):
 
 
 class Test_PerformanceEggs(models.Model):
+    _name = 'test_performance.eggs'
     _description = 'Test Performance Eggs'
 
     name = fields.Char()
 
 
 class Test_PerformanceMozzarella(models.Model):
+    _name = 'test_performance.mozzarella'
     _description = 'Test Performance Mozzarella'
 
     value = fields.Integer(default=0, required=True)
@@ -90,6 +93,7 @@ class Test_PerformanceMozzarella(models.Model):
 
 
 class Test_PerformanceSimpleMinded(models.Model):
+    _name = 'test_performance.simple.minded'
     _description = 'test_performance.simple.minded'
 
     name = fields.Char()

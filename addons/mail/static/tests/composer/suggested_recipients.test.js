@@ -1,5 +1,4 @@
 import {
-    assertSteps,
     click,
     contains,
     defineMailModels,
@@ -9,11 +8,10 @@ import {
     registerArchs,
     start,
     startServer,
-    step,
 } from "@mail/../tests/mail_test_helpers";
 import { describe, expect, test } from "@odoo/hoot";
 import { Deferred, tick } from "@odoo/hoot-mock";
-import { mockService } from "@web/../tests/web_test_helpers";
+import { asyncStep, mockService, waitForSteps } from "@web/../tests/web_test_helpers";
 
 describe.current.tags("desktop");
 defineMailModels();
@@ -68,7 +66,7 @@ test("Opening full composer in 'send message' mode should copy selected suggeste
             if (action?.res_model === "res.fake") {
                 return super.doAction(...arguments);
             }
-            step("do-action");
+            asyncStep("do-action");
             expect(action.name).toBe("Compose Email");
             expect(action.context.default_subtype_xmlid).toBe("mail.mt_comment");
             expect(action.context.default_partner_ids).toHaveLength(2);
@@ -90,9 +88,9 @@ test("Opening full composer in 'send message' mode should copy selected suggeste
         text: "John Jane",
         contains: ["input[type=checkbox]:checked"],
     });
-    await click("button[title='Full composer']");
+    await click("button[title='Open Full Composer']");
     await def;
-    await assertSteps(["do-action"]);
+    await waitForSteps(["do-action"]);
 });
 
 test("Opening full composer in 'log note' mode should not copy selected suggested recipients", async () => {
@@ -111,7 +109,7 @@ test("Opening full composer in 'log note' mode should not copy selected suggeste
             if (action?.res_model === "res.fake") {
                 return super.doAction(...arguments);
             }
-            step("do-action");
+            asyncStep("do-action");
             expect(action.name).toBe("Log note");
             expect(action.context.default_subtype_xmlid).toBe("mail.mt_note");
             expect(action.context.default_partner_ids).toBeEmpty();
@@ -130,9 +128,9 @@ test("Opening full composer in 'log note' mode should not copy selected suggeste
         contains: ["input[type=checkbox]:checked"],
     });
     await click("button", { text: "Log note" });
-    await click("button[title='Full composer']");
+    await click("button[title='Open Full Composer']");
     await def;
-    await assertSteps(["do-action"]);
+    await waitForSteps(["do-action"]);
 });
 
 test("more than 3 suggested recipients: display only 3 and 'show more' button", async () => {
@@ -228,10 +226,10 @@ test("suggest recipient on 'Send message' composer (all checked by default)", as
     await click("button", { text: "Send message" });
     await contains(".o-mail-SuggestedRecipient input:checked", { count: 2 });
     expect(
-        $(".o-mail-SuggestedRecipient:not([data-partner-id]) input[type=checkbox]")[0]
+        ".o-mail-SuggestedRecipient:not([data-partner-id]) input[type=checkbox]:first"
     ).toBeChecked();
     expect(
-        $(`.o-mail-SuggestedRecipient[data-partner-id="${partnerId}"] input[type=checkbox]`)[0]
+        `.o-mail-SuggestedRecipient[data-partner-id="${partnerId}"] input[type=checkbox]:first`
     ).toBeChecked();
     // Ensure that partner `john@test.be` is created while sending the message (not before)
     let partners = pyEnv["res.partner"].search_read([["email", "=", "john@test.be"]]);
@@ -252,7 +250,7 @@ test("suggest recipient on 'Send message' composer (recipient checked/unchecked)
     await click("button", { text: "Send message" });
     await contains(".o-mail-SuggestedRecipient input:checked", { count: 1 });
     expect(
-        $(".o-mail-SuggestedRecipient:not([data-partner-id]) input[type=checkbox]")[0]
+        ".o-mail-SuggestedRecipient:not([data-partner-id]) input[type=checkbox]:first"
     ).toBeChecked();
     // Ensure that partner `john@test.be` is created before sending the message
     await click(".o-mail-SuggestedRecipient input");
@@ -291,7 +289,7 @@ test("suggested recipients should not be notified when posting an internal note"
     });
     const fakeId = pyEnv["res.fake"].create({ partner_ids: [partnerId] });
     onRpcBefore("/mail/message/post", (args) => {
-        step("message_post");
+        asyncStep("message_post");
         expect(args.post_data.partner_ids).toBeEmpty();
     });
     await start();
@@ -300,7 +298,7 @@ test("suggested recipients should not be notified when posting an internal note"
     await insertText(".o-mail-Composer-input", "Dummy Message");
     await click(".o-mail-Composer-send:enabled");
     await contains(".o-mail-Message");
-    await assertSteps(["message_post"]);
+    await waitForSteps(["message_post"]);
 });
 
 test("suggested recipients should be added as follower when posting a message", async () => {

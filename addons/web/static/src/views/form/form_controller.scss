@@ -318,8 +318,11 @@
             position: sticky;
             top: 0;
             z-index: 1;
-            background-color: $body-bg;
-            box-shadow: 0 0.3rem 0.25rem -0.25rem rgba(0, 0, 0, 0.075);
+
+            &:not(.modal .o_form_statusbar) {
+                background-color: $body-bg;
+                box-shadow: 0 0.3rem 0.25rem -0.25rem rgba(0, 0, 0, 0.075);
+            }
         }
 
         > .o_statusbar_status {
@@ -652,56 +655,21 @@
         margin-bottom: 1px;
     }
 
-    // Translate icon
-    button.o_field_translate {
-            padding: 0 $o-form-spacing-unit 0 0 !important;
-            vertical-align: top;
-            position: relative;
-            margin-left: -35px;
-            width: 35px !important; // important is usefull for textarea
-            display: inline-block;
-            text-align: right;
-            border: none;  // usefull for textarea
-            visibility: hidden;
-    }
-
-    div {
-        div:focus-within > div.o_field_char_buttons > button.o_field_translate,
-        div:hover > div.o_field_char_buttons > button.o_field_translate {
-            visibility: visible !important;
-        }
-    }
-
-    div {
-        div:focus-within > button.o_field_translate,
-        div:hover > button.o_field_translate {
-            visibility: visible !important;
-        }
-    }
-
-    input, textarea {
-        &.o_field_translate {
-            padding-right: 25px;
-        }
-    }
-
     .oe_no_translation_content {
-        // hide content but show the translate button
+        // hide content but show the translate button EN
         height: 0px;
 
-        div{
-            :not(.btn) {
-                display: none;
-            }
+        .o_field_translate:not(.o_field_input_buttons):not(.btn) {
+            display: none;
+        }
+        
+        .o_field_translate.btn {
+            // hide language button for current language
+            visibility: hidden !important;
+            margin-top: -10px;
 
-            .btn {
-                width: 100% !important;
-                margin-left: 0px;
-                visibility: hidden;
-            }
-
-            .btn:after {
-                // force the the translate button to EN
+            // force the the translate button to EN
+            &:after {
                 content: 'EN';
                 visibility: visible;
             }
@@ -709,7 +677,7 @@
     }
 
     iframe.wysiwyg_iframe + .o_field_translate {
-        right: 30px !important;
+        right: $o-field-translate-padding !important;
         top: 7px !important;
     }
 

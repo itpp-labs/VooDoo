@@ -10,7 +10,7 @@ from odoo.osv import expression
 
 
 class SaleOrder(models.Model):
-    _inherit = ['sale.order']
+    _inherit = 'sale.order'
 
     # List of disabled rewards for automatic claim
     disabled_auto_rewards = fields.Many2many("loyalty.reward", relation="sale_order_disabled_auto_rewards_rel")
@@ -124,14 +124,14 @@ class SaleOrder(models.Model):
                     continue
                 new_lines += self.env['sale.order.line'].new({
                     'product_id': lines[0].product_id.id,
-                    'tax_id': False,
+                    'tax_ids': False,
                     'price_unit': sum(lines.mapped('price_unit')),
                     'price_subtotal': sum(lines.mapped('price_subtotal')),
                     'price_total': sum(lines.mapped('price_total')),
                     'discount': 0.0,
                     'name': lines[0].name_short if lines.reward_id.reward_type != 'product' else lines[0].name,
                     'product_uom_qty': 1,
-                    'product_uom': lines[0].product_uom.id,
+                    'product_uom_id': lines[0].product_uom_id.id,
                     'order_id': order.id,
                     'is_reward_line': True,
                     'coupon_id': lines.coupon_id,
@@ -193,7 +193,7 @@ class SaleOrder(models.Model):
         """Remove coupons from abandonned ecommerce order."""
         ICP = self.env['ir.config_parameter']
         validity = ICP.get_param('website_sale_coupon.abandonned_coupon_validity', 4)
-        validity = fields.Datetime.to_string(fields.datetime.now() - timedelta(days=int(validity)))
+        validity = fields.Datetime.to_string(fields.Datetime.now() - timedelta(days=int(validity)))
         so_to_reset = self.env['sale.order'].search([
             ('state', '=', 'draft'),
             ('write_date', '<', validity),

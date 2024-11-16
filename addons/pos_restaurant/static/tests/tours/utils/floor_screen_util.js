@@ -1,6 +1,6 @@
 import { queryOne } from "@odoo/hoot-dom";
-import * as NumberPopup from "@point_of_sale/../tests/tours/utils/number_popup_util";
-import * as Dialog from "@point_of_sale/../tests/tours/utils/dialog_util";
+import * as NumberPopup from "@point_of_sale/../tests/generic_helpers/number_popup_util";
+import * as Dialog from "@point_of_sale/../tests/generic_helpers/dialog_util";
 
 export function table({ name, withClass = "", withoutClass, run = () => {}, numOfSeats }) {
     let trigger = `.floor-map .table${withClass}`;
@@ -132,7 +132,6 @@ patch(TourHelpers.prototype, {
             await new Promise((resolve) => setTimeout(resolve, this.delay));
         };
         const element = this.anchor;
-        this._ensureEnabled(element, "drag and drop");
         const { drop, moveTo } = await hoot.drag(element);
         await dragEffectDelay();
         await hoot.hover(element, {

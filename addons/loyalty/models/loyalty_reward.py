@@ -9,6 +9,7 @@ from odoo.osv import expression
 
 
 class LoyaltyReward(models.Model):
+    _name = 'loyalty.reward'
     _description = 'Loyalty Reward'
     _rec_name = 'description'
     _order = 'required_points asc'
@@ -109,14 +110,18 @@ class LoyaltyReward(models.Model):
     point_name = fields.Char(related='program_id.portal_point_name', readonly=True)
     clear_wallet = fields.Boolean(default=False)
 
-    _sql_constraints = [
-        ('required_points_positive', 'CHECK (required_points > 0)',
-            'The required points for a reward must be strictly positive.'),
-        ('product_qty_positive', "CHECK (reward_type != 'product' OR reward_product_qty > 0)",
-            'The reward product quantity must be strictly positive.'),
-        ('discount_positive', "CHECK (reward_type != 'discount' OR discount > 0)",
-            'The discount must be strictly positive.'),
-    ]
+    _required_points_positive = models.Constraint(
+        'CHECK (required_points > 0)',
+        'The required points for a reward must be strictly positive.',
+    )
+    _product_qty_positive = models.Constraint(
+        "CHECK (reward_type != 'product' OR reward_product_qty > 0)",
+        'The reward product quantity must be strictly positive.',
+    )
+    _discount_positive = models.Constraint(
+        "CHECK (reward_type != 'discount' OR discount > 0)",
+        'The discount must be strictly positive.',
+    )
 
     @api.depends('reward_product_id.product_tmpl_id.uom_id', 'reward_product_tag_id')
     def _compute_reward_product_uom_id(self):
@@ -198,7 +203,7 @@ class LoyaltyReward(models.Model):
             ('reward_product_tag_id.product_ids', operator, value)
         ]
 
-    @api.depends('reward_type', 'reward_product_id', 'discount_mode',
+    @api.depends('reward_type', 'reward_product_id', 'discount_mode', 'reward_product_tag_id',
                  'discount', 'currency_id', 'discount_applicability', 'all_discount_product_ids')
     def _compute_description(self):
         for reward in self:

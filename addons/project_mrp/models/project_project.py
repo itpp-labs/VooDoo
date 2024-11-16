@@ -1,10 +1,10 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import fields, models
+from odoo import fields, models, _
 
 
 class ProjectProject(models.Model):
-    _inherit = ['project.project']
+    _inherit = 'project.project'
 
     bom_count = fields.Integer(compute='_compute_bom_count', groups='mrp.group_mrp_user', export_string_translation=False)
     production_count = fields.Integer(compute='_compute_production_count', groups='mrp.group_mrp_user', export_string_translation=False)
@@ -38,6 +38,11 @@ class ProjectProject(models.Model):
             'name': self.env._('Bills of Materials'),
             'view_mode': 'list,form',
             'context': {'default_project_id': self.id},
+            'help': "<p class='o_view_nocontent_smiling_face'>%s</p><p>%s</p>" % (
+                _("No bill of materials found. Let's create one."),
+                _("Bills of materials allow you to define the list of required raw materials used to make a finished "
+                    "product; through a manufacturing order or a pack of products."),
+            ),
         }
         boms = self.env['mrp.bom'].search([('project_id', '=', self.id)])
         if not self.env.context.get('from_embedded_action', False) and len(boms) == 1:

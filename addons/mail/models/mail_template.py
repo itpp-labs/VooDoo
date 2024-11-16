@@ -62,7 +62,8 @@ class MailTemplate(models.Model):
     # content
     body_html = fields.Html(
         'Body', render_engine='qweb', render_options={'post_process': True},
-        prefetch=True, translate=True, sanitize=False)
+        prefetch=True, translate=True, sanitize='email_outgoing',
+    )
     attachment_ids = fields.Many2many('ir.attachment', 'email_template_attachment_rel', 'email_template_id',
                                       'attachment_id', 'Attachments',
                                       help="You may attach files to this template, to be added to all "
@@ -709,3 +710,24 @@ class MailTemplate(models.Model):
         if force_send:
             mails_sudo.send(raise_exception=raise_exception)
         return mails_sudo
+
+    # ----------------------------------------
+    # MAIL RENDER INTERNALS
+    # ----------------------------------------
+
+    def _has_unsafe_expression_template_qweb(self, source, model, fname=None):
+        if self._expression_is_default(source, model, fname):
+            return False
+        return super()._has_unsafe_expression_template_qweb(source, model, fname=fname)
+
+    def _has_unsafe_expression_template_inline_template(self, source, model, fname=None):
+        if self._expression_is_default(source, model, fname):
+            return False
+        return super()._has_unsafe_expression_template_inline_template(source, model, fname=fname)
+
+    def _expression_is_default(self, source, model, fname):
+        if not fname or not model:
+            return False
+        Model = self.env[model]
+        model_defaults = hasattr(Model, '_mail_template_default_values') and Model._mail_template_default_values() or {}
+        return source == model_defaults.get(fname)

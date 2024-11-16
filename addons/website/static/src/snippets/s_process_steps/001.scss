@@ -36,6 +36,7 @@
             width: calc(100% - #{$process-step-icon-size});
             left: calc(50% + #{$process-step-icon-size / 2});
             margin: $grid-gutter-width 0;
+            pointer-events: none;
 
             path {
                 stroke: $border-color;
@@ -46,12 +47,6 @@
 
         &:last-child .s_process_step_connector {
             display: none;
-        }
-    }
-
-    &.s_process_steps_connector_curved_arrow {
-        .s_process_step:nth-child(odd) .s_process_step_connector {
-            transform: scale(1, -1);
         }
     }
 

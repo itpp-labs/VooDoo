@@ -3,9 +3,13 @@ from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from collections import defaultdict
 from odoo.tools import SQL
+from itertools import groupby
+from operator import itemgetter
+from datetime import date
 
 
 class ProductTemplate(models.Model):
+    _name = 'product.template'
     _inherit = ['product.template', 'pos.load.mixin']
 
     available_in_pos = fields.Boolean(string='Available in POS', help='Check if you want this product to appear in the Point of Sale.', default=False)
@@ -44,7 +48,7 @@ class ProductTemplate(models.Model):
     @api.model
     def _load_pos_data_fields(self, config_id):
         return [
-            'id', 'display_name', 'standard_price', 'categ_id', 'pos_categ_ids', 'taxes_id', 'barcode', 'name', 'list_price',
+            'id', 'display_name', 'standard_price', 'categ_id', 'pos_categ_ids', 'taxes_id', 'barcode', 'name', 'list_price', 'is_favorite',
             'default_code', 'to_weight', 'uom_id', 'description_sale', 'description', 'tracking', 'type', 'service_tracking', 'is_storable',
             'write_date', 'available_in_pos', 'attribute_line_ids', 'active', 'image_128', 'combo_ids', 'product_variant_ids',
         ]
@@ -152,6 +156,10 @@ class ProductTemplate(models.Model):
             if len(taxes_by_company) > 1 and len(product['taxes_id']) > 1:
                 product['taxes_id'] = filter_taxes_on_company(product['taxes_id'], taxes_by_company)
 
+            product['_archived_combinations'] = []
+            for product_product in self.env['product.product'].with_context(active_test=False).search([('product_tmpl_id', '=', product['id']), ('active', '=', False)]):
+                product['_archived_combinations'].append(product_product.product_template_attribute_value_ids.ids)
+
     @api.ondelete(at_uninstall=False)
     def _unlink_except_open_session(self):
         product_ctx = dict(self.env.context or {}, active_test=False)
@@ -179,3 +187,77 @@ class ProductTemplate(models.Model):
                 combo_name = self.env['product.combo.item'].sudo().search([('product_id', 'in', product.product_variant_ids.ids)], limit=1).combo_id.name
                 if combo_name:
                     raise UserError(_('You must first remove this product from the %s combo', combo_name))
+
+    def get_product_info_pos(self, price, quantity, pos_config_id, product_variant_id=False):
+        self.ensure_one()
+        config = self.env['pos.config'].browse(pos_config_id)
+        product_variant = self.env['product.product'].browse(product_variant_id) if product_variant_id else False
+        template_or_variant = product_variant or self
+
+        # Tax related
+        taxes = self.taxes_id.compute_all(price, config.currency_id, quantity, template_or_variant)
+        grouped_taxes = {}
+        for tax in taxes['taxes']:
+            if tax['id'] in grouped_taxes:
+                grouped_taxes[tax['id']]['amount'] += tax['amount'] / quantity if quantity else 0
+            else:
+                grouped_taxes[tax['id']] = {
+                    'name': tax['name'],
+                    'amount': tax['amount'] / quantity if quantity else 0
+                }
+
+        all_prices = {
+            'price_without_tax': taxes['total_excluded'] / quantity if quantity else 0,
+            'price_with_tax': taxes['total_included'] / quantity if quantity else 0,
+            'tax_details': list(grouped_taxes.values()),
+        }
+
+        # Pricelists
+        if config.use_pricelist:
+            pricelists = config.available_pricelist_ids
+        else:
+            pricelists = config.pricelist_id
+        price_per_pricelist_id = pricelists._price_get(template_or_variant, quantity) if pricelists else False
+        pricelist_list = [{'name': pl.name, 'price': price_per_pricelist_id[pl.id]} for pl in pricelists]
+
+        # Warehouses
+        warehouse_list = [
+            {'id': w.id,
+            'name': w.name,
+            'available_quantity': template_or_variant.with_context({'warehouse_id': w.id}).qty_available,
+            'forecasted_quantity': template_or_variant.with_context({'warehouse_id': w.id}).virtual_available,
+            'uom': template_or_variant.uom_name}
+            for w in self.env['stock.warehouse'].search([('company_id', '=', config.company_id.id)])]
+
+        if config.picking_type_id.warehouse_id:
+            # Sort the warehouse_list, prioritizing config.picking_type_id.warehouse_id
+            warehouse_list = sorted(
+                warehouse_list,
+                key=lambda w: w['id'] != config.picking_type_id.warehouse_id.id
+            )
+
+        # Suppliers
+        key = itemgetter('partner_id')
+        supplier_list = []
+        for _key, group in groupby(sorted(self.seller_ids, key=key), key=key):
+            for s in group:
+                if not ((s.date_start and s.date_start > date.today()) or (s.date_end and s.date_end < date.today()) or (s.min_qty > quantity)):
+                    supplier_list.append({
+                        'name': s.partner_id.name,
+                        'delay': s.delay,
+                        'price': s.price
+                    })
+                    break
+
+        # Variants
+        variant_list = [{'name': attribute_line.attribute_id.name,
+                         'values': [{'name': attr_name, 'search': f'{self.name} {attr_name}'} for attr_name in attribute_line.value_ids.mapped('name')]}
+                        for attribute_line in self.attribute_line_ids]
+
+        return {
+            'all_prices': all_prices,
+            'pricelists': pricelist_list,
+            'warehouses': warehouse_list,
+            'suppliers': supplier_list,
+            'variants': variant_list
+        }

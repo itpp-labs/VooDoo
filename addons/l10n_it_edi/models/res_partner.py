@@ -8,7 +8,7 @@ from odoo.exceptions import UserError
 
 
 class ResPartner(models.Model):
-    _inherit = ['res.partner']
+    _inherit = 'res.partner'
 
     invoice_edi_format = fields.Selection(selection_add=[('it_edi_xml', 'FatturaPA')])
     l10n_it_pec_email = fields.Char(string="PEC e-mail")
@@ -22,15 +22,14 @@ class ResPartner(models.Model):
              "with receiving (and processing) the invoice.",
     )
 
-    _sql_constraints = [
-        ('l10n_it_codice_fiscale',
-            "CHECK(l10n_it_codice_fiscale IS NULL OR l10n_it_codice_fiscale = '' OR LENGTH(l10n_it_codice_fiscale) >= 11)",
-            "Codice fiscale must have between 11 and 16 characters."),
-
-        ('l10n_it_pa_index',
-            "CHECK(l10n_it_pa_index IS NULL OR l10n_it_pa_index = '' OR LENGTH(l10n_it_pa_index) >= 6)",
-            "Destination Code must have between 6 and 7 characters."),
-    ]
+    _l10n_it_codice_fiscale = models.Constraint(
+        "CHECK(l10n_it_codice_fiscale IS NULL OR l10n_it_codice_fiscale = '' OR LENGTH(l10n_it_codice_fiscale) >= 11)",
+        'Codice fiscale must have between 11 and 16 characters.',
+    )
+    _l10n_it_pa_index = models.Constraint(
+        "CHECK(l10n_it_pa_index IS NULL OR l10n_it_pa_index = '' OR LENGTH(l10n_it_pa_index) >= 6)",
+        'Destination Code must have between 6 and 7 characters.',
+    )
 
     def _l10n_it_edi_is_public_administration(self):
         """ Returns True if the destination of the FatturaPA belongs to the Public Administration. """
@@ -140,9 +139,13 @@ class ResPartner(models.Model):
 
     @api.onchange('vat', 'country_id')
     def _l10n_it_onchange_vat(self):
-        if not self.l10n_it_codice_fiscale and self.vat and (self.country_id.code == "IT" or self.vat.startswith("IT")):
+        if self.vat and (
+            self.country_code == "IT"
+            if self.country_code
+            else self.vat.startswith("IT")
+        ):
             self.l10n_it_codice_fiscale = self._l10n_it_edi_normalized_codice_fiscale(self.vat)
-        elif self.country_id.code not in [False, "IT"]:
+        else:
             self.l10n_it_codice_fiscale = False
 
     @api.constrains('l10n_it_codice_fiscale')

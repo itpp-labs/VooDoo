@@ -5,7 +5,7 @@ from odoo import api, fields, models, _
 
 
 class StockWarehouse(models.Model):
-    _inherit = ['stock.warehouse']
+    _inherit = 'stock.warehouse'
 
     subcontracting_to_resupply = fields.Boolean(
         'Resupply Subcontractors', default=True)
@@ -159,13 +159,13 @@ class StockWarehouse(models.Model):
         values.update({
             'subcontracting_type_id': {
                 'name': _('%(name)s Sequence subcontracting', name=self.name),
-                'prefix': self.code + (('/SBC' + str(count) + '/') if count else '/SBC/'),
+                'prefix': self.code + '/' + (self.subcontracting_type_id.sequence_code or (('SBC' + str(count)) if count else 'SBC')) + '/',
                 'padding': 5,
                 'company_id': self.company_id.id
             },
             'subcontracting_resupply_type_id': {
                 'name': _('%(name)s Sequence Resupply Subcontractor', name=self.name),
-                'prefix': self.code + (('/RES' + str(count) + '/') if count else '/RES/'),
+                'prefix': self.code + '/' + (self.subcontracting_resupply_type_id.sequence_code or (('RES' + str(count)) if count else 'RES')) + '/',
                 'padding': 5,
                 'company_id': self.company_id.id
             },

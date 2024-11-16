@@ -77,7 +77,7 @@ class WebsiteSlides(WebsiteProfile):
                 # as this is possible to do a jump of multiple versions in one go,
                 # and carry the sessions with the upgrade.
                 # e.g. upgrade from Odoo 15.0 to 18.0.
-                request.session.viewed_slides = dict.fromkeys(request.session.get('viewed_slides', []), 1)
+                request.session['viewed_slides'] = dict.fromkeys(request.session.get('viewed_slides', []), 1)
             viewed_slides = request.session['viewed_slides']
             # Convert `slide.id` to string is necessary because of the JSON format of the session
             slide_id = str(slide.id)
@@ -336,7 +336,7 @@ class WebsiteSlides(WebsiteProfile):
     # SLIDE.CHANNEL MAIN / SEARCH
     # --------------------------------------------------
 
-    @http.route('/slides', type='http', auth="public", website=True, sitemap=True)
+    @http.route('/slides', type='http', auth="public", website=True, sitemap=True, readonly=True)
     def slides_channel_home(self, **post):
         """ Home page for eLearning platform. Is mainly a container page, does not allow search / filter. """
         channels_all = tools.lazy(lambda: request.env['slide.channel'].search(request.website.website_domain()))
@@ -398,7 +398,7 @@ class WebsiteSlides(WebsiteProfile):
             'slide_category': slide_category,
         }
 
-    @http.route(['/slides/all', '/slides/all/tag/<string:slug_tags>'], type='http', auth="public", website=True, sitemap=True)
+    @http.route(['/slides/all', '/slides/all/tag/<string:slug_tags>'], type='http', auth="public", website=True, sitemap=True, readonly=True)
     def slides_channel_all(self, slide_category=None, slug_tags=None, my=False, **post):
         if slug_tags and slug_tags.count(',') > 0 and request.httprequest.method == 'GET' and not post.get('prevent_redirect'):
             # Previously, the tags were searched using GET, which caused issues with crawlers (too many hits)
@@ -505,7 +505,7 @@ class WebsiteSlides(WebsiteProfile):
         '/slides/<model("slide.channel"):channel>/tag/<model("slide.tag"):tag>/page/<int:page>',
         '/slides/<model("slide.channel"):channel>/category/<model("slide.slide"):category>',
         '/slides/<model("slide.channel"):channel>/category/<model("slide.slide"):category>/page/<int:page>',
-    ], type='http', auth="public", website=True, sitemap=sitemap_slide, handle_params_access_error=handle_wslide_error)
+    ], type='http', auth="public", website=True, sitemap=sitemap_slide, handle_params_access_error=handle_wslide_error, readonly=True)
     def channel(self, channel=False, channel_id=False, category=None, category_id=False, tag=None, page=1, slide_category=None, uncategorized=False, sorting=None, search=None, **kw):
         """ Will return the rendered page of a course, with optional parameters allowing customization:
 

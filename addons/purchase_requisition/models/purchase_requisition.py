@@ -6,6 +6,7 @@ from collections import defaultdict
 
 
 class PurchaseRequisition(models.Model):
+    _name = 'purchase.requisition'
     _description = "Purchase Requisition"
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = "id desc"
@@ -160,6 +161,7 @@ class PurchaseRequisition(models.Model):
 
 
 class PurchaseRequisitionLine(models.Model):
+    _name = 'purchase.requisition.line'
     _inherit = ['analytic.mixin']
     _description = "Purchase Requisition Line"
     _rec_name = 'product_id'
@@ -187,8 +189,8 @@ class PurchaseRequisitionLine(models.Model):
             total = 0.0
             for po in line.requisition_id.purchase_ids.filtered(lambda purchase_order: purchase_order.state in ['purchase', 'done']):
                 for po_line in po.order_line.filtered(lambda order_line: order_line.product_id == line.product_id):
-                    if po_line.product_uom != line.product_uom_id:
-                        total += po_line.product_uom._compute_quantity(po_line.product_qty, line.product_uom_id)
+                    if po_line.product_uom_id != line.product_uom_id:
+                        total += po_line.product_uom_id._compute_quantity(po_line.product_qty, line.product_uom_id)
                     else:
                         total += po_line.product_qty
             if line.product_id not in line_found[line.requisition_id]:
@@ -268,7 +270,7 @@ class PurchaseRequisitionLine(models.Model):
         return {
             'name': name,
             'product_id': self.product_id.id,
-            'product_uom': self.product_id.uom_po_id.id,
+            'product_uom_id': self.product_id.uom_po_id.id,
             'product_qty': product_qty,
             'price_unit': price_unit,
             'taxes_id': [(6, 0, taxes_ids)],

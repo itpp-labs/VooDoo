@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
     import { registry } from "@web/core/registry";
     import { stepUtils } from "@web_tour/tour_service/tour_utils";
 
@@ -20,7 +18,7 @@
             trigger: ".o_form_editable .o_field_widget[name=email_from] input",
         },
         {
-            trigger: '.o_form_button_save',
+            trigger: ".o_form_button_save:not(:visible)",
             content: 'Save the lead',
             run: 'click',
         },

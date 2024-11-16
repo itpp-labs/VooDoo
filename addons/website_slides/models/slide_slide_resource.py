@@ -9,6 +9,7 @@ from odoo.tools.mimetypes import get_extension
 
 
 class SlideSlideResource(models.Model):
+    _name = 'slide.slide.resource'
     _description = "Additional resource for a particular slide"
     _order = "sequence, id"
 
@@ -21,10 +22,14 @@ class SlideSlideResource(models.Model):
     download_url = fields.Char('Download URL', compute='_compute_download_url')
     sequence = fields.Integer(string="Sequence")
 
-    _sql_constraints = [
-        ('check_url', "CHECK (resource_type != 'url' OR link IS NOT NULL)", 'A resource of type url must contain a link.'),
-        ('check_file_type', "CHECK (resource_type != 'file' OR link IS NULL)", 'A resource of type file cannot contain a link.'),
-    ]
+    _check_url = models.Constraint(
+        "CHECK (resource_type != 'url' OR link IS NOT NULL)",
+        'A resource of type url must contain a link.',
+    )
+    _check_file_type = models.Constraint(
+        "CHECK (resource_type != 'file' OR link IS NULL)",
+        'A resource of type file cannot contain a link.',
+    )
 
     @api.depends('resource_type')
     def _compute_reset_resources(self):

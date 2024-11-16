@@ -13,6 +13,7 @@ from odoo.tools.float_utils import float_compare
 
 
 class StockLocation(models.Model):
+    _name = 'stock.location'
     _description = "Inventory Locations"
     _parent_name = "location_id"
     _parent_store = True
@@ -78,7 +79,8 @@ class StockLocation(models.Model):
              "and a fallback is made on the parent locations if none is set here.\n\n"
              "FIFO: products/lots that were stocked first will be moved out first.\n"
              "LIFO: products/lots that were stocked last will be moved out first.\n"
-             "Closet location: products/lots closest to the target location will be moved out first.\n"
+             "Closest Location: products/lots closest to the target location will be moved out first.\n"
+             "Least Packages: products/lots that were stocked in package with least amount of qty will be moved out first.\n"
              "FEFO: products/lots with the closest removal date will be moved out first "
              "(the availability of this method depends on the \"Expiration Dates\" setting).")
     putaway_rule_ids = fields.One2many('stock.putaway.rule', 'location_in_id', 'Putaway Rules')
@@ -96,8 +98,14 @@ class StockLocation(models.Model):
     forecast_weight = fields.Float('Forecasted Weight', compute="_compute_weight")
     is_empty = fields.Boolean('Is Empty', compute='_compute_is_empty', search='_search_is_empty')
 
-    _sql_constraints = [('barcode_company_uniq', 'unique (barcode,company_id)', 'The barcode for a location must be unique per company!'),
-                        ('inventory_freq_nonneg', 'check(cyclic_inventory_frequency >= 0)', 'The inventory frequency (days) for a location must be non-negative')]
+    _barcode_company_uniq = models.Constraint(
+        'unique (barcode,company_id)',
+        'The barcode for a location must be unique per company!',
+    )
+    _inventory_freq_nonneg = models.Constraint(
+        'check(cyclic_inventory_frequency >= 0)',
+        'The inventory frequency (days) for a location must be non-negative',
+    )
 
     @api.depends('outgoing_move_line_ids.quantity_product_uom', 'incoming_move_line_ids.quantity_product_uom',
                  'outgoing_move_line_ids.state', 'incoming_move_line_ids.state',
@@ -505,6 +513,7 @@ class StockLocation(models.Model):
 
 
 class StockRoute(models.Model):
+    _name = 'stock.route'
     _description = "Inventory Routes"
     _order = 'sequence'
     _check_company_auto = True

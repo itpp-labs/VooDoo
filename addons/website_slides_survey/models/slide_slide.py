@@ -6,7 +6,7 @@ from odoo.osv import expression
 
 
 class SlideSlidePartner(models.Model):
-    _inherit = ['slide.slide.partner']
+    _inherit = 'slide.slide.partner'
 
     user_input_ids = fields.One2many('survey.user_input', 'slide_partner_id', 'Certification attempts')
     survey_scoring_success = fields.Boolean('Certification Succeeded', compute='_compute_survey_scoring_success', store=True)
@@ -45,7 +45,7 @@ class SlideSlidePartner(models.Model):
 
 
 class SlideSlide(models.Model):
-    _inherit = ['slide.slide']
+    _inherit = 'slide.slide'
 
     name = fields.Char(compute='_compute_name', readonly=False, store=True)
     slide_category = fields.Selection(selection_add=[
@@ -59,10 +59,14 @@ class SlideSlide(models.Model):
     # small override of 'is_preview' to uncheck it automatically for slides of type 'certification'
     is_preview = fields.Boolean(compute='_compute_is_preview', readonly=False, store=True)
 
-    _sql_constraints = [
-        ('check_survey_id', "CHECK(slide_category != 'certification' OR survey_id IS NOT NULL)", "A slide of type 'certification' requires a certification."),
-        ('check_certification_preview', "CHECK(slide_category != 'certification' OR is_preview = False)", "A slide of type certification cannot be previewed."),
-    ]
+    _check_survey_id = models.Constraint(
+        "CHECK(slide_category != 'certification' OR survey_id IS NOT NULL)",
+        "A slide of type 'certification' requires a certification.",
+    )
+    _check_certification_preview = models.Constraint(
+        "CHECK(slide_category != 'certification' OR is_preview = False)",
+        'A slide of type certification cannot be previewed.',
+    )
 
     @api.depends('survey_id')
     def _compute_name(self):

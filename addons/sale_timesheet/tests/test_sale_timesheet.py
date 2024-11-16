@@ -642,7 +642,7 @@ class TestSaleTimesheet(TestCommonSaleTimesheet):
         sale_order_line = self.env['sale.order.line'].create({
             'order_id': sale_order.id,
             'product_id': self.product_order_timesheet3.id,
-            'product_uom': uom_days.id,
+            'product_uom_id': uom_days.id,
         })
         sale_order.action_confirm()
         task = sale_order_line.task_id
@@ -706,7 +706,7 @@ class TestSaleTimesheet(TestCommonSaleTimesheet):
         sale_order_line = self.env['sale.order.line'].create({
             'order_id': sale_order.id,
             'product_id': self.product_order_timesheet3.id,
-            'product_uom': uom_days.id,
+            'product_uom_id': uom_days.id,
         })
         sale_order.action_confirm()
         task = sale_order_line.task_id
@@ -816,7 +816,6 @@ class TestSaleTimesheet(TestCommonSaleTimesheet):
             'name': self.product_delivery_timesheet2.name,
             'product_id': self.product_delivery_timesheet2.id,
             'product_uom_qty': 50,
-            'product_uom': self.product_delivery_timesheet2.uom_id.id,
             'price_unit': self.product_delivery_timesheet2.list_price,
             'order_id': sale_order.id,
         })
@@ -853,7 +852,6 @@ class TestSaleTimesheet(TestCommonSaleTimesheet):
             'name': self.product_order_timesheet3.name,
             'product_id': self.product_order_timesheet3.id,
             'product_uom_qty': 1,
-            'product_uom': self.product_order_timesheet3.uom_id.id,
             'price_unit': product_price,
             'order_id': sale_order.id,
         })
@@ -914,14 +912,12 @@ class TestSaleTimesheet(TestCommonSaleTimesheet):
                 'name': product_1.name,
                 'product_id': product_1.id,
                 'product_uom_qty': 10,
-                'product_uom': product_1.uom_id.id,
                 'price_unit': product_1.list_price,
             }, {
                 'order_id': sale_order.id,
                 'name': product_2.name,
                 'product_id': product_2.id,
                 'product_uom_qty': 5,
-                'product_uom': product_2.uom_id.id,
                 'price_unit': product_2.list_price,
             },
         ])
@@ -995,7 +991,6 @@ class TestSaleTimesheet(TestCommonSaleTimesheet):
             'name': product.name,
             'product_id': product.id,
             'product_uom_qty': 10,
-            'product_uom': product.uom_id.id,
             'price_unit': product.list_price,
         })
         project = sale_order_line._timesheet_create_project()
@@ -1088,6 +1083,37 @@ class TestSaleTimesheet(TestCommonSaleTimesheet):
         self.assertEqual(timesheet.account_id, analytic_account1)
         self.assertFalse(timesheet[other_analytic_plan2._column_name()])
         self.assertEqual(timesheet[other_analytic_plan3._column_name()], analytic_account3)
+
+    def test_timesheet_get_accounts_from_sol_fallback_on_project(self):
+        _project_analytic_plan, other_plans = self.env['account.analytic.plan']._get_all_plans()
+        other_analytic_plan2 = other_plans[0] if other_plans else self.env['account.analytic.plan'].create({'name': 'Analytic Plan 2'})
+        analytic_account2 = self.env['account.analytic.account'].create({
+            'name': 'Analytic Account 2',
+            'plan_id': other_analytic_plan2.id,
+        })
+        sale_order = self.env['sale.order'].create({
+            'name': 'SO Test',
+            'partner_id': self.partner_a.id,
+        })
+        so_line = self.env['sale.order.line'].create({
+            'product_id': self.product_order_timesheet3.id,
+            'order_id': sale_order.id,
+        })
+        sale_order.action_confirm()
+        so_project = sale_order.project_id
+        so_line.analytic_distribution = {str(analytic_account2.id): 100}
+        timesheet = self.env['account.analytic.line'].create({
+            'name': 'Timesheet',
+            'project_id': so_project.id,
+            'unit_amount': 1,
+            'employee_id': self.employee_manager.id,
+            'so_line': so_line.id,
+        })
+        self.assertEqual(
+            timesheet._get_analytic_accounts(),
+            so_project.account_id | analytic_account2,
+            "The analytic accounts should be the account_id from the project and the accounts from the SOL's distribution",
+        )
 
     def test_mandatory_plan_timesheet_applicability_from_sol(self):
         AnalyticPlan = self.env['account.analytic.plan']

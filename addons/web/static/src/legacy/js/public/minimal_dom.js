@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { addLoadingEffect } from '@web/core/utils/ui';
 
 export const DEBOUNCE = 400;
@@ -53,7 +51,7 @@ export function makeAsyncHandler(fct, preventDefault, stopPropagation, stopImmed
 
         _lock();
         const result = fct.apply(this, arguments);
-        Promise.resolve(result).then(_unlock, _unlock);
+        Promise.resolve(result).finally(_unlock);
         return result;
     };
 }

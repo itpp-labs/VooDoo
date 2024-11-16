@@ -179,6 +179,7 @@ For more specific needs, you may also assign custom-defined actions
             'web/static/tests/legacy/utils.js',
             'mail/static/tests/tours/discuss_channel_public_tour.js',
             'mail/static/tests/tours/discuss_channel_as_guest_tour.js',
+            'mail/static/tests/tours/discuss_channel_call_action.js',
             'mail/static/tests/tours/discuss_channel_call_public_tour.js',
             'mail/static/tests/tours/discuss_sidebar_in_public_page_tour.js',
         ],
@@ -220,7 +221,6 @@ For more specific needs, you may also assign custom-defined actions
             'web/static/src/scss/mimetypes.scss',
             'web/static/src/scss/ui.scss',
             ('include', 'web._assets_core'),
-            'web/static/src/libs/pdfjs.js',
             'web/static/src/views/fields/formatters.js',
             'web/static/src/views/fields/file_handler.*',
 

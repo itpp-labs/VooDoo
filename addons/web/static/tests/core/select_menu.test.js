@@ -658,7 +658,7 @@ test("When multiSelect is enable, value is an array of values, mutliple choices 
         }
 
         onSelect(newValue) {
-            expect.step(JSON.stringify(newValue));
+            expect.step(newValue);
             this.state.value = newValue;
         }
     }
@@ -674,7 +674,7 @@ test("When multiSelect is enable, value is an array of values, mutliple choices 
     await click(".o_select_menu_item:nth-child(1)");
     await animationFrame();
 
-    expect.verifySteps([`["a"]`]);
+    expect.verifySteps([["a"]]);
 
     expect(".o_select_menu .o_tag_badge_text").toHaveCount(1);
     expect(".o_select_menu .o_tag_badge_text").toHaveText("A");
@@ -685,7 +685,7 @@ test("When multiSelect is enable, value is an array of values, mutliple choices 
 
     await click(".o_select_menu_item:nth-child(2)");
     await animationFrame();
-    expect.verifySteps([`["a","b"]`]);
+    expect.verifySteps([["a", "b"]]);
 
     expect(".o_select_menu .o_tag_badge_text").toHaveCount(2);
 
@@ -716,7 +716,7 @@ test("When multiSelect is enable, allow deselecting elements by clicking the sel
         }
 
         onSelect(newValue) {
-            expect.step(JSON.stringify(newValue));
+            expect.step(newValue);
             this.state.value = newValue;
         }
     }
@@ -728,7 +728,7 @@ test("When multiSelect is enable, allow deselecting elements by clicking the sel
     await click(".o_select_menu_item:nth-child(1)");
     await animationFrame();
 
-    expect.verifySteps([`["b"]`]);
+    expect.verifySteps([["b"]]);
 
     expect(".o_select_menu .o_tag_badge_text").toHaveCount(1);
     expect(".o_select_menu .o_tag_badge_text").toHaveText("B");
@@ -738,7 +738,7 @@ test("When multiSelect is enable, allow deselecting elements by clicking the sel
 
     await click(".o_tag .o_delete");
     await animationFrame();
-    expect.verifySteps(["[]"]);
+    expect.verifySteps([[]]);
 
     expect(".o_select_menu .o_tag").toHaveCount(0);
 });
@@ -793,46 +793,44 @@ test.tags("desktop")("Navigation is possible from the input when it is focused",
     expect.verifySteps(["a"]);
 });
 
-test.tags("desktop")(
-    "When only one choice is displayed, 'enter' key should select the value",
-    async () => {
-        class MyParent extends Component {
-            static props = ["*"];
-            static components = { SelectMenu };
-            static template = xml`
+test.tags("desktop");
+test("When only one choice is displayed, 'enter' key should select the value", async () => {
+    class MyParent extends Component {
+        static props = ["*"];
+        static components = { SelectMenu };
+        static template = xml`
             <SelectMenu
                 value="this.state.value"
                 choices="this.choices"
                 onSelect.bind="this.onSelect"
             />
         `;
-            setup() {
-                this.state = useState({ value: "b" });
-                this.choices = [
-                    { label: "A", value: "a" },
-                    { label: "B", value: "b" },
-                    { label: "C", value: "c" },
-                ];
-            }
-
-            onSelect(newValue) {
-                expect.step(newValue);
-                this.state.value = newValue;
-            }
+        setup() {
+            this.state = useState({ value: "b" });
+            this.choices = [
+                { label: "A", value: "a" },
+                { label: "B", value: "b" },
+                { label: "C", value: "c" },
+            ];
         }
 
-        await mountSingleApp(MyParent);
-        await open();
-        await edit("a");
-        await animationFrame();
-
-        await press("enter");
-
-        await animationFrame();
-
-        expect.verifySteps(["a"]);
+        onSelect(newValue) {
+            expect.step(newValue);
+            this.state.value = newValue;
+        }
     }
-);
+
+    await mountSingleApp(MyParent);
+    await open();
+    await edit("a");
+    await animationFrame();
+
+    await press("enter");
+
+    await animationFrame();
+
+    expect.verifySteps(["a"]);
+});
 
 test("Props onInput is executed when the search changes", async () => {
     class MyParent extends Component {

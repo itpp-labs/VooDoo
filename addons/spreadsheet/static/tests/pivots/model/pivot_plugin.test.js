@@ -291,7 +291,7 @@ test("user context is combined with pivot context to fetch data", async function
             {
                 id: "sheet1",
                 cells: {
-                    A1: { content: `=PIVOT.VALUE(1, "probability")` },
+                    A1: '=PIVOT.VALUE(1, "probability")',
                 },
             },
         ],
@@ -348,7 +348,7 @@ test("Context is purged from PivotView related keys", async function (assert) {
             {
                 id: "sheet1",
                 cells: {
-                    A1: { content: `=ODOO.PIVOT(1, "probability")` },
+                    A1: '=ODOO.PIVOT(1, "probability")',
                 },
             },
         ],
@@ -395,8 +395,8 @@ test("fetch metadata only once per model", async function () {
             {
                 id: "sheet1",
                 cells: {
-                    A1: { content: `=PIVOT.VALUE(1, "probability")` },
-                    A2: { content: `=PIVOT.VALUE(2, "probability")` },
+                    A1: '=PIVOT.VALUE(1, "probability")',
+                    A2: '=PIVOT.VALUE(2, "probability")',
                 },
             },
         ],
@@ -544,9 +544,9 @@ test("display loading while data is not fully available", async function () {
             {
                 id: "sheet1",
                 cells: {
-                    A1: { content: `=PIVOT.HEADER(1, "measure", "probability:sum")` },
-                    A2: { content: `=PIVOT.HEADER(1, "product_id", 37)` },
-                    A3: { content: `=PIVOT.VALUE(1, "probability:sum")` },
+                    A1: '=PIVOT.HEADER(1, "measure", "probability:sum")',
+                    A2: '=PIVOT.HEADER(1, "product_id", 37)',
+                    A3: '=PIVOT.VALUE(1, "probability:sum")',
                 },
             },
         ],
@@ -1476,8 +1476,8 @@ test("can import a pivot with a calculated field", async function () {
             {
                 id: "sheet1",
                 cells: {
-                    A1: { content: '=PIVOT.VALUE(1,"probability")' },
-                    A2: { content: '=PIVOT.VALUE(1,"probability*2")' },
+                    A1: '=PIVOT.VALUE(1,"probability")',
+                    A2: '=PIVOT.VALUE(1,"probability*2")',
                 },
             },
         ],
@@ -1641,6 +1641,48 @@ test("changing measure aggregates", async () => {
     });
     await animationFrame();
     expect.verifySteps(["foo_sum_id:sum(foo)"]);
+});
+
+test("Manipulating a computed measure does not trigger a RPC", async () => {
+    const { model, pivotId } = await createSpreadsheetWithPivot({
+        arch: /* xml */ `
+                <pivot>
+                    <field name="probability" type="measure"/>
+                </pivot>`,
+        mockRPC: async function (route, args) {
+            if (args.method === "read_group") {
+                expect.step(args.kwargs.fields.join());
+            }
+        },
+    });
+    const sheetId = model.getters.getActiveSheetId();
+    expect.verifySteps(["probability_avg_id:avg(probability)"]);
+    model.dispatch("UPDATE_PIVOT", {
+        pivotId,
+        pivot: {
+            ...model.getters.getPivotCoreDefinition(pivotId),
+            measures: [
+                { id: "probability:avg", fieldName: "probability", aggregator: "avg" },
+                {
+                    id: "probability*2",
+                    fieldName: "probability*2",
+                    aggregator: "avg",
+                    computedBy: { sheetId, formula: "=probability*2" },
+                },
+            ],
+        },
+    });
+    await animationFrame();
+    expect.verifySteps([]);
+    model.dispatch("UPDATE_PIVOT", {
+        pivotId,
+        pivot: {
+            ...model.getters.getPivotCoreDefinition(pivotId),
+            measures: [{ id: "probability:avg", fieldName: "probability", aggregator: "avg" }],
+        },
+    });
+    await animationFrame();
+    expect.verifySteps([]);
 });
 
 test("many2one measures are aggregated with count_distinct by default", async () => {

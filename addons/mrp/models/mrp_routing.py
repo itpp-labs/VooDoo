@@ -7,6 +7,7 @@ from odoo.tools import float_round
 
 
 class MrpRoutingWorkcenter(models.Model):
+    _name = 'mrp.routing.workcenter'
     _description = 'Work Center Usage'
     _inherit = ['mail.thread', 'mail.activity.mixin']
 
@@ -126,6 +127,8 @@ class MrpRoutingWorkcenter(models.Model):
         res = super().action_archive()
         bom_lines = self.env['mrp.bom.line'].search([('operation_id', 'in', self.ids)])
         bom_lines.write({'operation_id': False})
+        byproduct_lines = self.env['mrp.bom.byproduct'].search([('operation_id', 'in', self.ids)])
+        byproduct_lines.write({'operation_id': False})
         self.bom_id._set_outdated_bom_in_productions()
         return res
 

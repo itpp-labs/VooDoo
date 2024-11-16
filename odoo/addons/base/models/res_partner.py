@@ -47,6 +47,7 @@ def _tz_get(self):
 
 
 class FormatVatLabelMixin(models.AbstractModel):
+    _name = 'format.vat.label.mixin'
     _description = "Country Specific VAT Label"
 
     @api.model
@@ -62,6 +63,7 @@ class FormatVatLabelMixin(models.AbstractModel):
 
 
 class FormatAddressMixin(models.AbstractModel):
+    _name = 'format.address.mixin'
     _description = 'Address Format'
 
     def _extract_fields_from_address(self, address_line):
@@ -136,6 +138,7 @@ class FormatAddressMixin(models.AbstractModel):
 
 
 class ResPartnerCategory(models.Model):
+    _name = 'res.partner.category'
     _description = 'Partner Tags'
     _order = 'name'
     _parent_store = True
@@ -178,6 +181,7 @@ class ResPartnerCategory(models.Model):
 
 
 class ResPartnerTitle(models.Model):
+    _name = 'res.partner.title'
     _order = 'name'
     _description = 'Partner Title'
 
@@ -186,6 +190,7 @@ class ResPartnerTitle(models.Model):
 
 
 class ResPartner(models.Model):
+    _name = 'res.partner'
     _description = 'Contact'
     _inherit = ['format.address.mixin', 'format.vat.label.mixin', 'avatar.mixin']
     _order = "complete_name ASC, id DESC"
@@ -305,9 +310,10 @@ class ResPartner(models.Model):
     # hack to allow using plain browse record in qweb views, and used in ir.qweb.field.contact
     self: ResPartner = fields.Many2one(comodel_name='res.partner', compute='_compute_get_ids')
 
-    _sql_constraints = [
-        ('check_name', "CHECK( (type='contact' AND name IS NOT NULL) or (type!='contact') )", 'Contacts require a name'),
-    ]
+    _check_name = models.Constraint(
+        "CHECK( (type='contact' AND name IS NOT NULL) or (type!='contact') )",
+        "Contacts require a name",
+    )
 
     def _get_street_split(self):
         self.ensure_one()
@@ -1070,6 +1076,7 @@ class ResPartner(models.Model):
 
 
 class ResPartnerIndustry(models.Model):
+    _name = 'res.partner.industry'
     _description = 'Industry'
     _order = "name"
 

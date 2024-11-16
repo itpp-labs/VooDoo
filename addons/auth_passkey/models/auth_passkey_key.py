@@ -18,6 +18,7 @@ _logger = logging.getLogger(__name__)
 
 
 class AuthPasskeyKey(models.Model):
+    _name = 'auth.passkey.key'
     _description = 'Passkey'
     _order = 'id desc'
 
@@ -26,9 +27,10 @@ class AuthPasskeyKey(models.Model):
     public_key = fields.Char(required=True, groups='base.group_system', compute='_compute_public_key', inverse='_inverse_public_key')
     sign_count = fields.Integer(default=0, groups='base.group_system')
 
-    _sql_constraints = [
-        ('unique_identifier', 'UNIQUE(credential_identifier)', 'The credential identifier should be unique.'),
-    ]
+    _unique_identifier = models.Constraint(
+        'UNIQUE(credential_identifier)',
+        'The credential identifier should be unique.',
+    )
 
     def init(self):
         super().init()
@@ -152,6 +154,7 @@ class AuthPasskeyKey(models.Model):
 
 
 class AuthPasskeyKeyCreate(models.TransientModel):
+    _name = 'auth.passkey.key.create'
     _description = 'Create a Passkey'
 
     name = fields.Char('Name', required=True)

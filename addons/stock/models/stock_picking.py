@@ -17,6 +17,7 @@ from odoo.tools.float_utils import float_compare, float_is_zero
 
 
 class StockPickingType(models.Model):
+    _name = 'stock.picking.type'
     _description = "Picking Type"
     _order = 'is_favorite desc, sequence, id'
     _rec_names_search = ['name', 'warehouse_id.name']
@@ -32,12 +33,12 @@ class StockPickingType(models.Model):
     default_location_src_id = fields.Many2one(
         'stock.location', 'Source Location', compute='_compute_default_location_src_id',
         check_company=True, store=True, readonly=False, precompute=True, required=True,
-        help="This is the default source location when you create a picking manually with this operation type. It is possible however to change it or that the routes put another location.")
+        help="This is the default source location when this operation is manually created. However, it is possible to change it afterwards or that the routes use another one by default.")
     default_location_dest_id = fields.Many2one(
         'stock.location', 'Destination Location', compute='_compute_default_location_dest_id',
         check_company=True, store=True, readonly=False, precompute=True, required=True,
-        help="This is the default destination location when you create a picking manually with this operation type. It is possible however to change it or that the routes put another location.")
-    code = fields.Selection([('incoming', 'Receipt'), ('outgoing', 'Delivery'), ('internal', 'Internal Transfer')], 'Type of Operation', required=True)
+        help="This is the default destination location when this operation is manually created. However, it is possible to change it afterwards or that the routes use another one by default.")
+    code = fields.Selection([('incoming', 'Receipt'), ('outgoing', 'Delivery'), ('internal', 'Internal Transfer')], 'Type of Operation', default='incoming', required=True)
     return_picking_type_id = fields.Many2one(
         'stock.picking.type', 'Operation Type for Returns',
         check_company=True)
@@ -219,7 +220,7 @@ class StockPickingType(models.Model):
     def _search_is_favorite(self, operator, value):
         if operator not in ['=', '!='] or not isinstance(value, bool):
             raise NotImplementedError(_('Operation not supported'))
-        return [('favorite_user_ids', 'in' if (operator == '=') == value else 'in', self.env.uid)]
+        return [('favorite_user_ids', 'in' if (operator == '=') == value else 'not in', self.env.uid)]
 
     def _compute_is_favorite(self):
         for picking_type in self:
@@ -525,6 +526,7 @@ class StockPickingType(models.Model):
 
 
 class StockPicking(models.Model):
+    _name = 'stock.picking'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = "Transfer"
     _order = "priority desc, scheduled_date asc, id desc"
@@ -655,7 +657,7 @@ class StockPicking(models.Model):
     printed = fields.Boolean('Printed', copy=False)
     signature = fields.Image('Signature', help='Signature', copy=False, attachment=True)
     is_signed = fields.Boolean('Is Signed', compute="_compute_is_signed")
-    is_locked = fields.Boolean(default=True, help='When the picking is not done this allows changing the '
+    is_locked = fields.Boolean(default=True, copy=False, help='When the picking is not done this allows changing the '
                                'initial demand. When the picking is done this allows '
                                'changing the done quantities.')
 
@@ -702,9 +704,10 @@ class StockPicking(models.Model):
         search='_search_date_category', readonly=True
     )
 
-    _sql_constraints = [
-        ('name_uniq', 'unique(name, company_id)', 'Reference must be unique per company!'),
-    ]
+    _name_uniq = models.Constraint(
+        'unique(name, company_id)',
+        'Reference must be unique per company!',
+    )
 
     def _compute_has_tracking(self):
         for picking in self:

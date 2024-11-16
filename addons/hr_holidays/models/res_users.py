@@ -5,7 +5,7 @@ from odoo import api, fields, models, Command
 
 
 class ResUsers(models.Model):
-    _inherit = ["res.users"]
+    _inherit = "res.users"
 
     leave_manager_id = fields.Many2one(related='employee_id.leave_manager_id')
     show_leaves = fields.Boolean(related='employee_id.show_leaves')
@@ -40,7 +40,7 @@ class ResUsers(models.Model):
                     user.im_status = 'leave_online'
                 elif user.im_status == 'away':
                     user.im_status = 'leave_away'
-                else:
+                elif user.im_status == 'offline':
                     user.im_status = 'leave_offline'
 
     @api.model

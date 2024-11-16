@@ -11,6 +11,7 @@ from odoo.tools.safe_eval import safe_eval
 
 
 class DeliveryCarrier(models.Model):
+    _name = 'delivery.carrier'
     _description = "Shipping Methods"
     _order = 'sequence, id'
 
@@ -104,10 +105,14 @@ class DeliveryCarrier(models.Model):
         'delivery.price.rule', 'carrier_id', 'Pricing Rules', copy=True
     )
 
-    _sql_constraints = [
-        ('margin_not_under_100_percent', 'CHECK (margin >= -1)', 'Margin cannot be lower than -100%'),
-        ('shipping_insurance_is_percentage', 'CHECK(shipping_insurance >= 0 AND shipping_insurance <= 100)', "The shipping insurance must be a percentage between 0 and 100."),
-    ]
+    _margin_not_under_100_percent = models.Constraint(
+        'CHECK (margin >= -1)',
+        'Margin cannot be lower than -100%',
+    )
+    _shipping_insurance_is_percentage = models.Constraint(
+        'CHECK(shipping_insurance >= 0 AND shipping_insurance <= 100)',
+        'The shipping insurance must be a percentage between 0 and 100.',
+    )
 
     @api.constrains('must_have_tag_ids', 'excluded_tag_ids')
     def _check_tags(self):
@@ -400,7 +405,7 @@ class DeliveryCarrier(models.Model):
                 continue
             if line.product_id.type == "service":
                 continue
-            qty = line.product_uom._compute_quantity(line.product_uom_qty, line.product_id.uom_id)
+            qty = line.product_uom_id._compute_quantity(line.product_uom_qty, line.product_id.uom_id)
             weight += (line.product_id.weight or 0.0) * qty
             volume += (line.product_id.volume or 0.0) * qty
             wv += (line.product_id.weight or 0.0) * (line.product_id.volume or 0.0) * qty

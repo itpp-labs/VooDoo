@@ -2,12 +2,12 @@
 
 import json
 
-from odoo import fields, models
+from odoo import fields, models, _
 from odoo.osv import expression
 
 
 class ProjectProject(models.Model):
-    _inherit = ["project.project"]
+    _inherit = "project.project"
 
     purchase_orders_count = fields.Integer('# Purchase Orders', compute='_compute_purchase_orders_count', groups='purchase.group_purchase_user', export_string_translation=False)
 
@@ -57,6 +57,11 @@ class ProjectProject(models.Model):
             'context': {
                 'default_project_id': self.id,
             },
+            'help': "<p class='o_view_nocontent_smiling_face'>%s</p><p>%s</p>" % (
+                _("No purchase order found. Let's create one."),
+                _("Once you ordered your products from your supplier, confirm your request for quotation and it will turn "
+                    "into a purchase order."),
+            ),
         }
         if len(purchase_orders) == 1 and not self.env.context.get('from_embedded_action'):
             action_window['views'] = [[False, 'form']]

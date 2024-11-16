@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { rpc } from "@web/core/network/rpc";
 import { useService } from "@web/core/utils/hooks";
 import { View } from "@web/views/view";
@@ -58,19 +56,6 @@ export class BoardAction extends Component {
                 if ("group_by" in this.viewProps.context) {
                     const groupBy = this.viewProps.context.group_by;
                     this.viewProps.groupBy = typeof groupBy === "string" ? [groupBy] : groupBy;
-                }
-                if ("comparison" in this.viewProps.context) {
-                    const comparison = this.viewProps.context.comparison;
-                    if (
-                        comparison !== null &&
-                        typeof comparison === "object" &&
-                        "domains" in comparison &&
-                        "fieldName" in comparison
-                    ) {
-                        // Some comparison object with the wrong form might have been stored in db.
-                        // This is why we make the checks on the keys domains and fieldName
-                        this.viewProps.comparison = comparison;
-                    }
                 }
             }
             if (action.domain) {

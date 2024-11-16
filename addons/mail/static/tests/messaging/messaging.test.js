@@ -1,6 +1,4 @@
 import {
-    assertSteps,
-    click,
     contains,
     defineMailModels,
     insertText,
@@ -9,10 +7,16 @@ import {
     openFormView,
     start,
     startServer,
-    step,
 } from "@mail/../tests/mail_test_helpers";
 import { describe, test } from "@odoo/hoot";
-import { Command, serverState, withUser } from "@web/../tests/web_test_helpers";
+import {
+    asyncStep,
+    Command,
+    serverState,
+    waitForSteps,
+    withUser,
+} from "@web/../tests/web_test_helpers";
+import { press } from "@odoo/hoot-dom";
 
 import { rpc } from "@web/core/network/rpc";
 
@@ -30,14 +34,14 @@ test("Receiving a new message out of discuss app should open a chat bubble", asy
         ],
         channel_type: "chat",
     });
-    onRpcBefore("/mail/action", (args) => {
+    onRpcBefore("/mail/data", (args) => {
         if (args.init_messaging) {
-            step(`/mail/action - ${JSON.stringify(args)}`);
+            asyncStep(`/mail/data - ${JSON.stringify(args)}`);
         }
     });
     await start();
-    await assertSteps([
-        `/mail/action - ${JSON.stringify({
+    await waitForSteps([
+        `/mail/data - ${JSON.stringify({
             init_messaging: {},
             failures: true,
             systray_get_activities: true,
@@ -67,14 +71,14 @@ test("Receiving a new message in discuss app should open a chat bubble after lea
         ],
         channel_type: "chat",
     });
-    onRpcBefore("/mail/action", (args) => {
+    onRpcBefore("/mail/data", (args) => {
         if (args.init_messaging) {
-            step(`/mail/action - ${JSON.stringify(args)}`);
+            asyncStep(`/mail/data - ${JSON.stringify(args)}`);
         }
     });
     await start();
-    await assertSteps([
-        `/mail/action - ${JSON.stringify({
+    await waitForSteps([
+        `/mail/data - ${JSON.stringify({
             init_messaging: {},
             failures: true,
             systray_get_activities: true,
@@ -109,7 +113,7 @@ test("Posting a message in discuss app should not open a chat window after leavi
     await start();
     await openDiscuss(channelId);
     await insertText(".o-mail-Composer-input", "test https://www.odoo.com/");
-    await click(".o-mail-Composer-send:enabled");
+    await press("Enter");
     // leaving discuss.
     await openFormView("res.partner", partnerId);
     // weak test, no guarantee that we waited long enough for the potential chat window to open

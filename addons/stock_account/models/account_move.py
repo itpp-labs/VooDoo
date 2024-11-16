@@ -5,7 +5,7 @@ from odoo.tools import float_is_zero
 
 
 class AccountMove(models.Model):
-    _inherit = ['account.move']
+    _inherit = 'account.move'
 
     stock_move_id = fields.Many2one('stock.move', string='Stock Move', index='btree_not_null')
     stock_valuation_layer_ids = fields.One2many('stock.valuation.layer', 'account_move_id', string='Stock Valuation Layer')
@@ -111,6 +111,8 @@ class AccountMove(models.Model):
             if not move.is_sale_document(include_receipts=True) or not move.company_id.anglo_saxon_accounting:
                 continue
 
+            anglo_saxon_price_ctx = move._get_anglo_saxon_price_ctx()
+
             for line in move.invoice_line_ids:
 
                 # Filter out lines being not eligible for COGS.
@@ -126,7 +128,7 @@ class AccountMove(models.Model):
 
                 # Compute accounting fields.
                 sign = -1 if move.move_type == 'out_refund' else 1
-                price_unit = line._stock_account_get_anglo_saxon_price_unit()
+                price_unit = line.with_context(anglo_saxon_price_ctx)._stock_account_get_anglo_saxon_price_unit()
                 amount_currency = sign * line.quantity * price_unit
 
                 if move.currency_id.is_zero(amount_currency) or float_is_zero(price_unit, precision_digits=price_unit_prec):
@@ -159,12 +161,17 @@ class AccountMove(models.Model):
                     'price_unit': -price_unit,
                     'amount_currency': amount_currency,
                     'account_id': credit_expense_account.id,
-                    'analytic_distribution': line.analytic_distribution,
                     'display_type': 'cogs',
                     'tax_ids': [],
                     'cogs_origin_id': line.id,
                 })
         return lines_vals_list
+
+    def _get_anglo_saxon_price_ctx(self):
+        """ To be overriden in modules overriding _stock_account_get_anglo_saxon_price_unit
+        to optimize computations that only depend on account.move and not account.move.line
+        """
+        return self.env.context
 
     def _stock_account_get_last_step_stock_moves(self):
         """ To be overridden for customer invoices and vendor bills in order to
@@ -238,7 +245,7 @@ class AccountMove(models.Model):
 
 
 class AccountMoveLine(models.Model):
-    _inherit = ['account.move.line']
+    _inherit = 'account.move.line'
 
     stock_valuation_layer_ids = fields.One2many('stock.valuation.layer', 'account_move_line_id', string='Stock Valuation Layer')
     cogs_origin_id = fields.Many2one(  # technical field used to keep track in the originating line of the anglo-saxon lines

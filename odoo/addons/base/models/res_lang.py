@@ -48,6 +48,7 @@ class LangDataDict(frozendict):
 
 
 class ResLang(models.Model):
+    _name = 'res.lang'
     _description = "Languages"
     _order = "active desc,name"
     _allow_sudo_commands = False
@@ -90,11 +91,18 @@ class ResLang(models.Model):
     flag_image = fields.Image("Image")
     flag_image_url = fields.Char(compute=_compute_field_flag_image_url)
 
-    _sql_constraints = [
-        ('name_uniq', 'unique(name)', 'The name of the language must be unique!'),
-        ('code_uniq', 'unique(code)', 'The code of the language must be unique!'),
-        ('url_code_uniq', 'unique(url_code)', 'The URL code of the language must be unique!'),
-    ]
+    _name_uniq = models.Constraint(
+        'unique(name)',
+        "The name of the language must be unique!",
+    )
+    _code_uniq = models.Constraint(
+        'unique(code)',
+        "The code of the language must be unique!",
+    )
+    _url_code_uniq = models.Constraint(
+        'unique(url_code)',
+        "The URL code of the language must be unique!",
+    )
 
     @api.constrains('active')
     def _check_active(self):
@@ -279,6 +287,7 @@ class ResLang(models.Model):
         return self._get_data(code=code).code
 
     @api.model
+    @api.readonly
     def get_installed(self) -> list[tuple[str, str]]:
         """ Return installed languages' (code, name) pairs sorted by name. """
         return [(code, data.name) for code, data in self._get_active_by('code').items()]

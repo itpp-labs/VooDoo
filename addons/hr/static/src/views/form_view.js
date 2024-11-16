@@ -1,5 +1,3 @@
-/** @odoo-module */
-
 import { registry } from "@web/core/registry";
 
 import { formView } from "@web/views/form/form_view";
@@ -15,7 +13,7 @@ export class EmployeeFormController extends FormController {
 
     getStaticActionMenuItems() {
         const menuItems = super.getStaticActionMenuItems();
-        menuItems.archive.callback = this.archiveEmployee.bind(this, this.model.root.resId);
+        menuItems.archive.callback = this.archiveEmployee.bind(this, [this.model.root.resId]);
         return menuItems;
     }
 }

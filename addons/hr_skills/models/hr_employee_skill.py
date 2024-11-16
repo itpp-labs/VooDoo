@@ -8,6 +8,7 @@ from collections import defaultdict
 
 
 class HrEmployeeSkill(models.Model):
+    _name = 'hr.employee.skill'
     _description = "Skill level for an employee"
     _order = "skill_type_id, skill_level_id"
     _rec_name = "skill_id"
@@ -21,9 +22,10 @@ class HrEmployeeSkill(models.Model):
     level_progress = fields.Integer(related='skill_level_id.level_progress')
     color = fields.Integer(related="skill_type_id.color")
 
-    _sql_constraints = [
-        ('_unique_skill', 'unique (employee_id, skill_id)', "Two levels for the same skill is not allowed"),
-    ]
+    __unique_skill = models.Constraint(
+        'unique (employee_id, skill_id)',
+        'Two levels for the same skill is not allowed',
+    )
 
     @api.constrains('skill_id', 'skill_type_id')
     def _check_skill_type(self):

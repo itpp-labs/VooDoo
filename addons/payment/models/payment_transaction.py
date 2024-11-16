@@ -21,6 +21,7 @@ _logger = logging.getLogger(__name__)
 
 
 class PaymentTransaction(models.Model):
+    _name = 'payment.transaction'
     _description = 'Payment Transaction'
     _order = 'id desc'
     _rec_name = 'reference'
@@ -119,9 +120,10 @@ class PaymentTransaction(models.Model):
     partner_country_id = fields.Many2one(string="Country", comodel_name='res.country')
     partner_phone = fields.Char(string="Phone")
 
-    _sql_constraints = [
-        ('reference_uniq', 'unique(reference)', "Reference must be unique!"),
-    ]
+    _reference_uniq = models.Constraint(
+        'unique(reference)',
+        'Reference must be unique!',
+    )
 
     #=== COMPUTE METHODS ===#
 

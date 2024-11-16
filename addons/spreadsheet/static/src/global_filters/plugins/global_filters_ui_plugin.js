@@ -577,15 +577,16 @@ export class GlobalFiltersUIPlugin extends OdooUIPlugin {
         if (this.getters.getGlobalFilters().length === 0) {
             return;
         }
-        const styleId = getItemId({ bold: true }, data.styles);
 
-        const cells = {};
-        cells["A1"] = { content: "Filter", style: styleId };
-        cells["B1"] = { content: "Value", style: styleId };
+        const cells = {
+            A1: "Filter",
+            B1: "Value",
+        };
+        const formats = {};
         let numberOfCols = 2; // at least 2 cols (filter title and filter value)
         let filterRowIndex = 1; // first row is the column titles
         for (const filter of this.getters.getGlobalFilters()) {
-            cells[`A${filterRowIndex + 1}`] = { content: filter.label };
+            cells[`A${filterRowIndex + 1}`] = filter.label;
             const result = this.getFilterDisplayValue(filter.label);
             for (const colIndex in result) {
                 numberOfCols = Math.max(numberOfCols, Number(colIndex) + 2);
@@ -595,18 +596,25 @@ export class GlobalFiltersUIPlugin extends OdooUIPlugin {
                         continue;
                     }
                     const xc = toXC(Number(colIndex) + 1, Number(rowIndex) + filterRowIndex);
-                    cells[xc] = { content: cell.value.toString() };
+                    cells[xc] = cell.value.toString();
                     if (cell.format) {
                         const formatId = getItemId(cell.format, data.formats);
-                        cells[xc].format = formatId;
+                        formats[xc] = formatId;
                     }
                 }
             }
             filterRowIndex += result[0].length;
         }
+        const styleId = getItemId({ bold: true }, data.styles);
+
         const sheet = {
             ...createEmptySheet(uuidGenerator.uuidv4(), _t("Active Filters")),
             cells,
+            formats,
+            styles: {
+                A1: styleId,
+                B1: styleId,
+            },
             colNumber: numberOfCols,
             rowNumber: filterRowIndex,
         };

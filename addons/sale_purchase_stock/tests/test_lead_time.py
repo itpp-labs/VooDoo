@@ -51,9 +51,8 @@ class TestLeadTime(TestCommonSalePurchaseNoChart):
             'name': product.name,
             'product_id': product.id,
             'product_uom_qty': 1,
-            'product_uom': product.uom_id.id,
             'price_unit': product.list_price,
-            'tax_id': False,
+            'tax_ids': False,
             'order_id': so.id,
         })
         so.action_confirm()

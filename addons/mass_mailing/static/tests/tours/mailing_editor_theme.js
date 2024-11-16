@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { registry } from "@web/core/registry";
 import { stepUtils } from "@web_tour/tour_service/tour_utils";
 import { boundariesIn, setSelection } from "@web_editor/js/editor/odoo-editor/src/utils/utils";
@@ -147,6 +145,5 @@ registry.category("web_tour.tours").add('mailing_editor_theme', {
             content: "Make sure the floating toolbar is visible",
             trigger: '#toolbar.oe-floating[style*="visible"]',
         },
-        ...stepUtils.discardForm(),
-    ]
+    ],
 });

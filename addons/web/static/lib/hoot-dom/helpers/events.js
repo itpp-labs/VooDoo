@@ -965,6 +965,9 @@ const _hover = async (target, options) => {
         const leaveEventInit = {
             ...previousPosition,
             relatedTarget: current,
+            button: options?.button || 0,
+            buttons: options?.button === undefined ? 0 : 1 << options?.button,
+            isPrimary: options?.isPrimary,
         };
 
         if (runTime.isDragging) {
@@ -995,6 +998,9 @@ const _hover = async (target, options) => {
         const enterEventInit = {
             ...runTime.position,
             relatedTarget: previous,
+            button: options?.button || 0,
+            buttons: options?.button === undefined ? 0 : 1 << options?.button,
+            isPrimary: options?.isPrimary,
         };
         if (runTime.isDragging) {
             // If dragging, only drag events are triggered
@@ -1327,6 +1333,8 @@ const _pointerDown = async (target, options) => {
     const eventInit = {
         ...runTime.position,
         button: options?.button || 0,
+        buttons: options?.button === undefined ? 0 : 1 << options?.button,
+        isPrimary: options?.isPrimary,
     };
 
     if (pointerDownTarget !== runTime.previousPointerDownTarget) {
@@ -1371,6 +1379,8 @@ const _pointerUp = async (target, options) => {
     const eventInit = {
         ...runTime.position,
         button: options?.button || 0,
+        buttons: options?.button === undefined ? 0 : 1 << options?.button,
+        isPrimary: options?.isPrimary,
     };
 
     if (runTime.isDragging) {
@@ -1757,7 +1767,7 @@ export async function clear(options) {
 /**
  * Performs a click sequence on the given {@link AsyncTarget}.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - `pointerdown`
  *  - [desktop] `mousedown`
  *  - [touch] `touchstart`
@@ -2001,7 +2011,7 @@ export function enableEventLogs(toggle) {
 }
 
 /**
- * Fills the current active element with the given `value`. This helper is intended
+ * Fills the current **active element** with the given `value`. This helper is intended
  * for `<input>` and `<textarea>` elements, with the exception of `"checkbox"` and
  * `"radio"` types, which should be selected using the {@link check} helper.
  *
@@ -2041,7 +2051,7 @@ export async function fill(value, options) {
 /**
  * Performs a hover sequence on the given {@link AsyncTarget}.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - `pointerover`
  *  - [desktop] `mouseover`
  *  - `pointerenter`
@@ -2066,9 +2076,9 @@ export async function hover(target, options) {
 }
 
 /**
- * Performs a key down sequence on the given {@link Target}.
+ * Performs a key down sequence on the current **active element**.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - `keydown`
  *
  * Additional actions will be performed depending on the key pressed:
@@ -2098,9 +2108,9 @@ export async function keyDown(keyStrokes, options) {
 }
 
 /**
- * Performs a key up sequence on the given {@link Target}.
+ * Performs a key up sequence on the current **active element**.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - `keyup`
  *
  * @param {KeyStrokes} keyStrokes
@@ -2120,9 +2130,9 @@ export async function keyUp(keyStrokes, options) {
 }
 
 /**
- * Performs a leave sequence on the given {@link Target}.
+ * Performs a leave sequence on the current **window**.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - `pointermove`
  *  - [desktop] `mousemove`
  *  - [touch] `touchmove`
@@ -2177,7 +2187,7 @@ export function on(target, type, listener, options) {
 /**
  * Performs a pointer down on the given {@link AsyncTarget}.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - `pointerdown`
  *  - [desktop] `mousedown`
  *  - [touch] `touchstart`
@@ -2203,7 +2213,7 @@ export async function pointerDown(target, options) {
 /**
  * Performs a pointer up on the given {@link AsyncTarget}.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  * - `pointerup`
  * - [desktop] `mouseup`
  * - [touch] `touchend`
@@ -2225,9 +2235,9 @@ export async function pointerUp(target, options) {
 }
 
 /**
- * Performs a keyboard event sequence on the given {@link Target}.
+ * Performs a keyboard event sequence on the current **active element**.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - `keydown`
  *  - `keyup`
  *
@@ -2258,9 +2268,9 @@ export async function press(keyStrokes, options) {
 }
 
 /**
- * Performs a resize event sequence on the given {@link Target}.
+ * Performs a resize event sequence on the current **window**.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - `resize`
  *
  * The target will be resized to the given dimensions, enforced by `!important` style
@@ -2286,7 +2296,7 @@ export async function resize(dimensions, options) {
 /**
  * Performs a scroll event sequence on the given {@link AsyncTarget}.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - [desktop] `wheel`
  *  - `scroll`
  *
@@ -2321,10 +2331,10 @@ export async function scroll(target, position, options) {
 }
 
 /**
- * Performs a selection event sequence current active element. This helper is intended
- * for `<select>` elements only.
+ * Performs a selection event sequence current **active element**. This helper is
+ * intended for `<select>` elements only.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - `change`
  *
  * @param {string | number | (string | number)[]} value
@@ -2379,9 +2389,9 @@ export async function setInputFiles(files, options) {
 }
 
 /**
- * Sets the given value to the given "input[type=range]" {@link Target}.
+ * Sets the given value to the given "input[type=range]" {@link AsyncTarget}.
  *
- * The event sequence is as follow:
+ * The event sequence is as follows:
  *  - `pointerdown`
  *  - `input`
  *  - `change`
@@ -2461,7 +2471,7 @@ export async function uncheck(target, options) {
 }
 
 /**
- * Triggers a "beforeunload" event the current window.
+ * Triggers a "beforeunload" event the current **window**.
  *
  * @param {EventOptions} [options]
  * @returns {Promise<EventList>}

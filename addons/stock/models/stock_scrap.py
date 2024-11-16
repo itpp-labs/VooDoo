@@ -8,6 +8,7 @@ from odoo.tools.misc import clean_context
 
 
 class StockScrap(models.Model):
+    _name = 'stock.scrap'
     _inherit = ['mail.thread']
     _order = 'id desc'
     _description = 'Scrap'
@@ -227,6 +228,7 @@ class StockScrap(models.Model):
 
 
 class StockScrapReasonTag(models.Model):
+    _name = 'stock.scrap.reason.tag'
     _description = 'Scrap Reason Tag'
     _order = 'sequence, id'
 
@@ -234,6 +236,7 @@ class StockScrapReasonTag(models.Model):
     sequence = fields.Integer(default=10)
     color = fields.Char(string="Color", default='#3C3C3C')
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (name)', "Tag name already exists!"),
-    ]
+    _name_uniq = models.Constraint(
+        'unique (name)',
+        'Tag name already exists!',
+    )

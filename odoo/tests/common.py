@@ -118,7 +118,6 @@ def __getattr__(name):
 
 
 # The odoo library is supposed already configured.
-ADDONS_PATH = odoo.tools.config['addons_path']
 HOST = '127.0.0.1'
 # Useless constant, tests are aware of the content of demo data
 ADMIN_USER_ID = odoo.SUPERUSER_ID
@@ -129,14 +128,16 @@ BROWSER_WAIT = CHECK_BROWSER_SLEEP * CHECK_BROWSER_ITERATIONS # seconds
 DEFAULT_SUCCESS_SIGNAL = 'test successful'
 
 def get_db_name():
-    db = odoo.tools.config['db_name']
+    dbnames = odoo.tools.config['db_name']
     # If the database name is not provided on the command-line,
     # use the one on the thread (which means if it is provided on
     # the command-line, this will break when installing another
     # database from XML-RPC).
-    if not db and hasattr(threading.current_thread(), 'dbname'):
+    if not dbnames and hasattr(threading.current_thread(), 'dbname'):
         return threading.current_thread().dbname
-    return db
+    if len(dbnames) > 1:
+        sys.exit("-d/--database/db_name has multiple database, please provide a single one")
+    return dbnames[0]
 
 
 standalone_tests = defaultdict(list)
@@ -170,10 +171,6 @@ def test_xsd(url=None, path=None, skip=False):
                 _validate_xml(self.env, url, path, xmls)
         return wrapped_f
     return decorator
-
-
-# For backwards-compatibility - get_db_name() should be used instead
-DB = get_db_name()
 
 
 def new_test_user(env, login='', groups='base.group_user', context=None, **kwargs):
@@ -372,6 +369,8 @@ class BaseCase(case.TestCase, metaclass=MetaCase):
     def uid(self, user):
         """ Set the uid by changing the test's environment. """
         self.env = self.env(user=user)
+        # set the updated environment as the default one
+        self.env.transaction.default_env = self.env
 
     def ref(self, xid):
         """ Returns database ID for the provided :term:`external identifier`,
@@ -1950,7 +1949,7 @@ class HttpCase(TransactionCase):
             # patching to speedup the check in case the password is hashed with many hashround + avoid to update the password
             with patch('odoo.addons.base.models.res_users.ResUsersPatchedInTest._check_credentials', new=patched_check_credentials):
                 credential = {'login': user, 'password': password, 'type': 'password'}
-                auth_info = self.registry['res.users'].authenticate(session.db, credential, {'interactive': False})
+                auth_info = self.env['res.users'].authenticate(credential, {'interactive': False})
             uid = auth_info['uid']
             env = api.Environment(self.cr, uid, {})
             session.uid = uid
@@ -2131,6 +2130,7 @@ def users(*logins):
                     # switch user and execute func
                     self.uid = user_id[login]
                     func(*args, **kwargs)
+                    self.env.flush_all()
                 # Invalidate the cache between subtests, in order to not reuse
                 # the former user's cache (`test_read_mail`, `test_write_mail`)
                 self.env.invalidate_all()

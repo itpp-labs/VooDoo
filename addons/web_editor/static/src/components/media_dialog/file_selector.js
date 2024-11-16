@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { _t } from "@web/core/l10n/translation";
 import { rpc } from "@web/core/network/rpc";
 import { useService } from '@web/core/utils/hooks';
@@ -160,7 +158,10 @@ export class FileSelectorControlPanel extends Component {
             return;
         }
         await this.props.uploadFiles(inputFiles);
-        this.fileInput.el.value = '';
+        const fileInputEl = this.fileInput.el;
+        if (fileInputEl) {
+            fileInputEl.value = "";
+        }
     }
 }
 

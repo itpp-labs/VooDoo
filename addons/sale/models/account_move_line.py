@@ -6,7 +6,7 @@ from odoo.tools import float_compare, float_is_zero
 
 
 class AccountMoveLine(models.Model):
-    _inherit = ['account.move.line']
+    _inherit = 'account.move.line'
 
     is_downpayment = fields.Boolean()
     sale_line_ids = fields.Many2many(
@@ -162,10 +162,10 @@ class AccountMoveLine(models.Model):
             'name': self.name,
             'sequence': last_sequence,
             'price_unit': price,
-            'tax_id': [x.id for x in taxes],
+            'tax_ids': [x.id for x in taxes],
             'discount': 0.0,
             'product_id': self.product_id.id,
-            'product_uom': self.product_uom_id.id,
+            'product_uom_id': self.product_uom_id.id,
             'product_uom_qty': self.quantity,
             'is_expense': True,
         }

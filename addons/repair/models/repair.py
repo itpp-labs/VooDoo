@@ -451,7 +451,7 @@ class RepairOrder(models.Model):
     def action_repair_cancel_draft(self):
         if self.filtered(lambda repair: repair.state != 'cancel'):
             self.action_repair_cancel()
-        sale_line_to_update = self.move_ids.sale_line_id.filtered(lambda l: l.order_id.state != 'cancel' and float_is_zero(l.product_uom_qty, precision_rounding=l.product_uom.rounding))
+        sale_line_to_update = self.move_ids.sale_line_id.filtered(lambda l: l.order_id.state != 'cancel' and float_is_zero(l.product_uom_qty, precision_rounding=l.product_uom_id.rounding))
         sale_line_to_update.move_ids._update_repair_sale_order_line()
         self.move_ids.state = 'draft'
         self.state = 'draft'
@@ -736,6 +736,7 @@ class RepairTags(models.Model):
     name = fields.Char('Tag Name', required=True)
     color = fields.Integer(string='Color Index', default=_get_default_color)
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (name)', "Tag name already exists!"),
-    ]
+    _name_uniq = models.Constraint(
+        'unique (name)',
+        'Tag name already exists!',
+    )

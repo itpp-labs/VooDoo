@@ -74,11 +74,13 @@
             'point_of_sale/static/src/scss/pos_dashboard.scss',
             'point_of_sale/static/src/backend/tours/point_of_sale.js',
             'point_of_sale/static/src/backend/pos_kanban_view/*',
-            'point_of_sale/static/src/app/utils/hooks.js',
+            'point_of_sale/static/src/app/hooks/hooks.js',
         ],
         'web.assets_tests': [
-            'barcodes/static/tests/helpers.js',
-            'point_of_sale/static/tests/tours/**/*',
+            'barcodes/static/tests/legacy/helpers.js',
+            'point_of_sale/static/tests/pos/tours/**/*',
+            'point_of_sale/static/tests/generic_helpers/**/*',
+            'point_of_sale/static/tests/customer_display/**/*',
         ],
         'web.assets_unit_tests': [
             # for the related_models.test.js
@@ -87,7 +89,7 @@
             'point_of_sale/static/src/app/models/utils/indexed_db.js',
             'point_of_sale/static/src/app/models/data_service_options.js',
             'point_of_sale/static/src/utils.js',
-            'point_of_sale/static/src/app/models/data_service.js',
+            'point_of_sale/static/src/app/services/data_service.js',
             'point_of_sale/static/tests/unit/**/*',
         ],
 
@@ -185,6 +187,9 @@
             "web_tour/static/src/tour_pointer/**/*.xml",
             "web_tour/static/src/tour_pointer/**/*.js",
             "web_tour/static/src/tour_service/**/*",
+            "barcodes/static/tests/legacy/helpers.js",
+            "web/static/tests/legacy/helpers/utils.js",
+            "web/static/tests/legacy/helpers/cleanup.js",
         ],
         # Bundle that starts the pos, loaded on /pos/ui
         'point_of_sale.assets_prod': [
@@ -193,19 +198,19 @@
         ],
         'point_of_sale.customer_display_assets': [
             ('include', 'point_of_sale.base_app'),
-            "point_of_sale/static/src/app/generic_components/odoo_logo/*",
-            "point_of_sale/static/src/app/generic_components/order_widget/*",
-            "point_of_sale/static/src/app/generic_components/orderline/*",
-            "point_of_sale/static/src/app/generic_components/centered_icon/*",
+            "point_of_sale/static/src/app/components/odoo_logo/*",
+            "point_of_sale/static/src/app/components/order_widget/*",
+            "point_of_sale/static/src/app/components/orderline/*",
+            "point_of_sale/static/src/app/components/centered_icon/*",
             "point_of_sale/static/src/utils.js",
             "point_of_sale/static/src/customer_display/**/*",
         ],
         'point_of_sale.customer_display_assets_test': [
             ('include', 'point_of_sale.base_tests'),
-            'barcodes/static/tests/helpers.js',
-            "web/static/tests/legacy/helpers/utils.js",
-            "web/static/tests/legacy/helpers/cleanup.js",
-            "point_of_sale/static/tests/tours/**/*",
+            "point_of_sale/static/tests/pos/tours/utils/common.js",
+            "point_of_sale/static/tests/generic_helpers/order_widget_util.js",
+            "point_of_sale/static/tests/generic_helpers/utils.js",
+            "point_of_sale/static/tests/customer_display/customer_display_tour.js",
         ],
     },
     'license': 'LGPL-3',

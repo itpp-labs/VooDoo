@@ -1,5 +1,3 @@
-/** @odoo-module */
-
 import { dragAndDrop, getFixture, nextTick } from "@web/../tests/helpers/utils";
 import { makeView, setupViewRegistries } from "@web/../tests/views/helpers";
 
@@ -25,7 +23,7 @@ QUnit.module("SurveyQuestionTriggerWidget", (hooks) => {
                 },
                 survey_question: {
                     fields: {
-                        sequence: { type: "number" },
+                        sequence: { type: "integer" },
                         title: { type: "char", string: "title", },
                         triggering_question_ids: {
                             type: "many2many",

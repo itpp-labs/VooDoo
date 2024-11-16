@@ -6,7 +6,7 @@ from markupsafe import Markup
 
 
 class EventRegistration(models.Model):
-    _inherit = ['event.registration']
+    _inherit = 'event.registration'
 
     def _get_lead_description_registration(self, line_suffix=''):
         """Add the questions and answers linked to the registrations into the description of the lead."""
@@ -29,8 +29,8 @@ class EventRegistration(models.Model):
     def _get_lead_values(self, rule):
         """Update lead values from Lead Generation rules to include the visitor and their language"""
         lead_values = super()._get_lead_values(rule)
-        lead_values.update({
-            'visitor_ids': self.visitor_id,
-            'lang_id': self.visitor_id.lang_id.id,
-        })
+        if self.visitor_id:
+            lead_values['visitor_ids'] = self.visitor_id
+        if self.visitor_id.lang_id:
+            lead_values['lang_id'] = self.visitor_id.lang_id[0].id
         return lead_values

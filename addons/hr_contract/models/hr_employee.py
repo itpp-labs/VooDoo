@@ -13,7 +13,7 @@ from odoo.exceptions import UserError
 
 
 class HrEmployeePublic(models.Model):
-    _inherit = ['hr.employee.public']
+    _inherit = 'hr.employee.public'
 
     first_contract_date = fields.Date(compute='_compute_manager_only_fields', search='_search_first_contract_date')
 
@@ -26,7 +26,7 @@ class HrEmployeePublic(models.Model):
 
 
 class HrEmployeeBase(models.AbstractModel):
-    _inherit = ["hr.employee.base"]
+    _inherit = "hr.employee.base"
 
     @api.model
     def _get_new_hire_field(self):
@@ -34,7 +34,7 @@ class HrEmployeeBase(models.AbstractModel):
 
 
 class HrEmployee(models.Model):
-    _inherit = ["hr.employee"]
+    _inherit = "hr.employee"
 
     legal_name = fields.Char(compute='_compute_legal_name', store=True, readonly=False, groups="hr.group_hr_user")
     vehicle = fields.Char(string='Company Vehicle', groups="hr.group_hr_user")
@@ -52,6 +52,17 @@ class HrEmployee(models.Model):
         for employee in self:
             if not employee.legal_name:
                 employee.legal_name = employee.name
+
+    def _get_departure_date(self):
+        # Primarily used in the archive wizard
+        # to pick a good default for the departure date
+        self.ensure_one()
+        if self.contract_id.state == "open":
+            return False
+        expired_contract = self.env['hr.contract'].search([('employee_id', '=', self.id), ('state', '=', 'close')], limit=1, order='date_end desc')
+        if expired_contract:
+            return expired_contract.date_end
+        return super()._get_departure_date()
 
     def _get_first_contracts(self):
         self.ensure_one()

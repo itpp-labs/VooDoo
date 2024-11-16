@@ -1,8 +1,8 @@
 import { registry } from "@web/core/registry";
-import { usePos } from "@point_of_sale/app/store/pos_hook";
+import { usePos } from "@point_of_sale/app/hooks/pos_hook";
 import { Component, useState } from "@odoo/owl";
-import { Orderline } from "@point_of_sale/app/generic_components/orderline/orderline";
-import { OrderWidget } from "@point_of_sale/app/generic_components/order_widget/order_widget";
+import { Orderline } from "@point_of_sale/app/components/orderline/orderline";
+import { OrderWidget } from "@point_of_sale/app/components/order_widget/order_widget";
 
 export class SplitBillScreen extends Component {
     static template = "pos_restaurant.SplitBillScreen";
@@ -53,7 +53,7 @@ export class SplitBillScreen extends Component {
     }
 
     _getOrderName(order) {
-        return order.table_id?.table_number.toString() || order.getFloatingOrderName() || "";
+        return order.table_id?.table_number.toString() || order.floatingOrderName || "";
     }
 
     _getLatestOrderNameStartingWith(name) {
@@ -86,7 +86,7 @@ export class SplitBillScreen extends Component {
         const originalOrderName = this._getOrderName(originalOrder);
         const newOrderName = this._getSplitOrderName(originalOrderName);
 
-        const newOrder = this.pos.createNewOrder(await this.pos.getNextOrderRefs());
+        const newOrder = this.pos.createNewOrder();
         newOrder.floating_order_name = newOrderName;
         newOrder.uiState.splittedOrderUuid = curOrderUuid;
         newOrder.originalSplittedOrder = originalOrder;

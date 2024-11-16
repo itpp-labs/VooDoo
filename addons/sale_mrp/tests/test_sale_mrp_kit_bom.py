@@ -134,7 +134,6 @@ class TestSaleMrpKitBom(TransactionCase):
                     'name': self.kit_product.name,
                     'product_id': self.kit_product.id,
                     'product_uom_qty': 1.0,
-                    'product_uom': self.kit_product.uom_id.id,
                 })],
         })
         so.action_confirm()
@@ -173,9 +172,8 @@ class TestSaleMrpKitBom(TransactionCase):
                     'name': self.kit.name,
                     'product_id': self.kit.id,
                     'product_uom_qty': 10.0,
-                    'product_uom': self.kit.uom_id.id,
                     'price_unit': 1,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })],
         })
         so.action_confirm()
@@ -238,9 +236,8 @@ class TestSaleMrpKitBom(TransactionCase):
                     'name': self.kitA.name,
                     'product_id': self.kitA.id,
                     'product_uom_qty': 1.0,
-                    'product_uom': self.kitA.uom_id.id,
                     'price_unit': 1,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })],
         })
         so.action_confirm()
@@ -292,9 +289,8 @@ class TestSaleMrpKitBom(TransactionCase):
                     'name': kitA.name,
                     'product_id': kitA.id,
                     'product_uom_qty': 1.0,
-                    'product_uom': kitA.uom_id.id,
                     'price_unit': 1,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })]
         })
         so.action_confirm()
@@ -367,17 +363,15 @@ class TestSaleMrpKitBom(TransactionCase):
                     'name': kitAB.name,
                     'product_id': kitAB.id,
                     'product_uom_qty': 1.0,
-                    'product_uom': kitAB.uom_id.id,
                     'price_unit': 1,
-                    'tax_id': False,
+                    'tax_ids': False,
                 }),
                 (0, 0, {
                     'name': kitABC.name,
                     'product_id': kitABC.id,
                     'product_uom_qty': 1.0,
-                    'product_uom': kitABC.uom_id.id,
                     'price_unit': 1,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })],
         })
         so.action_confirm()
@@ -619,3 +613,42 @@ class TestSaleMrpKitBom(TransactionCase):
         # Validate the return
         self.env['stock.picking'].browse(res['res_id']).button_validate()
         self.assertEqual(so.order_line.qty_delivered, 20 / 5 * 6)
+
+    def test_sale_kit_qty_change(self):
+
+        # Create record rule
+        mrp_bom_model = self.env['ir.model']._get('mrp.bom')
+        self.env['ir.rule'].create({
+            'name': "No one allowed to access BoMs",
+            'model_id': mrp_bom_model.id,
+            'domain_force': [(0, '=', 1)],
+        })
+
+        # Create BoM
+        kit_product = self._create_product('Kit Product', 'product', 1)
+        component_a = self._create_product('Component A', 'product', 1)
+        self.env['mrp.bom'].create({
+            'product_id': kit_product.id,
+            'product_tmpl_id': kit_product.product_tmpl_id.id,
+            'product_qty': 1,
+            'consumption': 'flexible',
+            'type': 'phantom',
+            'bom_line_ids': [(0, 0, {'product_id': component_a.id, 'product_qty': 1})]
+        })
+
+        # Create sale order
+        partner = self.env['res.partner'].create({'name': 'Testing Man'})
+        so = self.env['sale.order'].create({
+            'partner_id': partner.id,
+        })
+        sol = self.env['sale.order.line'].create({
+            'name': "Order line",
+            'product_id': kit_product.id,
+            'order_id': so.id,
+        })
+        so.action_confirm()
+
+        user_admin = self.env['res.users'].search([('login', '=', 'admin')])
+        sol.with_user(user_admin).write({'product_uom_qty': 5})
+
+        self.assertEqual(sum(sol.move_ids.mapped('product_uom_qty')), 5)

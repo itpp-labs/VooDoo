@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { registry } from "@web/core/registry";
 import { stepUtils } from "@web_tour/tour_service/tour_utils";
 
@@ -9,7 +7,7 @@ registry.category("web_tour.tours").add('create_expense_no_employee_access_tour'
     ...stepUtils.goToAppSteps('hr_expense.menu_hr_expense_root', "Go to the Expenses app"),
     {
         content: "Remove filter for own expenses",
-        trigger: '.o_facet_value:contains(My Expenses) + button[title="Remove"]',
+        trigger: '.o_facet_value:contains(My Open Expenses) + button[title="Remove"]',
         run: 'click',
     },
     {

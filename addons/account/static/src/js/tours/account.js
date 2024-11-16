@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { stepUtils } from "@web_tour/tour_service/tour_utils";
@@ -27,7 +25,7 @@ export const accountTourSteps = {
 registry.category("web_tour.tours").add('account_tour', {
     url: "/odoo",
     steps: () => [
-    ...accountTourSteps.goToAccountMenu('Send invoices to your customers in no time with the <b>Invoicing app</b>.'),
+    ...accountTourSteps.goToAccountMenu(markup(_t('Send invoices to your customers in no time with the <b>Invoicing app</b>.'))),
     ...accountTourSteps.onboarding(),
     ...accountTourSteps.newInvoice(),
     {

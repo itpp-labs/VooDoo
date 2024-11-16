@@ -7,7 +7,7 @@ from odoo.exceptions import UserError
 
 
 class SaleOrder(models.Model):
-    _inherit = ['sale.order']
+    _inherit = 'sale.order'
 
     pickup_location_data = fields.Json()
     carrier_id = fields.Many2one('delivery.carrier', string="Delivery Method", check_company=True, help="Fill this field if you plan to invoice the shipping based on picking.")
@@ -215,9 +215,8 @@ class SaleOrder(models.Model):
             'name': so_description,
             'price_unit': price_unit,
             'product_uom_qty': 1,
-            'product_uom': carrier.product_id.uom_id.id,
             'product_id': carrier.product_id.id,
-            'tax_id': [(6, 0, taxes_ids)],
+            'tax_ids': [(6, 0, taxes_ids)],
             'is_delivery': True,
         }
         if carrier.free_over and self.currency_id.is_zero(price_unit) :
@@ -231,7 +230,7 @@ class SaleOrder(models.Model):
         values = self._prepare_delivery_line_vals(carrier, price_unit)
         return self.env['sale.order.line'].sudo().create(values)
 
-    @api.depends('order_line.product_uom_qty', 'order_line.product_uom')
+    @api.depends('order_line.product_uom_qty', 'order_line.product_uom_id')
     def _compute_shipping_weight(self):
         for order in self:
             order.shipping_weight = order._get_estimated_weight()

@@ -10,7 +10,7 @@ from .delivery_request_objects import DeliveryCommodity, DeliveryPackage
 
 
 class DeliveryCarrier(models.Model):
-    _inherit = ['delivery.carrier']
+    _inherit = 'delivery.carrier'
 
     # -------------------------------- #
     # Internals for shipping providers #
@@ -200,7 +200,7 @@ class DeliveryCarrier(models.Model):
         commodities = []
 
         for line in order.order_line.filtered(lambda line: not line.is_delivery and not line.display_type and line.product_id.type == 'consu'):
-            unit_quantity = line.product_uom._compute_quantity(line.product_uom_qty, line.product_id.uom_id)
+            unit_quantity = line.product_uom_id._compute_quantity(line.product_uom_qty, line.product_id.uom_id)
             rounded_qty = max(1, float_round(unit_quantity, precision_digits=0))
             country_of_origin = line.product_id.country_of_origin.code or order.warehouse_id.partner_id.country_id.code
             commodities.append(DeliveryCommodity(

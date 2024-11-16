@@ -9,6 +9,7 @@ from odoo.tools.misc import clean_context
 
 
 class MrpUnbuild(models.Model):
+    _name = 'mrp.unbuild'
     _description = "Unbuild Order"
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'id desc'
@@ -78,9 +79,10 @@ class MrpUnbuild(models.Model):
         ('draft', 'Draft'),
         ('done', 'Done')], string='Status', default='draft')
 
-    _sql_constraints = [
-        ('qty_positive', 'check (product_qty > 0)', 'The quantity to unbuild must be positive!'),
-    ]
+    _qty_positive = models.Constraint(
+        'check (product_qty > 0)',
+        'The quantity to unbuild must be positive!',
+    )
 
     @api.depends('mo_id', 'product_id')
     def _compute_product_uom_id(self):

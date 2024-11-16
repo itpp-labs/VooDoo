@@ -9,7 +9,7 @@ from odoo.tools.misc import clean_context
 
 
 class StockPickingType(models.Model):
-    _inherit = ['stock.picking.type']
+    _inherit = 'stock.picking.type'
 
     code = fields.Selection(selection_add=[
         ('repair_operation', 'Repair')
@@ -25,22 +25,19 @@ class StockPickingType(models.Model):
         string="Number of Late Repair Orders", compute='_compute_count_repair')
 
     default_product_location_src_id = fields.Many2one(
-        'stock.location', 'Default Product Source Location', compute='_compute_default_product_location_id',
+        'stock.location', 'Product Source Location', compute='_compute_default_product_location_id',
         check_company=True, store=True, readonly=False, precompute=True,
-        help="This is the default source location for product which come for the repair when you create a repair order with this operation type.")
-
+        help="This is the default source location for the product to be repaired in repair orders with this operation type.")
     default_product_location_dest_id = fields.Many2one(
-        'stock.location', 'Default Product Destination Location', compute='_compute_default_product_location_id',
+        'stock.location', 'Product Destination Location', compute='_compute_default_product_location_id',
         check_company=True, store=True, readonly=False, precompute=True,
-        help="This is the default destination location for product which come for the repair when you create a repair order with this operation type.")
-
+        help="This is the default destination location for the product to be repaired in repair orders with this operation type.")
     default_remove_location_dest_id = fields.Many2one(
-        'stock.location', 'Default Remove Destination Location', compute='_compute_default_remove_location_dest_id',
+        'stock.location', 'Remove Destination Location', compute='_compute_default_remove_location_dest_id',
         check_company=True, store=True, readonly=False, precompute=True,
         help="This is the default remove destination location when you create a repair order with this operation type.")
-
     default_recycle_location_dest_id = fields.Many2one(
-        'stock.location', 'Default Recycle Destination Location', compute='_compute_default_recycle_location_dest_id',
+        'stock.location', 'Recycle Destination Location', compute='_compute_default_recycle_location_dest_id',
         check_company=True, store=True, readonly=False, precompute=True,
         help="This is the default recycle destination location when you create a repair order with this operation type.")
 
@@ -194,7 +191,7 @@ class StockPickingType(models.Model):
 
 
 class StockPicking(models.Model):
-    _inherit = ['stock.picking']
+    _inherit = 'stock.picking'
 
     is_repairable = fields.Boolean(compute='_compute_is_repairable')
     repair_ids = fields.One2many('repair.order', 'picking_id')

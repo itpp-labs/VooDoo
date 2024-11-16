@@ -5,6 +5,7 @@ from odoo import api, fields, models, _
 
 
 class SaleOrder(models.Model):
+    _name = 'sale.order'
     _inherit = ['sale.order', 'pos.load.mixin']
 
     pos_order_line_ids = fields.One2many('pos.order.line', 'sale_order_origin_id', string="Order lines Transfered to Point of Sale", readonly=True, groups="point_of_sale.group_pos_user")
@@ -60,6 +61,7 @@ class SaleOrder(models.Model):
 
 
 class SaleOrderLine(models.Model):
+    _name = 'sale.order.line'
     _inherit = ['sale.order.line', 'pos.load.mixin']
 
     pos_order_line_ids = fields.One2many('pos.order.line', 'sale_order_line_id', string="Order lines Transfered to Point of Sale", readonly=True, groups="point_of_sale.group_pos_user")
@@ -71,7 +73,7 @@ class SaleOrderLine(models.Model):
     @api.model
     def _load_pos_data_fields(self, config_id):
         return ['discount', 'display_name', 'price_total', 'price_unit', 'product_id', 'product_uom_qty', 'qty_delivered',
-            'qty_invoiced', 'qty_to_invoice', 'display_type', 'name', 'tax_id', 'is_downpayment']
+            'qty_invoiced', 'qty_to_invoice', 'display_type', 'name', 'tax_ids', 'is_downpayment']
 
     @api.depends('pos_order_line_ids.qty')
     def _compute_qty_delivered(self):
@@ -86,7 +88,7 @@ class SaleOrderLine(models.Model):
             sale_line.qty_invoiced += sum([self._convert_qty(sale_line, pos_line.qty, 'p2s') for pos_line in sale_line.pos_order_line_ids], 0)
 
     def _get_sale_order_fields(self):
-        return ["product_id", "display_name", "price_unit", "product_uom_qty", "tax_id", "qty_delivered", "qty_invoiced", "discount", "qty_to_invoice", "price_total", "is_downpayment"]
+        return ["product_id", "display_name", "price_unit", "product_uom_qty", "tax_ids", "qty_delivered", "qty_invoiced", "discount", "qty_to_invoice", "price_total", "is_downpayment"]
 
     def read_converted(self):
         field_names = self._get_sale_order_fields()
@@ -94,7 +96,7 @@ class SaleOrderLine(models.Model):
         for sale_line in self:
             if sale_line.product_type or (sale_line.is_downpayment and sale_line.price_unit != 0):
                 product_uom = sale_line.product_id.uom_id
-                sale_line_uom = sale_line.product_uom
+                sale_line_uom = sale_line.product_uom_id
                 item = sale_line.read(field_names, load=False)[0]
                 if sale_line.product_id.tracking != 'none':
                     item['lot_names'] = sale_line.move_ids.move_line_ids.lot_id.mapped('name')
@@ -126,7 +128,7 @@ class SaleOrderLine(models.Model):
         if DIR='p2s': convert from product uom to sale line uom
         """
         product_uom = sale_line.product_id.uom_id
-        sale_line_uom = sale_line.product_uom
+        sale_line_uom = sale_line.product_uom_id
         if direction == 's2p':
             return sale_line_uom._compute_quantity(qty, product_uom, False)
         elif direction == 'p2s':

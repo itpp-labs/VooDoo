@@ -15,6 +15,7 @@ PRICE_CONTEXT_KEYS = ['pricelist', 'quantity', 'uom', 'date']
 
 
 class ProductTemplate(models.Model):
+    _name = 'product.template'
     _inherit = ['mail.thread', 'mail.activity.mixin', 'image.mixin']
     _description = "Product"
     _order = "is_favorite desc, name"
@@ -115,9 +116,11 @@ class ProductTemplate(models.Model):
         default=_get_default_uom_id, required=True,
         help="Default unit of measure used for all stock operations.")
     uom_name = fields.Char(string='Unit of Measure Name', related='uom_id.name', readonly=True)
+    uom_category_id = fields.Many2one('uom.category', string='UoM Category', related="uom_id.category_id")
     uom_po_id = fields.Many2one(
         'uom.uom', 'Purchase Unit',
         default=_get_default_uom_po_id, required=True,
+        domain="[('category_id', '=', uom_category_id)]",
         help="Default unit of measure used for purchase orders. It must be in the same category as the default unit of measure.")
     company_id = fields.Many2one(
         'res.company', 'Company', index=True)
@@ -1479,3 +1482,11 @@ class ProductTemplate(models.Model):
         To be overridden in accounting module."""
         self.ensure_one()
         return price
+
+    @api.model
+    def _service_tracking_blacklist(self):
+        """ Service tracking field is used to distinguish some specific categories of products.
+        Those products shouldn't be displayed or used in unrelated applications.
+        This method returns a domain targeting all those specific products (events, courses, ...).
+        """
+        return []

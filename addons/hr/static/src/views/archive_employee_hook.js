@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { _t } from "@web/core/l10n/translation";
 import { useService } from "@web/core/utils/hooks";
 import { useComponent } from "@odoo/owl";
@@ -7,7 +5,7 @@ import { useComponent } from "@odoo/owl";
 export function useArchiveEmployee() {
     const component = useComponent();
     const action = useService("action");
-    return (id) => {
+    return (ids) => {
         action.doAction(
             {
                 type: "ir.actions.act_window",
@@ -17,7 +15,7 @@ export function useArchiveEmployee() {
                 view_mode: "form",
                 target: "new",
                 context: {
-                    active_id: id,
+                    active_ids: ids,
                     employee_termination: true,
                 },
             },

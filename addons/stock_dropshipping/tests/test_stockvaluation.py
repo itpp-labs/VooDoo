@@ -22,10 +22,9 @@ class TestStockValuation(ValuationReconciliationTestCommon):
         })
 
     def _dropship_product1(self):
-        # enable the dropship and MTO route on the product
+        # enable the dropship route on the product
         dropshipping_route = self.env.ref('stock_dropshipping.route_drop_shipping')
-        mto_route = self.env.ref('stock.route_warehouse0_mto')
-        self.product1.write({'route_ids': [(6, 0, [dropshipping_route.id, mto_route.id])]})
+        self.product1.write({'route_ids': [(6, 0, [dropshipping_route.id])]})
 
         # add a vendor
         vendor1 = self.env['res.partner'].create({'name': 'vendor1'})
@@ -45,9 +44,8 @@ class TestStockValuation(ValuationReconciliationTestCommon):
                 'name': self.product1.name,
                 'product_id': self.product1.id,
                 'product_uom_qty': 1,
-                'product_uom': self.product1.uom_id.id,
                 'price_unit': 12,
-                'tax_id': [(6, 0, [])],
+                'tax_ids': [(6, 0, [])],
             })],
             'picking_policy': 'direct',
         })

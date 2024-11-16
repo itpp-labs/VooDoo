@@ -5,7 +5,7 @@ from odoo.addons.mail.tools.discuss import Store
 
 
 class ResPartner(models.Model):
-    _inherit = ['res.partner']
+    _inherit = 'res.partner'
 
     def _compute_im_status(self):
         super(ResPartner, self)._compute_im_status()
@@ -16,7 +16,7 @@ class ResPartner(models.Model):
                     partner.im_status = 'leave_online'
                 elif partner.im_status == 'away':
                     partner.im_status = 'leave_away'
-                else:
+                elif partner.im_status == 'offline':
                     partner.im_status = 'leave_offline'
 
     @api.model

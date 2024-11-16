@@ -13,12 +13,9 @@ registry.category("web_tour.tours").add("discuss_channel_public_tour.js", {
                 if (!window.location.pathname.startsWith("/discuss/channel")) {
                     console.error("Channel secret token is still present in URL.");
                 }
-                const { missing, failed, unloaded } = odoo.loader.findErrors();
-                if ([missing, failed, unloaded].some((arr) => arr.length)) {
-                    console.error(
-                        "Couldn't load all JS modules.",
-                        JSON.stringify({ missing, failed, unloaded })
-                    );
+                const errors = odoo.loader.findErrors();
+                if (Object.keys(errors).length) {
+                    console.error("Couldn't load all JS modules.", errors);
                 }
                 document.body.classList.add("o_discuss_channel_public_modules_loaded");
                 if (
@@ -37,12 +34,13 @@ registry.category("web_tour.tours").add("discuss_channel_public_tour.js", {
             trigger: ".o-mail-Composer-input",
             run: "edit cheese",
         },
+        { trigger: ".o-mail-Composer button[title='More Actions']", run: "click" },
         {
             content: "Add a text file in composer",
-            trigger: ".o-mail-Composer button[aria-label='Attach files']",
+            trigger: ".dropdown-item:contains('Attach Files')",
             async run() {
                 const text = new File(["hello, world"], "text.txt", { type: "text/plain" });
-                await inputFiles(".o-mail-Composer-coreMain .o_input_file", [text]);
+                await inputFiles(".o-mail-Composer .o_input_file", [text]);
             },
         },
         {
@@ -54,9 +52,9 @@ registry.category("web_tour.tours").add("discuss_channel_public_tour.js", {
         },
         {
             content: "Add an image file in composer",
-            trigger: ".o-mail-Composer button[aria-label='Attach files']",
+            trigger: ".dropdown-item:contains('Attach Files')",
             async run() {
-                await inputFiles(".o-mail-Composer-coreMain .o_input_file", [
+                await inputFiles(".o-mail-Composer .o_input_file", [
                     new File(
                         [
                             await (
@@ -91,10 +89,11 @@ registry.category("web_tour.tours").add("discuss_channel_public_tour.js", {
                 }
             },
         },
+        { trigger: ".o-mail-Composer-input", run: "click" }, // focus
         {
             content: "Send message",
-            trigger: ".o-mail-Composer-send:enabled",
-            run: "click",
+            trigger: ".o-mail-Composer-input",
+            run: "press Enter",
         },
         {
             content: "Check message is shown",
@@ -107,6 +106,10 @@ registry.category("web_tour.tours").add("discuss_channel_public_tour.js", {
         {
             trigger: ".o-mail-Message-textContent:contains(cheese)",
             run: "hover && click .o-mail-Message [title='Add a Reaction']",
+        },
+        {
+            trigger: ".o-mail-QuickReactionMenu [title='Open Emoji Picker']",
+            run: "click",
         },
         {
             trigger: ".o-EmojiPicker .o-Emoji:contains('🙂')",
@@ -151,7 +154,12 @@ registry.category("web_tour.tours").add("discuss_channel_public_tour.js", {
         },
         {
             content: "Add one more file in composer",
-            trigger: ".o-mail-Message button[aria-label='Attach files']",
+            trigger: ".o-mail-Message .o-mail-Composer button[title='More Actions']",
+            run: "click",
+        },
+        {
+            content: "Add one more file in composer",
+            trigger: ".dropdown-item:contains('Attach Files')",
             async run() {
                 const extratxt = new File(["hello 2"], "extra.txt", { type: "text/plain" });
                 await inputFiles(".o-mail-Message .o_input_file", [extratxt]);

@@ -7,7 +7,7 @@ from odoo.tools import split_every
 
 
 class StockWarehouse(models.Model):
-    _inherit = ['stock.warehouse']
+    _inherit = 'stock.warehouse'
 
     manufacture_to_resupply = fields.Boolean(
         'Manufacture to Resupply', default=True,
@@ -126,7 +126,7 @@ class StockWarehouse(models.Model):
             'manufacture_mto_pull_id': {
                 'depends': ['manufacture_steps', 'manufacture_to_resupply'],
                 'create_values': {
-                    'procure_method': 'mts_else_mto',
+                    'procure_method': 'make_to_order',
                     'company_id': self.company_id.id,
                     'action': 'pull',
                     'auto': 'manual',
@@ -186,9 +186,9 @@ class StockWarehouse(models.Model):
     def _get_sequence_values(self, name=False, code=False):
         values = super(StockWarehouse, self)._get_sequence_values(name=name, code=code)
         values.update({
-            'pbm_type_id': {'name': _('%(name)s Sequence picking before manufacturing', name=self.name), 'prefix': self.code + '/PC/', 'padding': 5, 'company_id': self.company_id.id},
-            'sam_type_id': {'name': _('%(name)s Sequence stock after manufacturing', name=self.name), 'prefix': self.code + '/SFP/', 'padding': 5, 'company_id': self.company_id.id},
-            'manu_type_id': {'name': _('%(name)s Sequence production', name=self.name), 'prefix': self.code + '/MO/', 'padding': 5, 'company_id': self.company_id.id},
+            'pbm_type_id': {'name': _('%(name)s Sequence picking before manufacturing', name=self.name), 'prefix': self.code + '/' + (self.pbm_type_id.sequence_code or 'PC') + '/', 'padding': 5, 'company_id': self.company_id.id},
+            'sam_type_id': {'name': _('%(name)s Sequence stock after manufacturing', name=self.name), 'prefix': self.code + '/' + (self.sam_type_id.sequence_code or 'SFP') + '/', 'padding': 5, 'company_id': self.company_id.id},
+            'manu_type_id': {'name': _('%(name)s Sequence production', name=self.name), 'prefix': self.code + '/' + (self.manu_type_id.sequence_code or 'MO') + '/', 'padding': 5, 'company_id': self.company_id.id},
         })
         return values
 
@@ -281,7 +281,7 @@ class StockWarehouse(models.Model):
 
 
 class StockWarehouseOrderpoint(models.Model):
-    _inherit = ["stock.warehouse.orderpoint"]
+    _inherit = "stock.warehouse.orderpoint"
 
     @api.constrains('product_id')
     def check_product_is_not_kit(self):

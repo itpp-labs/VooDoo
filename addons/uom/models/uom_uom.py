@@ -9,6 +9,7 @@ from odoo.exceptions import UserError, ValidationError
 
 
 class UomCategory(models.Model):
+    _name = 'uom.category'
     _description = 'Product UoM Categories'
 
     name = fields.Char('Unit of Measure Category', required=True, translate=True)
@@ -41,6 +42,7 @@ class UomCategory(models.Model):
 
 
 class UomUom(models.Model):
+    _name = 'uom.uom'
     _description = 'Product Unit of Measure'
     _order = "factor DESC, id"
 
@@ -74,11 +76,18 @@ class UomUom(models.Model):
     ratio = fields.Float('Combined Ratio', compute='_compute_ratio', inverse='_set_ratio', store=False)
     color = fields.Integer('Color', compute='_compute_color')
 
-    _sql_constraints = [
-        ('factor_gt_zero', 'CHECK (factor!=0)', 'The conversion ratio for a unit of measure cannot be 0!'),
-        ('rounding_gt_zero', 'CHECK (rounding>0)', 'The rounding precision must be strictly positive.'),
-        ('factor_reference_is_one', "CHECK((uom_type = 'reference' AND factor = 1.0) OR (uom_type != 'reference'))", "The reference unit must have a conversion factor equal to 1.")
-    ]
+    _factor_gt_zero = models.Constraint(
+        'CHECK (factor!=0)',
+        'The conversion ratio for a unit of measure cannot be 0!',
+    )
+    _rounding_gt_zero = models.Constraint(
+        'CHECK (rounding>0)',
+        'The rounding precision must be strictly positive.',
+    )
+    _factor_reference_is_one = models.Constraint(
+        "CHECK((uom_type = 'reference' AND factor = 1.0) OR (uom_type != 'reference'))",
+        'The reference unit must have a conversion factor equal to 1.',
+    )
 
     def _check_category_reference_uniqueness(self):
         categ_res = self._read_group(

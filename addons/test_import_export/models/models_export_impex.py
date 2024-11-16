@@ -58,6 +58,7 @@ for name, field in MODELS:
 
 
 class ExportOne2manyChild(models.Model):
+    _name = 'export.one2many.child'
     _description = 'Export One to Many Child'
     # FIXME: orm.py:1161, fix to display_name on m2o field
     _rec_name = 'value'
@@ -79,6 +80,7 @@ class ExportOne2manyChild(models.Model):
 
 
 class ExportOne2manyMultiple(models.Model):
+    _name = 'export.one2many.multiple'
     _description = 'Export One To Many Multiple'
     _rec_name = 'parent_id'
 
@@ -115,6 +117,7 @@ class ExportOne2manyChild2(models.Model):
 
 
 class ExportMany2manyOther(models.Model):
+    _name = 'export.many2many.other'
     _description = 'Export Many to Many Other'
     # FIXME: orm.py:1161, fix to display_name on m2o field
     _rec_name = 'value'
@@ -134,6 +137,7 @@ class ExportMany2manyOther(models.Model):
 
 
 class ExportSelectionWithdefault(models.Model):
+    _name = 'export.selection.withdefault'
     _description = 'Export Selection With Default'
 
     const = fields.Integer(default=4)
@@ -141,6 +145,7 @@ class ExportSelectionWithdefault(models.Model):
 
 
 class ExportOne2manyRecursive(models.Model):
+    _name = 'export.one2many.recursive'
     _description = 'Export One To Many Recursive'
     _rec_name = 'value'
 
@@ -149,25 +154,26 @@ class ExportOne2manyRecursive(models.Model):
 
 
 class ExportUnique(models.Model):
+    _name = 'export.unique'
     _description = 'Export Unique'
 
     value = fields.Integer()
     value2 = fields.Integer()
     value3 = fields.Integer()
 
-    _sql_constraints = [
-        ('value_unique', 'unique (value)', "The value must be unique"),
-        ('pair_unique', 'unique (value2, value3)', "The values must be unique"),
-    ]
+    _value_unique = models.Constraint('unique (value)')
+    _pair_unique = models.Constraint('unique (value2, value3)')
 
 
 class ExportInheritsParent(models.Model):
+    _name = 'export.inherits.parent'
     _description = 'export.inherits.parent'
 
     value_parent = fields.Integer()
 
 
 class ExportInheritsChild(models.Model):
+    _name = 'export.inherits.child'
     _description = 'export.inherits.child'
     _inherits = {'export.inherits.parent': 'parent_id'}
 
@@ -176,18 +182,21 @@ class ExportInheritsChild(models.Model):
 
 
 class ExportM2oStr(models.Model):
+    _name = 'export.m2o.str'
     _description = 'export.m2o.str'
 
     child_id = fields.Many2one('export.m2o.str.child')
 
 
 class ExportM2oStrChild(models.Model):
+    _name = 'export.m2o.str.child'
     _description = 'export.m2o.str.child'
 
     name = fields.Char()
 
 
 class ExportWithRequiredField(models.Model):
+    _name = 'export.with.required.field'
     _description = 'export.with.required.field'
 
     name = fields.Char()
@@ -195,6 +204,7 @@ class ExportWithRequiredField(models.Model):
 
 
 class ExportMany2oneRequiredSubfield(models.Model):
+    _name = 'export.many2one.required.subfield'
     _description = 'export.many2one.required.subfield'
 
     name = fields.Many2one('export.with.required.field')

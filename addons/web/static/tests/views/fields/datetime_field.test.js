@@ -246,78 +246,74 @@ test("DatetimeField in editable list view", async () => {
         { message: "the selected datetime should be displayed after saving" }
     );
 });
-test.tags("desktop")(
-    "multi edition of DatetimeField in list view: edit date in input",
-    async () => {
-        onRpc("has_group", () => true);
+test.tags("desktop");
+test("multi edition of DatetimeField in list view: edit date in input", async () => {
+    onRpc("has_group", () => true);
 
-        await mountView({
-            type: "list",
-            resModel: "partner",
-            arch: '<list multi_edit="1"><field name="datetime"/></list>',
-        });
+    await mountView({
+        type: "list",
+        resModel: "partner",
+        arch: '<list multi_edit="1"><field name="datetime"/></list>',
+    });
 
-        // select two records and edit them
-        await click(".o_data_row:eq(0) .o_list_record_selector input");
-        await animationFrame();
-        await click(".o_data_row:eq(1) .o_list_record_selector input");
-        await animationFrame();
+    // select two records and edit them
+    await click(".o_data_row:eq(0) .o_list_record_selector input");
+    await animationFrame();
+    await click(".o_data_row:eq(1) .o_list_record_selector input");
+    await animationFrame();
 
-        await click(".o_data_row:eq(0) .o_data_cell");
-        await animationFrame();
+    await click(".o_data_row:eq(0) .o_data_cell");
+    await animationFrame();
 
-        expect(".o_field_datetime input").toHaveCount(1);
+    expect(".o_field_datetime input").toHaveCount(1);
 
-        await click(".o_field_datetime input");
-        await edit("10/02/2019 09:00:00", { confirm: "Enter" });
-        await animationFrame();
+    await click(".o_field_datetime input");
+    await edit("10/02/2019 09:00:00", { confirm: "Enter" });
+    await animationFrame();
 
-        expect(".modal").toHaveCount(1);
+    expect(".modal").toHaveCount(1);
 
-        await click(".modal .modal-footer .btn-primary");
-        await animationFrame();
+    await click(".modal .modal-footer .btn-primary");
+    await animationFrame();
 
-        expect(".o_data_row:first-child .o_data_cell:first").toHaveText("10/02/2019 09:00:00");
-        expect(".o_data_row:nth-child(2) .o_data_cell:first").toHaveText("10/02/2019 09:00:00");
-    }
-);
+    expect(".o_data_row:first-child .o_data_cell:first").toHaveText("10/02/2019 09:00:00");
+    expect(".o_data_row:nth-child(2) .o_data_cell:first").toHaveText("10/02/2019 09:00:00");
+});
 
-test.tags("desktop")(
-    "multi edition of DatetimeField in list view: clear date in input",
-    async () => {
-        Partner._records[1].datetime = "2017-02-08 10:00:00";
-        onRpc("has_group", () => true);
+test.tags("desktop");
+test("multi edition of DatetimeField in list view: clear date in input", async () => {
+    Partner._records[1].datetime = "2017-02-08 10:00:00";
+    onRpc("has_group", () => true);
 
-        await mountView({
-            type: "list",
-            resModel: "partner",
-            arch: '<list multi_edit="1"><field name="datetime"/></list>',
-        });
+    await mountView({
+        type: "list",
+        resModel: "partner",
+        arch: '<list multi_edit="1"><field name="datetime"/></list>',
+    });
 
-        // select two records and edit them
-        await click(".o_data_row:eq(0) .o_list_record_selector input");
-        await animationFrame();
-        await click(".o_data_row:eq(1) .o_list_record_selector input");
-        await animationFrame();
-        await click(".o_data_row:eq(0) .o_data_cell");
-        await animationFrame();
+    // select two records and edit them
+    await click(".o_data_row:eq(0) .o_list_record_selector input");
+    await animationFrame();
+    await click(".o_data_row:eq(1) .o_list_record_selector input");
+    await animationFrame();
+    await click(".o_data_row:eq(0) .o_data_cell");
+    await animationFrame();
 
-        expect(".o_field_datetime input").toHaveCount(1);
+    expect(".o_field_datetime input").toHaveCount(1);
 
-        await click(".o_field_datetime input");
-        await animationFrame();
-        await edit("", { confirm: "Enter" });
-        await animationFrame();
+    await click(".o_field_datetime input");
+    await animationFrame();
+    await edit("", { confirm: "Enter" });
+    await animationFrame();
 
-        expect(".modal").toHaveCount(1);
+    expect(".modal").toHaveCount(1);
 
-        await click(".modal .modal-footer .btn-primary");
-        await animationFrame();
+    await click(".modal .modal-footer .btn-primary");
+    await animationFrame();
 
-        expect(".o_data_row:first-child .o_data_cell:first").toHaveText("");
-        expect(".o_data_row:nth-child(2) .o_data_cell:first").toHaveText("");
-    }
-);
+    expect(".o_data_row:first-child .o_data_cell:first").toHaveText("");
+    expect(".o_data_row:nth-child(2) .o_data_cell:first").toHaveText("");
+});
 
 test("DatetimeField remove value", async () => {
     expect.assertions(4);
@@ -352,71 +348,6 @@ test("DatetimeField remove value", async () => {
     await clickSave();
     expect(".o_field_datetime:first").toHaveText("", {
         message: "the selected date should be displayed after saving",
-    });
-});
-
-test("DatetimeField with date/datetime widget (with day change) does not care about widget", async () => {
-    mockTimeZone(-4);
-    onRpc("has_group", () => true);
-
-    Partner._records[0].p = [2];
-    Partner._records[1].datetime = "2017-02-08 02:00:00"; // UTC
-
-    await mountView({
-        type: "form",
-        resModel: "partner",
-        resId: 1,
-        arch: /* xml */ `
-            <form>
-                <field name="p">
-                    <list><field name="datetime" /></list>
-                    <form><field name="datetime" widget="date" /></form>
-                </field>
-            </form>`,
-    });
-
-    const expectedDateString = "02/07/2017 22:00:00"; // local time zone
-    expect(".o_field_widget[name='p'] .o_data_cell").toHaveText(expectedDateString, {
-        message: "the datetime (datetime widget) should be correctly displayed in list view",
-    });
-
-    // switch to form view
-    await click(".o_field_widget[name='p'] .o_data_cell");
-    await animationFrame();
-    expect(".modal .o_field_date[name='datetime'] input").toHaveValue("02/07/2017 22:00:00", {
-        message: "the datetime (date widget) should be correctly displayed in form view",
-    });
-});
-
-test("DatetimeField with date/datetime widget (without day change) does not care about widget", async () => {
-    mockTimeZone(-4);
-
-    Partner._records[0].p = [2];
-    Partner._records[1].datetime = "2017-02-08 10:00:00"; // without timezone
-
-    await mountView({
-        type: "form",
-        resModel: "partner",
-        resId: 1,
-        arch: /* xml */ `
-            <form>
-                <field name="p">
-                    <list><field name="datetime" /></list>
-                    <form><field name="datetime" widget="date" /></form>
-                </field>
-            </form>`,
-    });
-
-    const expectedDateString = "02/08/2017 06:00:00"; // with timezone
-    expect(".o_field_widget[name='p'] .o_data_cell:first").toHaveText(expectedDateString, {
-        message: "the datetime (datetime widget) should be correctly displayed in list view",
-    });
-
-    // switch to form view
-    await click(".o_field_widget[name='p'] .o_data_cell");
-    await animationFrame();
-    expect(".modal .o_field_date[name='datetime'] input:first").toHaveValue("02/08/2017 06:00:00", {
-        message: "the datetime (date widget) should be correctly displayed in form view",
     });
 });
 

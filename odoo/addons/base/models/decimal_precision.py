@@ -15,14 +15,16 @@ def get_precision(application):
 
 
 class DecimalPrecision(models.Model):
+    _name = 'decimal.precision'
     _description = 'Decimal Precision'
 
     name = fields.Char('Usage', required=True)
     digits = fields.Integer('Digits', required=True, default=2)
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (name)', """Only one value can be defined for each given usage!"""),
-    ]
+    _name_uniq = models.Constraint(
+        'unique (name)',
+        "Only one value can be defined for each given usage!",
+    )
 
     @api.model
     @tools.ormcache('application')

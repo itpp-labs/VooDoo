@@ -7,6 +7,7 @@ from odoo import fields, models
 
 
 class CalendarEventType(models.Model):
+    _name = 'calendar.event.type'
 
     _description = 'Event Meeting Type'
 
@@ -16,6 +17,7 @@ class CalendarEventType(models.Model):
     name = fields.Char('Name', required=True)
     color = fields.Integer('Color', default=_default_color)
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (name)', "Tag name already exists!"),
-    ]
+    _name_uniq = models.Constraint(
+        'unique (name)',
+        'Tag name already exists!',
+    )

@@ -1,13 +1,8 @@
-import { Navbar } from "@point_of_sale/app/navbar/navbar";
+import { Navbar } from "@point_of_sale/app/components/navbar/navbar";
 import { patch } from "@web/core/utils/patch";
 import { _t } from "@web/core/l10n/translation";
 import { AlertDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
-import {
-    getButtons,
-    EMPTY,
-    ZERO,
-    BACKSPACE,
-} from "@point_of_sale/app/generic_components/numpad/numpad";
+import { getButtons, EMPTY, ZERO, BACKSPACE } from "@point_of_sale/app/components/numpad/numpad";
 import { TableSelector } from "./table_selector/table_selector";
 
 patch(Navbar.prototype, {
@@ -69,7 +64,7 @@ patch(Navbar.prototype, {
                 }
                 const floating_order = this.pos
                     .get_open_orders()
-                    .find((o) => o.getFloatingOrderName() === table_number);
+                    .find((o) => o.floatingOrderName === table_number);
                 if (floating_order) {
                     return this.setFloatingOrder(floating_order);
                 }

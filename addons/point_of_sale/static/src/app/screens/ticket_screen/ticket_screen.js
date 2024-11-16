@@ -7,22 +7,22 @@ import { AlertDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { ActionpadWidget } from "@point_of_sale/app/screens/product_screen/action_pad/action_pad";
 import { BackButton } from "@point_of_sale/app/screens/product_screen/action_pad/back_button/back_button";
 import { InvoiceButton } from "@point_of_sale/app/screens/ticket_screen/invoice_button/invoice_button";
-import { Orderline } from "@point_of_sale/app/generic_components/orderline/orderline";
-import { OrderWidget } from "@point_of_sale/app/generic_components/order_widget/order_widget";
-import { CenteredIcon } from "@point_of_sale/app/generic_components/centered_icon/centered_icon";
+import { Orderline } from "@point_of_sale/app/components/orderline/orderline";
+import { OrderWidget } from "@point_of_sale/app/components/order_widget/order_widget";
+import { CenteredIcon } from "@point_of_sale/app/components/centered_icon/centered_icon";
 import { SearchBar } from "@point_of_sale/app/screens/ticket_screen/search_bar/search_bar";
-import { usePos } from "@point_of_sale/app/store/pos_hook";
+import { usePos } from "@point_of_sale/app/hooks/pos_hook";
 import { Component, onMounted, useState } from "@odoo/owl";
 import {
     BACKSPACE,
     Numpad,
     getButtons,
     DEFAULT_LAST_ROW,
-} from "@point_of_sale/app/generic_components/numpad/numpad";
+} from "@point_of_sale/app/components/numpad/numpad";
 import { PosOrderLineRefund } from "@point_of_sale/app/models/pos_order_line_refund";
 import { fuzzyLookup } from "@web/core/utils/search";
 import { parseUTCString } from "@point_of_sale/utils";
-import { useTrackedAsync } from "@point_of_sale/app/utils/hooks";
+import { useTrackedAsync } from "@point_of_sale/app/hooks/hooks";
 
 const NBR_BY_PAGE = 30;
 
@@ -102,6 +102,9 @@ export class TicketScreen extends Component {
     async onSearch(search) {
         this.state.search = search;
         this.state.page = 1;
+        if (this.state.filter == "SYNCED") {
+            await this._fetchSyncedOrders();
+        }
     }
     onClickOrder(clickedOrder) {
         this.state.selectedOrder = clickedOrder;
@@ -223,7 +226,7 @@ export class TicketScreen extends Component {
             partner === this.props.destinationOrder.get_partner() &&
             !this.pos.doNotAllowRefundAndSales()
                 ? this.props.destinationOrder
-                : await this._getEmptyOrder(partner);
+                : this._getEmptyOrder(partner);
 
         destinationOrder.takeaway = order.takeaway;
         // Add orderline for each toRefundDetail to the destinationOrder.
@@ -463,7 +466,7 @@ export class TicketScreen extends Component {
      * @param {Object | null} partner
      * @returns {boolean}
      */
-    async _getEmptyOrder(partner) {
+    _getEmptyOrder(partner) {
         let emptyOrderForPartner = null;
         let emptyOrder = null;
         for (const order of this.pos.models["pos.order"].filter((order) => !order.finalized)) {
@@ -477,7 +480,7 @@ export class TicketScreen extends Component {
                 }
             }
         }
-        return emptyOrderForPartner || emptyOrder || (await this.pos.add_new_order());
+        return emptyOrderForPartner || emptyOrder || this.pos.add_new_order();
     }
     _doesOrderHaveSoleItem(order) {
         const orderlines = order.get_orderlines();

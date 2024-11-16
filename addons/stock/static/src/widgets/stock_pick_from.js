@@ -1,5 +1,3 @@
-/** @odoo-module */
-
 import { registry } from "@web/core/registry";
 import { Many2OneField, many2OneField } from "@web/views/fields/many2one/many2one_field";
 
@@ -41,7 +39,6 @@ export const stockPickFrom = {
         // dependencies to build the quant display name
         { name: "location_id", type: "relation" },
         { name: "location_dest_id", type: "relation" },
-        { name: "lot_id", type: "relation" },
         { name: "package_id", type: "relation" },
         { name: "owner_id", type: "relation" },
     ],

@@ -5,8 +5,7 @@ from odoo.exceptions import UserError, ValidationError, RedirectWarning
 
 
 class AccountJournal(models.Model):
-
-    _inherit = ["account.journal"]
+    _inherit = "account.journal"
 
     l10n_ar_afip_pos_system = fields.Selection(
         selection='_get_l10n_ar_afip_pos_types_selection', string='AFIP POS System',
@@ -45,6 +44,7 @@ class AccountJournal(models.Model):
             ('FEERCELP', _('Export Voucher - Billing Plus')),
             ('FEERCEL', _('Export Voucher - Online Invoice')),
             ('CPERCEL', _('Product Coding - Online Voucher')),
+            ('CF', _('External Fiscal Controller')),
         ]
 
     def _get_journal_letter(self, counterpart_partner=False):
@@ -72,7 +72,7 @@ class AccountJournal(models.Model):
                 '4': ['B', 'C', 'I'],
                 '5': ['B', 'C', 'I'],
                 '6': ['A', 'B', 'C', 'I'],
-                '9': ['E'],
+                '9': ['E', 'B'],
                 '10': ['E'],
                 '13': ['A', 'B', 'C', 'I'],
                 '99': ['B', 'C', 'I']
@@ -103,7 +103,7 @@ class AccountJournal(models.Model):
         receipt_m_code = ['54']
         receipt_codes = ['4', '9', '15']
         expo_codes = ['19', '20', '21']
-        zeta_codes = ['80', '83']
+        tique_codes = ['81', '82', '83', '110', '112', '113', '115', '116', '118', '119', '120']
         codes_issuer_is_supplier = [
             '23', '24', '25', '26', '27', '28', '33', '43', '45', '46', '48', '58', '60', '61', '150', '151', '157',
             '158', '161', '162', '164', '166', '167', '171', '172', '180', '182', '186', '188', '332']
@@ -118,11 +118,9 @@ class AccountJournal(models.Model):
         elif afip_pos_system == 'II_IM':
             # pre-printed invoice
             codes = usual_codes + receipt_codes + expo_codes + invoice_m_code + receipt_m_code
-        elif afip_pos_system == 'RAW_MAW':
+        elif afip_pos_system in ['RAW_MAW', 'RLI_RLM']:
             # electronic/online invoice
             codes = usual_codes + receipt_codes + invoice_m_code + receipt_m_code + mipyme_codes
-        elif afip_pos_system == 'RLI_RLM':
-            codes = usual_codes + receipt_codes + invoice_m_code + receipt_m_code + mipyme_codes + zeta_codes
         elif afip_pos_system in ['CPERCEL', 'CPEWS']:
             # invoice with detail
             codes = usual_codes + invoice_m_code
@@ -131,6 +129,8 @@ class AccountJournal(models.Model):
             codes = usual_codes + mipyme_codes
         elif afip_pos_system in ['FEERCEL', 'FEEWS', 'FEERCELP']:
             codes = expo_codes
+        elif afip_pos_system == 'CF':
+            codes = tique_codes
         return [('code', 'in', codes)]
 
     @api.constrains('l10n_ar_afip_pos_system')

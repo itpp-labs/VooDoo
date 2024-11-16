@@ -12,7 +12,7 @@ _logger = logging.getLogger(__name__)
 
 
 class SaleOrder(models.Model):
-    _inherit = ["sale.order"]
+    _inherit = "sale.order"
 
     incoterm = fields.Many2one(
         'account.incoterms', 'Incoterm',
@@ -36,9 +36,9 @@ class SaleOrder(models.Model):
         ('partial', 'Partially Delivered'),
         ('full', 'Fully Delivered'),
     ], string='Delivery Status', compute='_compute_delivery_status', store=True,
-       help="Red: Late\n\
-            Orange: To process today\n\
-            Green: On time")
+       help="Blue: Not Delivered/Started\n\
+            Orange: Partially Delivered\n\
+            Green: Fully Delivered")
     procurement_group_id = fields.Many2one('procurement.group', 'Procurement Group', copy=False)
     effective_date = fields.Datetime("Effective Date", compute='_compute_effective_date', store=True, help="Completion date of the first delivery order.")
     expected_date = fields.Datetime( help="Delivery date you can promise to the customer, computed from the minimum lead time of "
@@ -156,7 +156,7 @@ class SaleOrder(models.Model):
                 for order_line in order.order_line:
                     if order_line.display_type:
                         continue
-                    if float_compare(order_line.product_uom_qty, pre_order_line_qty.get(order_line, 0.0), precision_rounding=order_line.product_uom.rounding or rounding) < 0:
+                    if float_compare(order_line.product_uom_qty, pre_order_line_qty.get(order_line, 0.0), precision_rounding=order_line.product_uom_id.rounding or rounding) < 0:
                         to_log[order_line] = (order_line.product_uom_qty, pre_order_line_qty.get(order_line, 0.0))
                 if to_log:
                     documents = self.env['stock.picking'].sudo()._log_activity_get_documents(to_log, 'move_ids', 'UP')

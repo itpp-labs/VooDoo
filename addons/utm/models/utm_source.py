@@ -2,17 +2,19 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 
-from odoo import _, api, fields, models, tools
+from odoo import _, api, fields, models
 
 
 class UtmSource(models.Model):
+    _name = 'utm.source'
     _description = 'UTM Source'
 
     name = fields.Char(string='Source Name', required=True)
 
-    _sql_constraints = [
-        ('unique_name', 'UNIQUE(name)', 'The name must be unique'),
-    ]
+    _unique_name = models.Constraint(
+        'UNIQUE(name)',
+        'The name must be unique',
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -30,12 +32,13 @@ class UtmSource(models.Model):
         if len(content) >= 24:
             content = f'{content[:20]}...'
 
-        create_date = record.create_date or fields.date.today()
-        create_date = fields.date.strftime(create_date, tools.DEFAULT_SERVER_DATE_FORMAT)
+        create_date = record.create_date or fields.Datetime.today()
         model_description = self.env['ir.model']._get(record._name).name
         return _(
             '%(content)s (%(model_description)s created on %(create_date)s)',
-            content=content, model_description=model_description, create_date=create_date,
+            content=content,
+            model_description=model_description,
+            create_date=fields.Date.to_string(create_date),
         )
 
 

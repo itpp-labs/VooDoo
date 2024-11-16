@@ -64,17 +64,17 @@ class TestSalePrices(SaleCommon):
             Command.create({
                 'product_id': self.product.id,
                 'product_uom_qty': 1.0,
-                'product_uom': self.uom_dozen.id,
+                'product_uom_id': self.uom_dozen.id,
             }),
             Command.create({
                 'product_id': self.product.id,
                 'product_uom_qty': 0.4,
-                'product_uom': self.uom_dozen.id,
+                'product_uom_id': self.uom_dozen.id,
             }),
             Command.create({
                 'product_id': self.product.id,
                 'product_uom_qty': 0.3,
-                'product_uom': self.uom_dozen.id,
+                'product_uom_id': self.uom_dozen.id,
             })
         ]
 
@@ -203,7 +203,7 @@ class TestSalePrices(SaleCommon):
         self.empty_order.order_line = [
             Command.create({
                 'product_id': self.product.id,
-                'product_uom': self.uom_dozen.id,
+                'product_uom_id': self.uom_dozen.id,
                 'product_uom_qty': 2.0,
             }),
         ]
@@ -227,7 +227,7 @@ class TestSalePrices(SaleCommon):
                 'order_line': [
                     Command.create({
                         'product_id': self.product.id,
-                        'product_uom': self.uom_dozen.id,
+                        'product_uom_id': self.uom_dozen.id,
                         'product_uom_qty': 2.0,
                     }),
                 ]
@@ -344,7 +344,7 @@ class TestSalePrices(SaleCommon):
 
         # force compute uom and prices
         self.assertEqual(order_line.discount, 10, "First pricelist rule not applied")
-        order_line.product_uom = new_uom
+        order_line.product_uom_id = new_uom
         self.assertEqual(order_line.price_total, 1800, "First pricelist rule not applied")
 
     def test_multi_currency_discount(self):
@@ -610,7 +610,7 @@ class TestSalePrices(SaleCommon):
             "Wrong subtotal price computed for specified product & pricelist"
         )
         self.assertEqual(
-            self.empty_order.order_line.tax_id.id, tax_b.id,
+            self.empty_order.order_line.tax_ids.id, tax_b.id,
             "Wrong tax applied for specified product & pricelist"
         )
 
@@ -860,7 +860,7 @@ class TestSalePrices(SaleCommon):
             'product_id': self.product.id,
             'product_uom_qty': 1,
             'price_unit': 0.0,
-            'tax_id': [
+            'tax_ids': [
                 Command.set(taxes.ids),
             ],
         })]
@@ -888,11 +888,11 @@ class TestSalePrices(SaleCommon):
         }])
 
         # Apply taxes on the sale order lines
-        self.sale_order.order_line[0].write({'tax_id': [Command.link(tax_include.id)]})
-        self.sale_order.order_line[1].write({'tax_id': [Command.link(tax_exclude.id)]})
+        self.sale_order.order_line[0].write({'tax_ids': [Command.link(tax_include.id)]})
+        self.sale_order.order_line[1].write({'tax_ids': [Command.link(tax_exclude.id)]})
 
         for line in self.sale_order.order_line:
-            if line.tax_id.price_include:
+            if line.tax_ids.price_include:
                 price = line.price_unit * line.product_uom_qty - line.price_tax
             else:
                 price = line.price_unit * line.product_uom_qty
@@ -928,7 +928,7 @@ class TestSalePrices(SaleCommon):
         # Same with an included-in-price tax
         order = order.copy()
         line = order.order_line
-        line.tax_id = [Command.create({
+        line.tax_ids = [Command.create({
             'name': 'Super Tax',
             'amount_type': 'percent',
             'amount': 15.0,
@@ -979,7 +979,7 @@ class TestSalePrices(SaleCommon):
         # Same with an included-in-price tax
         order = order.copy()
         line = order.order_line
-        line.tax_id = [Command.create({
+        line.tax_ids = [Command.create({
             'name': 'Super Tax',
             'amount_type': 'percent',
             'amount': 10.0,

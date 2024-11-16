@@ -6,7 +6,7 @@ from odoo.tools import SQL
 
 
 class ResUsers(models.Model):
-    _inherit = ['res.users']
+    _inherit = 'res.users'
 
     karma = fields.Integer('Karma', compute='_compute_karma', store=True, readonly=False)
     karma_tracking_ids = fields.One2many('gamification.karma.tracking', 'user_id', string='Karma Changes', groups="base.group_system")
@@ -159,7 +159,7 @@ FROM (
         SELECT "res_users".id as user_id, COALESCE(SUM("tracking".new_value - "tracking".old_value), 0) as karma_gain_total
         FROM %s
         LEFT JOIN "gamification_karma_tracking" as "tracking"
-        ON "res_users".id = "tracking".user_id AND "res_users"."active" = TRUE
+        ON "res_users".id = "tracking".user_id AND "res_users"."active" IS TRUE
         WHERE %s %s %s
         GROUP BY "res_users".id
         ORDER BY karma_gain_total DESC

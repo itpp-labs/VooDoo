@@ -174,6 +174,7 @@ def check_identity(fn):
 
 
 class ResGroups(models.Model):
+    _name = 'res.groups'
     _description = "Access Groups"
     _rec_name = 'full_name'
     _order = 'name'
@@ -194,10 +195,12 @@ class ResGroups(models.Model):
     api_key_duration = fields.Float(string='API Keys maximum duration days',
         help="Determines the maximum duration of an api key created by a user belonging to this group.")
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (category_id, name)', 'The name of the group must be unique within an application!'),
-        ('check_api_key_duration', 'CHECK(api_key_duration >= 0)', 'The api key duration cannot be a negative value.'),
-    ]
+    _name_uniq = models.Constraint("UNIQUE (category_id, name)",
+        'The name of the group must be unique within an application!')
+    _check_api_key_duration = models.Constraint(
+        'CHECK(api_key_duration >= 0)',
+        'The api key duration cannot be a negative value.',
+    )
 
     @api.constrains('users')
     def _check_one_user_type(self):
@@ -297,6 +300,7 @@ class ResGroups(models.Model):
 
 
 class ResUsersLog(models.Model):
+    _name = 'res.users.log'
     _order = 'id desc'
     _description = 'Users Log'
     # Uses the magical fields `create_uid` and `create_date` for recording logins.
@@ -330,7 +334,8 @@ class ResUsers(models.Model):
     def _check_company_domain(self, companies):
         if not companies:
             return []
-        return [('company_ids', 'in', models.to_company_ids(companies))]
+        company_ids = companies if isinstance(companies, str) else models.to_record_ids(companies)
+        return [('company_ids', 'in', company_ids)]
 
     @property
     def SELF_READABLE_FIELDS(self):
@@ -408,9 +413,8 @@ class ResUsers(models.Model):
     groups_count = fields.Integer('# Groups', help='Number of groups that apply to the current user',
                                   compute='_compute_accesses_count', compute_sudo=True)
 
-    _sql_constraints = [
-        ('login_key', 'UNIQUE (login)', 'You can not have two users with the same login!')
-    ]
+    _login_key = models.Constraint("UNIQUE (login)",
+        'You can not have two users with the same login!')
 
     def init(self):
         cr = self.env.cr
@@ -591,13 +595,23 @@ class ResUsers(models.Model):
         action_open_website = self.env.ref('base.action_open_website', raise_if_not_found=False)
         if action_open_website and any(user.action_id.id == action_open_website.id for user in self):
             raise ValidationError(_('The "App Switcher" action cannot be selected as home action.'))
-        # Prevent using reload actions.
         # We use sudo() because  "Access rights" admins can't read action models
         for user in self.sudo():
             if user.action_id.type == "ir.actions.client":
+                # Prevent using reload actions.
                 action = self.env["ir.actions.client"].browse(user.action_id.id)  # magic
                 if action.tag == "reload":
                     raise ValidationError(_('The "%s" action cannot be selected as home action.', action.name))
+
+            elif user.action_id.type == "ir.actions.act_window":
+                # Restrict actions that include 'active_id' in their context.
+                action = self.env["ir.actions.act_window"].browse(user.action_id.id)  # magic
+                if not action.context:
+                    continue
+                if "active_id" in action.context:
+                    raise ValidationError(
+                        _('The action "%s" cannot be set as the home action because it requires a record to be selected beforehand.', action.name)
+                    )
 
 
     @api.constrains('groups_id')
@@ -754,14 +768,12 @@ class ResUsers(models.Model):
 
         if 'company_id' in values or 'company_ids' in values:
             # Reset lazy properties `company` & `companies` on all envs,
-            # and also their _cache_key, which may depend on them.
             # This is unlikely in a business code to change the company of a user and then do business stuff
             # but in case it happens this is handled.
             # e.g. `account_test_savepoint.py` `setup_company_data`, triggered by `test_account_invoice_report.py`
             for env in list(self.env.transaction.envs):
                 if env.user in self:
                     lazy_property.reset_all(env)
-                    env._cache_key.clear()
 
         # clear caches linked to the users
         if self.ids and 'groups_id' in values:
@@ -807,7 +819,8 @@ class ResUsers(models.Model):
         domain = super()._search_display_name(operator, value)
         if operator in ('=', 'ilike') and value:
             name_domain = [('login', '=', value)]
-            domain = expression.OR([name_domain, domain])
+            if users := self.search(name_domain):
+                domain = [('id', 'in', users.ids)]
         return domain
 
     def copy_data(self, default=None):
@@ -850,7 +863,7 @@ class ResUsers(models.Model):
         if lang not in langs:
             lang = request.best_lang if request else None
             if lang not in langs:
-                lang = self.env.user.company_id.partner_id.lang
+                lang = self.env.user.with_context(prefetch_fields=False).company_id.partner_id.lang
                 if lang not in langs:
                     lang = DEFAULT_LANG
                     if lang not in langs:
@@ -898,34 +911,31 @@ class ResUsers(models.Model):
     def _get_login_order(self):
         return self._order
 
-    @classmethod
-    def _login(cls, db, credential, user_agent_env):
+    def _login(self, credential, user_agent_env):
         login = credential['login']
         ip = request.httprequest.environ['REMOTE_ADDR'] if request else 'n/a'
         try:
-            with cls.pool.cursor() as cr:
-                self = api.Environment(cr, SUPERUSER_ID, {})[cls._name]
-                with self._assert_can_auth(user=login):
-                    user = self.search(self._get_login_domain(login), order=self._get_login_order(), limit=1)
-                    if not user:
-                        raise AccessDenied()
-                    user = user.with_user(user)
-                    auth_info = user._check_credentials(credential, user_agent_env)
-                    tz = request.cookies.get('tz') if request else None
-                    if tz in pytz.all_timezones and (not user.tz or not user.login_date):
-                        # first login or missing tz -> set tz to browser tz
-                        user.tz = tz
-                    user._update_last_login()
+            with self._assert_can_auth(user=login):
+                user = self.sudo().search(self._get_login_domain(login), order=self._get_login_order(), limit=1)
+                if not user:
+                    # ruff: noqa: TRY301
+                    raise AccessDenied()
+                user = user.with_user(user).sudo()
+                auth_info = user._check_credentials(credential, user_agent_env)
+                tz = request.cookies.get('tz') if request else None
+                if tz in pytz.all_timezones and (not user.tz or not user.login_date):
+                    # first login or missing tz -> set tz to browser tz
+                    user.tz = tz
+                user._update_last_login()
         except AccessDenied:
-            _logger.info("Login failed for db:%s login:%s from %s", db, login, ip)
+            _logger.info("Login failed for login:%s from %s", login, ip)
             raise
 
-        _logger.info("Login successful for db:%s login:%s from %s", db, login, ip)
+        _logger.info("Login successful for login:%s from %s", login, ip)
 
         return auth_info
 
-    @classmethod
-    def authenticate(cls, db, credential, user_agent_env):
+    def authenticate(self, credential, user_agent_env):
         """Verifies and returns the user ID corresponding to the given
         ``credential``, or False if there was no matching user.
 
@@ -940,20 +950,19 @@ class ResUsers(models.Model):
         :return: auth_info
         :rtype: dict
         """
-        auth_info = cls._login(db, credential, user_agent_env=user_agent_env)
+        auth_info = self._login(credential, user_agent_env=user_agent_env)
         if user_agent_env and user_agent_env.get('base_location'):
-            with cls.pool.cursor() as cr:
-                env = api.Environment(cr, auth_info['uid'], {})
-                if env.user.has_group('base.group_system'):
-                    # Successfully logged in as system user!
-                    # Attempt to guess the web base url...
-                    try:
-                        base = user_agent_env['base_location']
-                        ICP = env['ir.config_parameter']
-                        if not ICP.get_param('web.base.url.freeze'):
-                            ICP.set_param('web.base.url', base)
-                    except Exception:
-                        _logger.exception("Failed to update web.base.url configuration parameter")
+            env = self.env(user=auth_info['uid'])
+            if env.user.has_group('base.group_system'):
+                # Successfully logged in as system user!
+                # Attempt to guess the web base url...
+                try:
+                    base = user_agent_env['base_location']
+                    ICP = env['ir.config_parameter']
+                    if not ICP.get_param('web.base.url.freeze'):
+                        ICP.set_param('web.base.url', base)
+                except Exception:
+                    _logger.exception("Failed to update web.base.url configuration parameter")
         return auth_info
 
     @classmethod
@@ -1436,7 +1445,7 @@ ResUsersPatchedInTest = ResUsers
 # TODO: reorganize or split the file to avoid declaring classes multiple times
 # pylint: disable=E0102
 class ResGroups(models.Model):  # noqa: F811
-    _inherit = ['res.groups']
+    _inherit = 'res.groups'
 
     implied_ids = fields.Many2many('res.groups', 'res_groups_implied_rel', 'gid', 'hid',
         string='Inherits', help='Users of this group automatically inherit those groups')
@@ -1611,7 +1620,7 @@ class UsersImplied(models.Model):
 
 # pylint: disable=E0102
 class ResGroups(models.Model):  # noqa: F811
-    _inherit = ['res.groups']
+    _inherit = 'res.groups'
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -1831,7 +1840,7 @@ class ResGroups(models.Model):  # noqa: F811
 
 
 class IrModuleCategory(models.Model):
-    _inherit = ["ir.module.category"]
+    _inherit = "ir.module.category"
 
     def write(self, values):
         res = super().write(values)
@@ -1847,7 +1856,7 @@ class IrModuleCategory(models.Model):
 
 # pylint: disable=E0102
 class ResUsers(models.Model):  # noqa: F811
-    _inherit = ['res.users']
+    _inherit = 'res.users'
 
     user_group_warning = fields.Text(string="User Group Warning", compute="_compute_user_group_warning")
 
@@ -2201,6 +2210,7 @@ class ChangePasswordUser(models.TransientModel):
 
 
 class ChangePasswordOwn(models.TransientModel):
+    _name = 'change.password.own'
     _description = "User, change own password wizard"
     _transient_max_hours = 0.1
 
@@ -2233,7 +2243,7 @@ KEY_CRYPT_CONTEXT = CryptContext(
 
 # pylint: disable=E0102
 class ResUsers(models.Model):  # noqa: F811
-    _inherit = ['res.users']
+    _inherit = 'res.users'
 
     api_key_ids = fields.One2many('res.users.apikeys', 'user_id', string="API Keys")
 
@@ -2288,6 +2298,7 @@ class ResUsers(models.Model):  # noqa: F811
 
 
 class ResUsersApikeys(models.Model):
+    _name = 'res.users.apikeys'
     _description = 'Users API Keys'
     _auto = False # so we can have a secret column
     _allow_sudo_commands = False
@@ -2366,10 +2377,10 @@ class ResUsersApikeys(models.Model):
         if self.env.is_system():
             return
         if not date:
-            raise UserError(_("The API key must have an expiration date"))
+            raise ValidationError(_("The API key must have an expiration date"))
         max_duration = max(group.api_key_duration for group in self.env.user.groups_id) or 1.0
         if date > datetime.datetime.now() + datetime.timedelta(days=max_duration):
-            raise UserError(_("You cannot exceed %(duration)s days.", duration=max_duration))
+            raise ValidationError(_("You cannot exceed %(duration)s days.", duration=max_duration))
 
     def _generate(self, scope, name, expiration_date):
         """Generates an api key.
@@ -2411,6 +2422,7 @@ class ResUsersApikeys(models.Model):
 
 
 class ResUsersApikeysDescription(models.TransientModel):
+    _name = 'res.users.apikeys.description'
     _description = 'API Key Description'
 
     def _selection_duration(self):
@@ -2462,6 +2474,11 @@ class ResUsersApikeysDescription(models.TransientModel):
             }
             return {'warning': warning}
 
+    def create(self, vals_list):
+        res = super().create(vals_list)
+        self.env['res.users.apikeys']._check_expiration_date(res.expiration_date)
+        return res
+
     @check_identity
     def make_key(self):
         # only create keys for users who can delete their keys
@@ -2488,6 +2505,7 @@ class ResUsersApikeysDescription(models.TransientModel):
 
 
 class ResUsersApikeysShow(models.AbstractModel):
+    _name = 'res.users.apikeys.show'
     _description = 'Show API Key'
 
     # the field 'id' is necessary for the onchange that returns the value of 'key'

@@ -89,9 +89,8 @@ class TestSaleMRPAngloSaxonValuation(ValuationReconciliationTestCommon):
                     'name': self.kit_a.name,
                     'product_id': self.kit_a.id,
                     'product_uom_qty': 1.0,
-                    'product_uom': self.kit_a.uom_id.id,
                     'price_unit': 1,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })],
         })
         so.action_confirm()
@@ -178,7 +177,6 @@ class TestSaleMRPAngloSaxonValuation(ValuationReconciliationTestCommon):
                     'name': product.name,
                     'product_id': product.id,
                     'product_uom_qty': 2,
-                    'product_uom': product.uom_id.id,
                     'price_unit': product.list_price
                 })],
                 'company_id': self.company_data['company'].id,
@@ -252,9 +250,8 @@ class TestSaleMRPAngloSaxonValuation(ValuationReconciliationTestCommon):
                     'name': kit.name,
                     'product_id': kit.id,
                     'product_uom_qty': 3.0,
-                    'product_uom': kit.uom_id.id,
                     'price_unit': 100,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })],
         })
         so.action_confirm()
@@ -356,9 +353,8 @@ class TestSaleMRPAngloSaxonValuation(ValuationReconciliationTestCommon):
                     'name': kit.name,
                     'product_id': kit.id,
                     'product_uom_qty': 3.0,
-                    'product_uom': kit.uom_id.id,
                     'price_unit': 100,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })],
         })
         so.action_confirm()
@@ -449,9 +445,8 @@ class TestSaleMRPAngloSaxonValuation(ValuationReconciliationTestCommon):
                     'name': kit.name,
                     'product_id': kit.id,
                     'product_uom_qty': 1.0,
-                    'product_uom': kit.uom_id.id,
                     'price_unit': 5,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })],
         })
         so.action_confirm()
@@ -502,9 +497,8 @@ class TestSaleMRPAngloSaxonValuation(ValuationReconciliationTestCommon):
                     'name': kit.name,
                     'product_id': kit.id,
                     'product_uom_qty': 2.0,
-                    'product_uom': kit.uom_id.id,
                     'price_unit': 5,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })],
         })
         so.action_confirm()
@@ -602,7 +596,7 @@ class TestSaleMRPAngloSaxonValuation(ValuationReconciliationTestCommon):
                     'product_id': main_kit.id,
                     'product_uom_qty': 1.0,
                     'price_unit': 1,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })],
         })
         so.action_confirm()

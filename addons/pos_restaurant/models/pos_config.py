@@ -8,7 +8,7 @@ from odoo.tools import convert
 
 
 class PosConfig(models.Model):
-    _inherit = ['pos.config']
+    _inherit = 'pos.config'
 
     iface_splitbill = fields.Boolean(string='Bill Splitting', help='Enables Bill Splitting in the Point of Sale.')
     iface_printbill = fields.Boolean(string='Bill Printing', help='Allows to print the Bill before payment.')
@@ -58,9 +58,10 @@ class PosConfig(models.Model):
             main_floor = self.env['restaurant.floor'].create({
                 'name': pos_config.company_id.name,
                 'pos_config_ids': [(4, pos_config.id)],
+                'floor_prefix': 1,
             })
             self.env['restaurant.table'].create({
-                'table_number': 1,
+                'table_number': 101,
                 'floor_id': main_floor.id,
                 'seats': 1,
                 'position_h': 100,

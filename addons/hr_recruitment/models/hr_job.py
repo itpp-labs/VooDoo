@@ -10,6 +10,7 @@ from odoo.tools.convert import convert_file
 
 
 class HrJob(models.Model):
+    _name = 'hr.job'
     _inherit = ["mail.alias.mixin", "hr.job"]
     _order = "sequence, name asc"
 
@@ -389,7 +390,7 @@ class HrJob(models.Model):
     def _action_load_recruitment_scenario(self):
 
         convert_file(
-            self.env,
+            self.sudo().env,
             "hr_recruitment",
             "data/scenarios/hr_recruitment_scenario.xml",
             None,

@@ -17,6 +17,7 @@ ACCOUNT_CODE_NUMBER_REGEX = re.compile(r'(.*?)(\d*)(\D*?)$')
 
 
 class AccountAccount(models.Model):
+    _name = 'account.account'
     _inherit = ['mail.thread']
     _description = "Account"
     _order = "code, placeholder_code"
@@ -1099,13 +1100,13 @@ class AccountAccount(models.Model):
                 "You do not have the right to perform this operation as you do not have access to the following companies: %s.",
                 ", ".join(c.name for c in forbidden_companies)
             ))
-
-        if any(len(a.company_ids) == 1 for a in self):
-            raise UserError(_(
-                "Account %s cannot be unmerged as it already belongs to a single company. "
-                "The unmerge operation only splits an account based on its companies.",
-                self.display_name,
-            ))
+        for account in self:
+            if len(account.company_ids) == 1:
+                raise UserError(_(
+                    "Account %s cannot be unmerged as it already belongs to a single company. "
+                    "The unmerge operation only splits an account based on its companies.",
+                    account.display_name,
+                ))
 
     def _action_unmerge_get_user_confirmation(self):
         """ Open a RedirectWarning asking the user whether to proceed with the merge. """
@@ -1397,6 +1398,7 @@ class AccountAccount(models.Model):
 
 
 class AccountGroup(models.Model):
+    _name = 'account.group'
     _description = 'Account Group'
     _order = 'code_prefix_start'
     _check_company_auto = True
@@ -1408,13 +1410,10 @@ class AccountGroup(models.Model):
     code_prefix_end = fields.Char(compute='_compute_code_prefix_end', readonly=False, store=True, precompute=True)
     company_id = fields.Many2one('res.company', required=True, readonly=True, default=lambda self: self.env.company)
 
-    _sql_constraints = [
-        (
-            'check_length_prefix',
-            'CHECK(char_length(COALESCE(code_prefix_start, \'\')) = char_length(COALESCE(code_prefix_end, \'\')))',
-            'The length of the starting and the ending code prefix must be the same'
-        ),
-    ]
+    _check_length_prefix = models.Constraint(
+        "CHECK(char_length(COALESCE(code_prefix_start, '')) = char_length(COALESCE(code_prefix_end, '')))",
+        'The length of the starting and the ending code prefix must be the same',
+    )
 
     @api.depends('code_prefix_start')
     def _compute_code_prefix_end(self):

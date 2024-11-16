@@ -4,13 +4,14 @@ import logging
 import os
 
 from odoo import _, api, fields, models, SUPERUSER_ID
-from odoo.addons.event.tools.esc_label_tools import print_event_attendees, setup_printer, layout_96x82, layout_96x134
+from odoo.addons.event.tools.esc_label_tools import print_event_attendees, setup_printer, layout_96x82
 from odoo.tools import email_normalize, email_normalize_all, formataddr
 from odoo.exceptions import AccessError, ValidationError
 _logger = logging.getLogger(__name__)
 
 
 class EventRegistration(models.Model):
+    _name = 'event.registration'
     _description = 'Event Registration'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'id desc'
@@ -31,9 +32,9 @@ class EventRegistration(models.Model):
 
     # event
     event_id = fields.Many2one(
-        'event.event', string='Event', required=True)
+        'event.event', string='Event', required=True, tracking=True)
     event_ticket_id = fields.Many2one(
-        'event.event.ticket', string='Ticket Type', ondelete='restrict')
+        'event.event.ticket', string='Ticket Type', ondelete='restrict', tracking=True)
     active = fields.Boolean(default=True)
     barcode = fields.Char(string='Barcode', default=lambda self: self._get_random_barcode(), readonly=True, copy=False)
     # utm informations
@@ -84,9 +85,10 @@ class EventRegistration(models.Model):
     registration_properties = fields.Properties(
         'Properties', definition='event_id.registration_properties_definition', copy=True)
 
-    _sql_constraints = [
-        ('barcode_event_uniq', 'unique(barcode)', "Barcode should be unique")
-    ]
+    _barcode_event_uniq = models.Constraint(
+        'unique(barcode)',
+        'Barcode should be unique',
+    )
 
     @api.constrains('state', 'event_id', 'event_ticket_id')
     def _check_seats_availability(self):
@@ -411,7 +413,7 @@ class EventRegistration(models.Model):
 
     def _get_registration_summary(self):
         self.ensure_one()
-        if self.event_id.badge_format in ["96x82", "96x134"] and self.env.get("iot.device") is not None:
+        if self.event_id.badge_format == "96x82" and self.env.get("iot.device") is not None:
             badge_printers = self.env["iot.device"].search([("subtype", "=", "label_printer")])
             iot_printers = badge_printers.mapped(lambda printer: {
                 "id": printer.id,
@@ -446,13 +448,12 @@ class EventRegistration(models.Model):
             'company_name': self.company_name
         }
 
-    def _generate_esc_label_badges(self, is_small_badge: bool):
-        badge_layout = layout_96x82 if is_small_badge else layout_96x134
-        command = setup_printer(badge_layout)
+    def _generate_esc_label_badges(self):
+        command = setup_printer(layout_96x82)
 
         attendees_per_event = self.grouped("event_id").items()
         for (event, attendees) in attendees_per_event:
             attendees_details = attendees.mapped(lambda attendee: attendee._get_registration_print_details())
-            command.concat(print_event_attendees(event._get_event_print_details(), attendees_details, badge_layout))
+            command.concat(print_event_attendees(event._get_event_print_details(), attendees_details, layout_96x82))
 
         return command.to_string()

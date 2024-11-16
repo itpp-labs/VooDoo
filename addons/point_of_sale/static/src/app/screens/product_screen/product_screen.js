@@ -1,29 +1,28 @@
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { useBarcodeReader } from "@point_of_sale/app/barcode/barcode_reader_hook";
+import { useBarcodeReader } from "@point_of_sale/app/hooks/barcode_reader_hook";
 import { _t } from "@web/core/l10n/translation";
-import { usePos } from "@point_of_sale/app/store/pos_hook";
+import { usePos } from "@point_of_sale/app/hooks/pos_hook";
 import { Component, onMounted, useState, reactive, onWillRender } from "@odoo/owl";
-import { CategorySelector } from "@point_of_sale/app/generic_components/category_selector/category_selector";
-import { Input } from "@point_of_sale/app/generic_components/inputs/input/input";
+import { CategorySelector } from "@point_of_sale/app/components/category_selector/category_selector";
+import { Input } from "@point_of_sale/app/components/inputs/input/input";
 import {
     BACKSPACE,
     Numpad,
     getButtons,
     DEFAULT_LAST_ROW,
-} from "@point_of_sale/app/generic_components/numpad/numpad";
+} from "@point_of_sale/app/components/numpad/numpad";
 import { ActionpadWidget } from "@point_of_sale/app/screens/product_screen/action_pad/action_pad";
-import { Orderline } from "@point_of_sale/app/generic_components/orderline/orderline";
-import { OrderWidget } from "@point_of_sale/app/generic_components/order_widget/order_widget";
+import { Orderline } from "@point_of_sale/app/components/orderline/orderline";
+import { OrderWidget } from "@point_of_sale/app/components/order_widget/order_widget";
 import { OrderSummary } from "@point_of_sale/app/screens/product_screen/order_summary/order_summary";
-import { ProductInfoPopup } from "./product_info_popup/product_info_popup";
+import { ProductInfoPopup } from "@point_of_sale/app/components/popups/product_info_popup/product_info_popup";
 import { fuzzyLookup } from "@web/core/utils/search";
-import { ProductCard } from "@point_of_sale/app/generic_components/product_card/product_card";
+import { ProductCard } from "@point_of_sale/app/components/product_card/product_card";
 import {
     ControlButtons,
     ControlButtonsPopup,
 } from "@point_of_sale/app/screens/product_screen/control_buttons/control_buttons";
-import { pick } from "@web/core/utils/objects";
 import { unaccent } from "@web/core/utils/strings";
 import { CameraBarcodeScanner } from "@point_of_sale/app/screens/product_screen/camera_barcode_scanner";
 
@@ -86,52 +85,6 @@ export class ProductScreen extends Component {
             useWithBarcode: true,
         });
     }
-    getAncestorsAndCurrent() {
-        const selectedCategory = this.pos.selectedCategory;
-        return selectedCategory
-            ? [undefined, ...selectedCategory.allParents, selectedCategory]
-            : [selectedCategory];
-    }
-    getChildCategories(selectedCategory) {
-        return selectedCategory
-            ? [...selectedCategory.child_ids]
-            : this.pos.models["pos.category"].filter((category) => !category.parent_id);
-    }
-
-    getCategoriesList(list, allParents, depth) {
-        return list.map((category) => {
-            if (category.id === allParents[depth]?.id && category.child_ids?.length) {
-                return [
-                    category,
-                    this.getCategoriesList(category.child_ids, allParents, depth + 1),
-                ];
-            }
-            return category;
-        });
-    }
-
-    getCategoriesAndSub() {
-        const rootCategories = this.pos.models["pos.category"].filter(
-            (category) => !category.parent_id
-        );
-        const selected = this.pos.selectedCategory ? [this.pos.selectedCategory] : [];
-        const allParents = selected.concat(this.pos.selectedCategory?.allParents || []).reverse();
-        return this.getCategoriesList(rootCategories, allParents, 0)
-            .flat(Infinity)
-            .map(this.getChildCategoriesInfo, this);
-    }
-
-    getChildCategoriesInfo(category) {
-        return {
-            ...pick(category, "id", "name", "color"),
-            imgSrc:
-                this.pos.config.show_category_images && category.has_image
-                    ? `/web/image?model=pos.category&field=image_128&id=${category.id}`
-                    : undefined,
-            isSelected: this.getAncestorsAndCurrent().includes(category),
-            isChildren: this.getChildCategories(this.pos.selectedCategory).includes(category),
-        };
-    }
 
     getNumpadButtons() {
         const colorClassMap = {
@@ -183,10 +136,7 @@ export class ProductScreen extends Component {
         return this.currentOrder.lines?.reduce((items, line) => items + line.qty, 0) ?? 0;
     }
     getProductName(product) {
-        const productTmplValIds = product.attribute_line_ids
-            .map((l) => l.product_template_value_ids)
-            .flat();
-        return productTmplValIds.length > 1 ? product.name : product.display_name;
+        return product.name;
     }
     async _getProductByBarcode(code) {
         let product = this.pos.models["product.product"].getBy("barcode", code.base_code);
@@ -356,8 +306,13 @@ export class ProductScreen extends Component {
             .slice(0, 100);
 
         return this.searchWord !== ""
-            ? list
-            : list.sort((a, b) => a.display_name.localeCompare(b.display_name));
+            ? list.sort((a, b) => b.is_favorite - a.is_favorite)
+            : list.sort((a, b) => {
+                  if (b.is_favorite !== a.is_favorite) {
+                      return b.is_favorite - a.is_favorite;
+                  }
+                  return a.display_name.localeCompare(b.display_name);
+              });
     }
 
     getProductsBySearchWord(searchWord) {
@@ -382,7 +337,7 @@ export class ProductScreen extends Component {
     getProductsByCategory(category) {
         const allCategoryIds = category.getAllChildren().map((cat) => cat.id);
         const products = allCategoryIds.flatMap(
-            (catId) => this.pos.models["product.product"].getBy("pos_categ_ids", catId) || []
+            (catId) => this.pos.models["product.template"].getBy("pos_categ_ids", catId) || []
         );
         // Remove duplicates since owl doesn't like it.
         return Array.from(new Set(products));
@@ -455,8 +410,7 @@ export class ProductScreen extends Component {
     }
 
     async onProductInfoClick(productTemplate) {
-        const product = productTemplate.product_variant_ids[0];
-        const info = await reactive(this.pos).getProductInfo(productTemplate, product, 1);
+        const info = await reactive(this.pos).getProductInfo(productTemplate, 1);
         this.dialog.add(ProductInfoPopup, { info: info, productTemplate: productTemplate });
     }
 }

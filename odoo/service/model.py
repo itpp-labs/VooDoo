@@ -13,8 +13,7 @@ from odoo.exceptions import UserError, ValidationError
 from odoo.http import request
 from odoo.models import check_method_name
 from odoo.modules.registry import Registry
-from odoo.tools import DotDict, lazy
-from odoo.tools.translate import translate_sql_constraint
+from odoo.tools import lazy
 
 from . import security
 
@@ -46,6 +45,7 @@ def execute_cr(cr, uid, obj, method, *args, **kw):
     # clean cache etc if we retry the same transaction
     cr.reset()
     env = odoo.api.Environment(cr, uid, {})
+    env.transaction.default_env = env  # ensure this is the default env for the call
     recs = env.get(obj)
     if recs is None:
         raise UserError(env._("Object %s doesn't exist", obj))
@@ -69,53 +69,6 @@ def execute(db, uid, obj, method, *args, **kw):
         if res is None:
             _logger.info('The method %s of the object %s can not return `None`!', method, obj)
         return res
-
-
-def _as_validation_error(env, exc):
-    """ Return the IntegrityError encapsuled in a nice ValidationError """
-
-    unknown = env._('Unknown')
-    model = DotDict({'_name': 'unknown', '_description': unknown})
-    field = DotDict({'name': 'unknown', 'string': unknown})
-    for rclass in env.registry.values():
-        if exc.diag.table_name == rclass._table:
-            model = rclass
-            field = model._fields.get(exc.diag.column_name) or field
-            break
-
-    match exc:
-        case errors.NotNullViolation():
-            return ValidationError(env._(
-                "The operation cannot be completed:\n"
-                "- Create/update: a mandatory field is not set.\n"
-                "- Delete: another model requires the record being deleted."
-                " If possible, archive it instead.\n\n"
-                "Model: %(model_name)s (%(model_tech_name)s)\n"
-                "Field: %(field_name)s (%(field_tech_name)s)\n",
-                model_name=model._description,
-                model_tech_name=model._name,
-                field_name=field.string,
-                field_tech_name=field.name,
-            ))
-
-        case errors.ForeignKeyViolation():
-            return ValidationError(env._(
-                "The operation cannot be completed: another model requires "
-                "the record being deleted. If possible, archive it instead.\n\n"
-                "Model: %(model_name)s (%(model_tech_name)s)\n"
-                "Constraint: %(constraint)s\n",
-                model_name=model._description,
-                model_tech_name=model._name,
-                constraint=exc.diag.constraint_name,
-            ))
-
-    if exc.diag.constraint_name in env.registry._sql_constraints:
-        return ValidationError(env._(
-            "The operation cannot be completed: %s",
-            translate_sql_constraint(env.cr, exc.diag.constraint_name, env.context.get('lang', 'en_US'))
-        ))
-
-    return ValidationError(env._("The operation cannot be completed: %s", exc.args[0]))
 
 
 def retrying(func, env):
@@ -142,7 +95,7 @@ def retrying(func, env):
                 if env.cr._closed:
                     raise
                 env.cr.rollback()
-                env.reset()
+                env.transaction.reset()
                 env.registry.reset_changes()
                 if request:
                     request.session = request._get_session_and_dbname()[0]
@@ -153,7 +106,13 @@ def retrying(func, env):
                         else:
                             raise RuntimeError(f"Cannot retry request on input file {filename!r} after serialization failure") from exc
                 if isinstance(exc, IntegrityError):
-                    raise _as_validation_error(env, exc) from exc
+                    model = env['base']
+                    for rclass in env.registry.values():
+                        if exc.diag.table_name == rclass._table:
+                            model = env[rclass._name]
+                            break
+                    message = env._("The operation cannot be completed: %s", model._sql_error_to_message(exc))
+                    raise ValidationError(message) from exc
                 if not isinstance(exc, PG_CONCURRENCY_EXCEPTIONS_TO_RETRY):
                     raise
                 if not tryleft:
@@ -168,7 +127,7 @@ def retrying(func, env):
             raise RuntimeError("unreachable")
 
     except Exception:
-        env.reset()
+        env.transaction.reset()
         env.registry.reset_changes()
         raise
 

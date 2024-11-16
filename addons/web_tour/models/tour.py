@@ -4,6 +4,7 @@ import base64
 
 
 class Web_TourTour(models.Model):
+    _name = 'web_tour.tour'
     _description = "Tours"
     _order = "sequence, name, id"
 
@@ -16,9 +17,10 @@ class Web_TourTour(models.Model):
     custom = fields.Boolean(string="Custom")
     user_consumed_ids = fields.Many2many("res.users")
 
-    _sql_constraints = [
-        ('uniq_name', 'unique(name)', "A tour already exists with this name . Tour's name must be unique!"),
-    ]
+    _uniq_name = models.Constraint(
+        'unique(name)',
+        "A tour already exists with this name . Tour's name must be unique!",
+    )
 
     @api.depends("name")
     def _compute_sharing_url(self):
@@ -79,6 +81,7 @@ registry.category("web_tour.tours").add("{self.name}", {{
 
 
 class Web_TourTourStep(models.Model):
+    _name = 'web_tour.tour.step'
     _description = "Tour's step"
     _order = "sequence, id"
 

@@ -5,7 +5,7 @@ from odoo import _, api, fields, models
 
 
 class ProductTemplate(models.Model):
-    _inherit = ['product.template']
+    _inherit = 'product.template'
 
     service_tracking = fields.Selection(selection_add=[
         ('course', 'Course Access'),
@@ -19,3 +19,6 @@ class ProductTemplate(models.Model):
     @api.model
     def _get_product_types_allow_zero_price(self):
         return super()._get_product_types_allow_zero_price() + ["course"]
+
+    def _service_tracking_blacklist(self):
+        return super()._service_tracking_blacklist() + ['course']

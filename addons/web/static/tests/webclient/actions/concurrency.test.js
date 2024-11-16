@@ -252,7 +252,7 @@ test.tags("desktop")("execute a new action while loading a lazy-loaded controlle
 
 test.tags("desktop")("execute a new action while handling a call_button", async () => {
     const def = new Deferred();
-    onRpc("/web/dataset/call_button", async () => {
+    onRpc("/web/dataset/call_button/*", async () => {
         await def;
         return {
             name: "Partners Action 1",
@@ -485,44 +485,42 @@ test("properly drop client actions after new action is initiated", async () => {
     expect(".o_kanban_view").toHaveCount(1, { message: "should still display the kanban view" });
 });
 
-test.tags("desktop")(
-    "restoring a controller when doing an action -- load_action slow",
-    async () => {
-        let def;
-        onRpc("/web/action/load", () => def);
-        stepAllNetworkCalls();
+test.tags("desktop");
+test("restoring a controller when doing an action -- load_action slow", async () => {
+    let def;
+    onRpc("/web/action/load", () => def);
+    stepAllNetworkCalls();
 
-        await mountWithCleanup(WebClient);
-        await getService("action").doAction(3);
-        expect(".o_list_view").toHaveCount(1);
+    await mountWithCleanup(WebClient);
+    await getService("action").doAction(3);
+    expect(".o_list_view").toHaveCount(1);
 
-        await contains(".o_list_view .o_data_cell").click();
-        expect(".o_form_view").toHaveCount(1);
+    await contains(".o_list_view .o_data_cell").click();
+    expect(".o_form_view").toHaveCount(1);
 
-        def = new Deferred();
-        getService("action").doAction(4, { clearBreadcrumbs: true });
-        await animationFrame();
-        expect(".o_form_view").toHaveCount(1, { message: "should still contain the form view" });
+    def = new Deferred();
+    getService("action").doAction(4, { clearBreadcrumbs: true });
+    await animationFrame();
+    expect(".o_form_view").toHaveCount(1, { message: "should still contain the form view" });
 
-        await contains(".o_control_panel .breadcrumb-item a").click();
-        def.resolve();
-        await animationFrame();
-        expect(".o_list_view").toHaveCount(1);
-        expect(queryAllTexts(".breadcrumb-item, .o_breadcrumb .active")).toEqual(["Partners"]);
-        expect(".o_form_view").toHaveCount(0);
-        expect.verifySteps([
-            "/web/webclient/translations",
-            "/web/webclient/load_menus",
-            "/web/action/load",
-            "get_views",
-            "web_search_read",
-            "has_group",
-            "web_read",
-            "/web/action/load",
-            "web_search_read",
-        ]);
-    }
-);
+    await contains(".o_control_panel .breadcrumb-item a").click();
+    def.resolve();
+    await animationFrame();
+    expect(".o_list_view").toHaveCount(1);
+    expect(queryAllTexts(".breadcrumb-item, .o_breadcrumb .active")).toEqual(["Partners"]);
+    expect(".o_form_view").toHaveCount(0);
+    expect.verifySteps([
+        "/web/webclient/translations",
+        "/web/webclient/load_menus",
+        "/web/action/load",
+        "get_views",
+        "web_search_read",
+        "has_group",
+        "web_read",
+        "/web/action/load",
+        "web_search_read",
+    ]);
+});
 
 test.tags("desktop")("switching when doing an action -- load_action slow", async () => {
     let def;
@@ -695,7 +693,7 @@ test.tags("desktop")("local state, global state, and race conditions", async () 
         static props = ["*"];
         setup() {
             this.id = id++;
-            expect.step(JSON.stringify(this.props.state || "no state"));
+            expect.step(this.props.state || "no state");
             useSetupAction({
                 getLocalState: () => {
                     return { fromId: this.id };
@@ -741,8 +739,8 @@ test.tags("desktop")("local state, global state, and race conditions", async () 
     // of the first instantiated toy view.
 
     expect.verifySteps([
-        `"no state"`, // setup first view instantiated
-        `{"fromId":1}`, // setup second view instantiated
-        `{"fromId":1}`, // setup third view instantiated
+        "no state", // setup first view instantiated
+        { fromId: 1 }, // setup second view instantiated
+        { fromId: 1 }, // setup third view instantiated
     ]);
 });

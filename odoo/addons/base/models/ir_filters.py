@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models, tools
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools.safe_eval import safe_eval, datetime
 
 
 class IrFilters(models.Model):
+    _name = 'ir.filters'
     _description = 'Filters'
     _order = 'model_id, name, id desc'
 
@@ -27,6 +28,30 @@ class IrFilters(models.Model):
     embedded_parent_res_id = fields.Integer(help="id of the record the filter should be applied to. Only used in combination with embedded actions")
     active = fields.Boolean(default=True)
 
+    # Partial constraint, complemented by unique index (see below). Still
+    # useful to keep because it provides a proper error message when a
+    # violation occurs, as it shares the same prefix as the unique index.
+    _name_model_uid_unique = models.Constraint(
+        'UNIQUE (model_id, user_id, action_id, embedded_action_id, embedded_parent_res_id, name)',
+        "Filter names must be unique",
+    )
+    # The embedded_parent_res_id can only be defined when the embedded_action_id field is set.
+    # As the embedded model is linked to only one res_model, It ensure the unicity of the filter regarding the
+    # embedded_parent_res_model and the embedded_parent_res_id
+    _check_res_id_only_when_embedded_action = models.Constraint(
+        'CHECK(NOT (embedded_parent_res_id IS NOT NULL AND embedded_action_id IS NULL))',
+        "Constraint to ensure that the embedded_parent_res_id is only defined when a top_action_id is defined.",
+    )
+    _check_sort_json = models.Constraint(
+        "CHECK(sort IS NULL OR jsonb_typeof(sort::jsonb) = 'array')",
+        "Invalid sort definition",
+    )
+    # Use unique index to implement unique constraint on the lowercase name (not possible using a constraint)
+    _name_model_uid_unique_action_index = models.UniqueIndex(
+        '(model_id, COALESCE(user_id, -1), COALESCE(action_id, -1), '
+        'lower(name), embedded_parent_res_id, COALESCE(embedded_action_id,-1))',
+    )
+
     @api.model
     def _list_all_models(self):
         lang = self.env.lang or 'en_US'
@@ -38,6 +63,11 @@ class IrFilters(models.Model):
 
     def copy_data(self, default=None):
         vals_list = super().copy_data(default=default)
+        # NULL Integer field value read as 0, wouldn't matter except in this case will trigger
+        # check_res_id_only_when_embedded_action
+        for vals in vals_list:
+            if vals.get('embedded_parent_res_id') == 0:
+                del vals['embedded_parent_res_id']
         return [dict(vals, name=self.env._("%s (copy)", ir_filter.name)) for ir_filter, vals in zip(self, vals_list)]
 
     def write(self, vals):
@@ -155,31 +185,3 @@ class IrFilters(models.Model):
             return matching_filter
 
         return self.create(vals)
-
-    _sql_constraints = [
-        # Partial constraint, complemented by unique index (see below). Still
-        # useful to keep because it provides a proper error message when a
-        # violation occurs, as it shares the same prefix as the unique index.
-        ('name_model_uid_unique', 'unique (model_id, user_id, action_id, embedded_action_id, embedded_parent_res_id, name)',
-            'Filter names must be unique'),
-
-        # The embedded_parent_res_id can only be defined when the embedded_action_id field is set.
-        # As the embedded model is linked to only one res_model, It ensure the unicity of the filter regarding the
-        # embedded_parent_res_model and the embedded_parent_res_id
-        (
-            'check_res_id_only_when_embedded_action',
-            """CHECK(
-                NOT (embedded_parent_res_id IS NOT NULL AND embedded_action_id IS NULL)
-            )""",
-            'Constraint to ensure that the embedded_parent_res_id is only defined when a top_action_id is defined.'
-        ),
-        ('check_sort_json', "CHECK(sort IS NULL OR jsonb_typeof(sort::jsonb) = 'array')", 'Invalid sort definition'),
-    ]
-
-    def _auto_init(self):
-        result = super(IrFilters, self)._auto_init()
-        # Use unique index to implement unique constraint on the lowercase name (not possible using a constraint)
-        tools.create_unique_index(self._cr, 'ir_filters_name_model_uid_unique_action_index',
-                                  self._table, ['model_id', 'COALESCE(user_id,-1)', 'COALESCE(action_id,-1)',
-                                                'lower(name)', 'embedded_parent_res_id', 'COALESCE(embedded_action_id,-1)'])
-        return result

@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { registry } from "@web/core/registry";
 import { getPriceListChecksSteps } from '@website_event_booth_sale/../tests/tours/helpers/WebsiteEventBoothSaleTourMethods';
 import * as wsTourUtils from '@website_sale/js/tours/tour_utils';
@@ -20,7 +18,7 @@ registry.category("web_tour.tours").add('event_booth_sale_pricelists_different_c
     },
     {
         content: 'Select the booth',
-        trigger: '.o_wbooth_booths input[name="event_booth_ids"]:nth-child(1)',
+        trigger: ".o_wbooth_booths input[name=event_booth_ids]:nth-child(1):not(:visible)",
         run: "click",
     },
     {

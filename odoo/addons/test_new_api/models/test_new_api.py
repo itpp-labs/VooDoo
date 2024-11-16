@@ -14,6 +14,7 @@ _logger = logging.getLogger('precompute_setter')
 
 
 class Test_New_ApiCategory(models.Model):
+    _name = 'test_new_api.category'
     _description = 'Test New API Category'
     _order = 'name'
     _parent_store = True
@@ -26,18 +27,17 @@ class Test_New_ApiCategory(models.Model):
     depth = fields.Integer(compute="_compute_depth")
     root_categ = fields.Many2one('test_new_api.category', compute='_compute_root_categ')
     display_name = fields.Char(
-        compute='_compute_display_name',
         inverse='_inverse_display_name',
-        search='_search_display_name',
         recursive=True,
     )
     dummy = fields.Char(store=False)
     discussions = fields.Many2many('test_new_api.discussion', 'test_new_api_discussion_category',
                                    'category', 'discussion')
 
-    _sql_constraints = [
-        ('positive_color', 'CHECK(color >= 0)', 'The color code must be positive!')
-    ]
+    _positive_color = models.Constraint(
+        'CHECK(color >= 0)',
+        "The color code must be positive!",
+    )
 
     @api.depends('name', 'parent.display_name')     # this definition is recursive
     def _compute_display_name(self):
@@ -86,6 +86,7 @@ class Test_New_ApiCategory(models.Model):
 
 
 class Test_New_ApiDiscussion(models.Model):
+    _name = 'test_new_api.discussion'
     _description = 'Test New API Discussion'
 
     name = fields.Char(string='Title', required=True, help="Description of discussion.")
@@ -135,13 +136,14 @@ class Test_New_ApiDiscussion(models.Model):
 
 
 class Test_New_ApiMessage(models.Model):
+    _name = 'test_new_api.message'
     _description = 'Test New API Message'
 
     discussion = fields.Many2one('test_new_api.discussion', ondelete='cascade')
     body = fields.Text(index='trigram')
     author = fields.Many2one('res.users', default=lambda self: self.env.user)
     name = fields.Char(string='Title', compute='_compute_name', store=True)
-    display_name = fields.Char(string='Abstract', compute='_compute_display_name')
+    display_name = fields.Char(string='Abstract')
     size = fields.Integer(compute='_compute_size', search='_search_size')
     double_size = fields.Integer(compute='_compute_double_size')
     discussion_name = fields.Char(related='discussion.name', string="Discussion Name", readonly=False)
@@ -236,6 +238,7 @@ class Test_New_ApiMessage(models.Model):
 
 
 class Test_New_ApiEmailmessage(models.Model):
+    _name = 'test_new_api.emailmessage'
     _description = 'Test New API Email Message'
     _inherits = {'test_new_api.message': 'message'}
 
@@ -285,6 +288,7 @@ class Test_New_ApiMulti(models.Model):
 
 
 class Test_New_ApiMultiLine(models.Model):
+    _name = 'test_new_api.multi.line'
     _description = 'Test New API Multi Line'
 
     multi = fields.Many2one('test_new_api.multi', ondelete='cascade')
@@ -294,11 +298,13 @@ class Test_New_ApiMultiLine(models.Model):
 
 
 class Test_New_ApiMultiLine2(models.Model):
+    _name = 'test_new_api.multi.line2'
     _inherit = ['test_new_api.multi.line']
     _description = 'Test New API Multi Line 2'
 
 
 class Test_New_ApiMultiTag(models.Model):
+    _name = 'test_new_api.multi.tag'
     _description = 'Test New API Multi Tag'
 
     name = fields.Char()
@@ -314,6 +320,7 @@ class Test_New_ApiMultiTag(models.Model):
 
 
 class Test_New_ApiCreativeworkEdition(models.Model):
+    _name = 'test_new_api.creativework.edition'
     _description = 'Test New API Creative Work Edition'
 
     name = fields.Char()
@@ -323,6 +330,7 @@ class Test_New_ApiCreativeworkEdition(models.Model):
 
 
 class Test_New_ApiCreativeworkBook(models.Model):
+    _name = 'test_new_api.creativework.book'
     _description = 'Test New API Creative Work Book'
 
     name = fields.Char()
@@ -332,6 +340,7 @@ class Test_New_ApiCreativeworkBook(models.Model):
 
 
 class Test_New_ApiCreativeworkMovie(models.Model):
+    _name = 'test_new_api.creativework.movie'
     _description = 'Test New API Creative Work Movie'
 
     name = fields.Char()
@@ -341,6 +350,7 @@ class Test_New_ApiCreativeworkMovie(models.Model):
 
 
 class Test_New_ApiMixed(models.Model):
+    _name = 'test_new_api.mixed'
     _description = 'Test New API Mixed'
 
     foo = fields.Char()
@@ -383,6 +393,7 @@ class Test_New_ApiMixed(models.Model):
 
 
 class DomainBool(models.Model):
+    _name = 'domain.bool'
     _description = 'Boolean Domain'
 
     bool_true = fields.Boolean('b1', default=True)
@@ -391,6 +402,7 @@ class DomainBool(models.Model):
 
 
 class Test_New_ApiFoo(models.Model):
+    _name = 'test_new_api.foo'
     _description = 'Test New API Foo'
 
     name = fields.Char()
@@ -400,6 +412,7 @@ class Test_New_ApiFoo(models.Model):
 
 
 class Test_New_ApiBar(models.Model):
+    _name = 'test_new_api.bar'
     _description = 'Test New API Bar'
 
     name = fields.Char()
@@ -421,6 +434,7 @@ class Test_New_ApiBar(models.Model):
 
 
 class Test_New_ApiRelated(models.Model):
+    _name = 'test_new_api.related'
     _description = 'Test New API Related'
 
     name = fields.Char()
@@ -450,6 +464,7 @@ class Test_New_ApiRelated(models.Model):
 
 
 class Test_New_ApiRelated_Foo(models.Model):
+    _name = 'test_new_api.related_foo'
     _description = 'test_new_api.related_foo'
 
     name = fields.Char()
@@ -458,12 +473,14 @@ class Test_New_ApiRelated_Foo(models.Model):
 
 
 class Test_New_ApiRelated_Bar(models.Model):
+    _name = 'test_new_api.related_bar'
     _description = 'test_new_api.related_bar'
 
     name = fields.Char()
 
 
 class Test_New_ApiRelated_Inherits(models.Model):
+    _name = 'test_new_api.related_inherits'
     _description = 'test_new_api.related_inherits'
     _inherits = {'test_new_api.related': 'base_id'}
 
@@ -471,6 +488,7 @@ class Test_New_ApiRelated_Inherits(models.Model):
 
 
 class Test_New_ApiComputeReadonly(models.Model):
+    _name = 'test_new_api.compute.readonly'
     _description = 'Model with a computed readonly field'
 
     foo = fields.Char(default='')
@@ -483,6 +501,7 @@ class Test_New_ApiComputeReadonly(models.Model):
 
 
 class Test_New_ApiComputeInverse(models.Model):
+    _name = 'test_new_api.compute.inverse'
     _description = 'Model with a computed inversed field'
 
     foo = fields.Char()
@@ -507,6 +526,7 @@ class Test_New_ApiComputeInverse(models.Model):
 
 
 class Test_New_ApiComputeSudo(models.Model):
+    _name = 'test_new_api.compute.sudo'
     _description = 'Model with a compute_sudo field'
 
     name_for_uid = fields.Char(compute='_compute_name_for_uid', compute_sudo=True)
@@ -545,6 +565,7 @@ class Test_New_ApiMulti_Compute_Inverse(models.Model):
 
 
 class Test_New_ApiMove(models.Model):
+    _name = 'test_new_api.move'
     _description = 'Move'
 
     line_ids = fields.One2many('test_new_api.move_line', 'move_id', domain=[('visible', '=', True)])
@@ -574,6 +595,7 @@ class Test_New_ApiMove(models.Model):
 
 
 class Test_New_ApiMove_Line(models.Model):
+    _name = 'test_new_api.move_line'
     _description = 'Move Line'
 
     move_id = fields.Many2one('test_new_api.move', required=True, ondelete='cascade')
@@ -582,6 +604,7 @@ class Test_New_ApiMove_Line(models.Model):
 
 
 class Test_New_ApiPayment(models.Model):
+    _name = 'test_new_api.payment'
     _description = 'Payment inherits from Move'
     _inherits = {'test_new_api.move': 'move_id'}
 
@@ -589,6 +612,7 @@ class Test_New_ApiPayment(models.Model):
 
 
 class Test_New_ApiOrder(models.Model):
+    _name = 'test_new_api.order'
     _description = 'test_new_api.order'
 
     line_ids = fields.One2many('test_new_api.order.line', 'order_id')
@@ -596,6 +620,7 @@ class Test_New_ApiOrder(models.Model):
 
 
 class Test_New_ApiOrderLine(models.Model):
+    _name = 'test_new_api.order.line'
     _description = 'test_new_api.order.line'
 
     order_id = fields.Many2one('test_new_api.order', required=True, ondelete='cascade')
@@ -626,6 +651,7 @@ class Test_New_ApiOrderLine(models.Model):
 
 
 class Test_New_ApiCompany(models.Model):
+    _name = 'test_new_api.company'
     _description = 'Test New API Company'
 
     foo = fields.Char(company_dependent=True)
@@ -643,6 +669,7 @@ class Test_New_ApiCompany(models.Model):
 
 
 class Test_New_ApiCompanyAttr(models.Model):
+    _name = 'test_new_api.company.attr'
     _description = 'Test New API Company Attribute'
 
     company = fields.Many2one('test_new_api.company')
@@ -656,12 +683,13 @@ class Test_New_ApiCompanyAttr(models.Model):
 
 
 class Test_New_ApiRecursive(models.Model):
+    _name = 'test_new_api.recursive'
     _description = 'Test New API Recursive'
 
     name = fields.Char(required=True)
     parent = fields.Many2one('test_new_api.recursive', ondelete='cascade')
     full_name = fields.Char(compute='_compute_full_name', recursive=True)
-    display_name = fields.Char(compute='_compute_display_name', recursive=True, store=True)
+    display_name = fields.Char(recursive=True, store=True)
     context_dependent_name = fields.Char(compute='_compute_context_dependent_name', recursive=True)
 
     @api.depends('name', 'parent.full_name')
@@ -694,12 +722,13 @@ class Test_New_ApiRecursive(models.Model):
 
 
 class Test_New_ApiRecursiveTree(models.Model):
+    _name = 'test_new_api.recursive.tree'
     _description = 'Test New API Recursive with one2many field'
 
     name = fields.Char(required=True)
     parent_id = fields.Many2one('test_new_api.recursive.tree', ondelete='cascade')
     children_ids = fields.One2many('test_new_api.recursive.tree', 'parent_id')
-    display_name = fields.Char(compute='_compute_display_name', recursive=True, store=True)
+    display_name = fields.Char(recursive=True, store=True)
 
     @api.depends('name', 'children_ids.display_name')
     def _compute_display_name(self):
@@ -709,12 +738,14 @@ class Test_New_ApiRecursiveTree(models.Model):
 
 
 class Test_New_ApiRecursiveOrder(models.Model):
+    _name = 'test_new_api.recursive.order'
     _description = 'test_new_api.recursive.order'
 
     value = fields.Integer()
 
 
 class Test_New_ApiRecursiveLine(models.Model):
+    _name = 'test_new_api.recursive.line'
     _description = 'test_new_api.recursive.line'
 
     order_id = fields.Many2one('test_new_api.recursive.order')
@@ -730,6 +761,7 @@ class Test_New_ApiRecursiveLine(models.Model):
 
 
 class Test_New_ApiRecursiveTask(models.Model):
+    _name = 'test_new_api.recursive.task'
     _description = 'test_new_api.recursive.task'
 
     value = fields.Integer()
@@ -748,6 +780,7 @@ class Test_New_ApiRecursiveTask(models.Model):
 
 
 class Test_New_ApiCascade(models.Model):
+    _name = 'test_new_api.cascade'
     _description = 'Test New API Cascade'
 
     foo = fields.Char()
@@ -766,6 +799,7 @@ class Test_New_ApiCascade(models.Model):
 
 
 class Test_New_ApiComputeReadwrite(models.Model):
+    _name = 'test_new_api.compute.readwrite'
     _description = 'Model with a computed non-readonly field'
 
     foo = fields.Char()
@@ -778,6 +812,7 @@ class Test_New_ApiComputeReadwrite(models.Model):
 
 
 class Test_New_ApiComputeOnchange(models.Model):
+    _name = 'test_new_api.compute.onchange'
     _description = "Compute method as an onchange"
 
     active = fields.Boolean()
@@ -832,6 +867,7 @@ class Test_New_ApiComputeOnchange(models.Model):
 
 
 class Test_New_ApiComputeOnchangeLine(models.Model):
+    _name = 'test_new_api.compute.onchange.line'
     _description = "Line-like model for test_new_api.compute.onchange"
 
     record_id = fields.Many2one('test_new_api.compute.onchange', ondelete='cascade')
@@ -845,6 +881,7 @@ class Test_New_ApiComputeOnchangeLine(models.Model):
 
 
 class Test_New_ApiComputeDynamicDepends(models.Model):
+    _name = 'test_new_api.compute.dynamic.depends'
     _description = "Computed field with dynamic dependencies"
 
     name1 = fields.Char()
@@ -865,6 +902,7 @@ class Test_New_ApiComputeDynamicDepends(models.Model):
 
 
 class Test_New_ApiComputeUnassigned(models.Model):
+    _name = 'test_new_api.compute.unassigned'
     _description = "Model with computed fields left unassigned"
 
     foo = fields.Char()
@@ -899,6 +937,7 @@ class Test_New_ApiComputeUnassigned(models.Model):
 
 
 class Test_New_ApiOne2many(models.Model):
+    _name = 'test_new_api.one2many'
     _description = "A computed editable one2many field with a domain"
 
     name = fields.Char()
@@ -923,6 +962,7 @@ class Test_New_ApiOne2many(models.Model):
 
 
 class Test_New_ApiOne2manyLine(models.Model):
+    _name = 'test_new_api.one2many.line'
     _description = "Line of a computed one2many"
 
     name = fields.Char()
@@ -931,6 +971,7 @@ class Test_New_ApiOne2manyLine(models.Model):
 
 
 class Test_New_ApiModel_Binary(models.Model):
+    _name = 'test_new_api.model_binary'
     _description = 'Test Image field'
 
     binary = fields.Binary()
@@ -946,6 +987,7 @@ class Test_New_ApiModel_Binary(models.Model):
 
 
 class Test_New_ApiModel_Image(models.Model):
+    _name = 'test_new_api.model_image'
     _description = 'Test Image field'
 
     name = fields.Char(required=True)
@@ -958,6 +1000,7 @@ class Test_New_ApiModel_Image(models.Model):
 
 
 class Test_New_ApiBinary_Svg(models.Model):
+    _name = 'test_new_api.binary_svg'
     _description = 'Test SVG upload'
 
     name = fields.Char(required=True)
@@ -970,6 +1013,7 @@ class Test_New_ApiBinary_Svg(models.Model):
 
 
 class Test_New_ApiMonetary_Base(models.Model):
+    _name = 'test_new_api.monetary_base'
     _description = 'Monetary Base'
 
     base_currency_id = fields.Many2one('res.currency')
@@ -977,6 +1021,7 @@ class Test_New_ApiMonetary_Base(models.Model):
 
 
 class Test_New_ApiMonetary_Related(models.Model):
+    _name = 'test_new_api.monetary_related'
     _description = 'Monetary Related'
 
     monetary_id = fields.Many2one('test_new_api.monetary_base')
@@ -986,6 +1031,7 @@ class Test_New_ApiMonetary_Related(models.Model):
 
 
 class Test_New_ApiMonetary_Custom(models.Model):
+    _name = 'test_new_api.monetary_custom'
     _description = 'Monetary Related Custom'
 
     monetary_id = fields.Many2one('test_new_api.monetary_base')
@@ -994,6 +1040,7 @@ class Test_New_ApiMonetary_Custom(models.Model):
 
 
 class Test_New_ApiMonetary_Inherits(models.Model):
+    _name = 'test_new_api.monetary_inherits'
     _description = 'Monetary Inherits'
     _inherits = {'test_new_api.monetary_base': 'monetary_id'}
 
@@ -1002,6 +1049,7 @@ class Test_New_ApiMonetary_Inherits(models.Model):
 
 
 class Test_New_ApiMonetary_Order(models.Model):
+    _name = 'test_new_api.monetary_order'
     _description = 'Sales Order'
 
     currency_id = fields.Many2one('res.currency')
@@ -1015,6 +1063,7 @@ class Test_New_ApiMonetary_Order(models.Model):
 
 
 class Test_New_ApiMonetary_Order_Line(models.Model):
+    _name = 'test_new_api.monetary_order_line'
     _description = 'Sales Order Line'
 
     order_id = fields.Many2one('test_new_api.monetary_order', required=True, ondelete='cascade')
@@ -1022,12 +1071,14 @@ class Test_New_ApiMonetary_Order_Line(models.Model):
 
 
 class Test_New_ApiField_With_Caps(models.Model):
+    _name = 'test_new_api.field_with_caps'
     _description = 'Model with field defined with capital letters'
 
     pArTneR_321_id = fields.Many2one('res.partner')
 
 
 class Test_New_ApiSelection(models.Model):
+    _name = 'test_new_api.selection'
     _description = "Selection"
 
     state = fields.Selection([('foo', 'Foo'), ('bar', 'Bar')])
@@ -1035,6 +1086,7 @@ class Test_New_ApiSelection(models.Model):
 
 
 class Test_New_ApiReq_M2o(models.Model):
+    _name = 'test_new_api.req_m2o'
     _description = 'Required Many2one'
 
     foo = fields.Many2one('res.currency', required=True, ondelete='cascade')
@@ -1042,6 +1094,7 @@ class Test_New_ApiReq_M2o(models.Model):
 
 
 class Test_New_ApiReq_M2o_Transient(models.TransientModel):
+    _name = 'test_new_api.req_m2o_transient'
     _description = 'Transient Model with Required Many2one'
 
     foo = fields.Many2one('res.currency', required=True, ondelete='restrict')
@@ -1049,10 +1102,12 @@ class Test_New_ApiReq_M2o_Transient(models.TransientModel):
 
 
 class Test_New_ApiTransient_Model(models.TransientModel):
+    _name = 'test_new_api.transient_model'
     _description = 'Transient Model'
 
 
 class Test_New_ApiAttachment(models.Model):
+    _name = 'test_new_api.attachment'
     _description = 'Attachment'
 
     res_model = fields.Char(required=True)
@@ -1077,6 +1132,7 @@ class Test_New_ApiAttachment(models.Model):
 
 
 class Test_New_ApiAttachmentHost(models.Model):
+    _name = 'test_new_api.attachment.host'
     _description = 'Attachment Host'
 
     attachment_ids = fields.One2many(
@@ -1086,6 +1142,7 @@ class Test_New_ApiAttachmentHost(models.Model):
 
 
 class DecimalPrecisionTest(models.Model):
+    _name = 'decimal.precision.test'
     _description = 'Decimal Precision Test'
 
     float = fields.Float()
@@ -1094,6 +1151,7 @@ class DecimalPrecisionTest(models.Model):
 
 
 class Test_New_ApiModel_A(models.Model):
+    _name = 'test_new_api.model_a'
     _description = 'Model A'
 
     name = fields.Char()
@@ -1102,6 +1160,7 @@ class Test_New_ApiModel_A(models.Model):
 
 
 class Test_New_ApiModel_B(models.Model):
+    _name = 'test_new_api.model_b'
     _description = 'Model B'
 
     name = fields.Char()
@@ -1110,6 +1169,7 @@ class Test_New_ApiModel_B(models.Model):
 
 
 class Test_New_ApiModel_Parent(models.Model):
+    _name = 'test_new_api.model_parent'
     _description = 'Model Multicompany parent'
 
     name = fields.Char()
@@ -1117,6 +1177,7 @@ class Test_New_ApiModel_Parent(models.Model):
 
 
 class Test_New_ApiModel_Child(models.Model):
+    _name = 'test_new_api.model_child'
     _description = 'Model Multicompany child'
     _check_company_auto = True
 
@@ -1126,6 +1187,7 @@ class Test_New_ApiModel_Child(models.Model):
 
 
 class Test_New_ApiModel_Child_Nocheck(models.Model):
+    _name = 'test_new_api.model_child_nocheck'
     _description = 'Model Multicompany child'
     _check_company_auto = True
 
@@ -1136,9 +1198,10 @@ class Test_New_ApiModel_Child_Nocheck(models.Model):
 
 # model with explicit and stored field 'display_name'
 class Test_New_ApiDisplay(models.Model):
+    _name = 'test_new_api.display'
     _description = 'Model that overrides display_name'
 
-    display_name = fields.Char(compute='_compute_display_name', store=True)
+    display_name = fields.Char(store=True)
 
     def _compute_display_name(self):
         for record in self:
@@ -1147,6 +1210,7 @@ class Test_New_ApiDisplay(models.Model):
 
 # abstract model with automatic and non-stored field 'display_name'
 class Test_New_ApiMixin(models.AbstractModel):
+    _name = 'test_new_api.mixin'
     _description = 'Dummy mixin model'
 
 
@@ -1155,10 +1219,12 @@ class Test_New_ApiMixin(models.AbstractModel):
 
 # pylint: disable=E0102
 class Test_New_ApiDisplay(models.Model):  # noqa: F811
+    _name = 'test_new_api.display'
     _inherit = ['test_new_api.mixin', 'test_new_api.display']
 
 
 class Test_New_ApiModel_Active_Field(models.Model):
+    _name = 'test_new_api.model_active_field'
     _description = 'A model with active field'
 
     name = fields.Char()
@@ -1182,6 +1248,7 @@ class Test_New_ApiModel_Active_Field(models.Model):
 
 
 class Test_New_ApiModel_Many2one_Reference(models.Model):
+    _name = 'test_new_api.model_many2one_reference'
     _description = 'dummy m2oref model'
 
     res_model = fields.Char('Resource Model')
@@ -1189,6 +1256,7 @@ class Test_New_ApiModel_Many2one_Reference(models.Model):
 
 
 class Test_New_ApiInverse_M2o_Ref(models.Model):
+    _name = 'test_new_api.inverse_m2o_ref'
     _description = 'dummy m2oref inverse model'
 
     model_ids = fields.One2many('test_new_api.model_many2one_reference', 'res_id', string="Models")
@@ -1201,6 +1269,7 @@ class Test_New_ApiInverse_M2o_Ref(models.Model):
 
 
 class Test_New_ApiModel_Child_M2o(models.Model):
+    _name = 'test_new_api.model_child_m2o'
     _description = 'dummy model with override write and ValidationError'
 
     name = fields.Char('Name')
@@ -1228,6 +1297,7 @@ class Test_New_ApiModel_Child_M2o(models.Model):
 
 
 class Test_New_ApiModel_Parent_M2o(models.Model):
+    _name = 'test_new_api.model_parent_m2o'
     _description = 'dummy model with multiple childs'
 
     name = fields.Char('Name')
@@ -1241,6 +1311,7 @@ class Test_New_ApiModel_Parent_M2o(models.Model):
 
 
 class Test_New_ApiCountry(models.Model):
+    _name = 'test_new_api.country'
     _description = 'Country, ordered by name'
     _order = 'name, id'
 
@@ -1248,6 +1319,7 @@ class Test_New_ApiCountry(models.Model):
 
 
 class Test_New_ApiCity(models.Model):
+    _name = 'test_new_api.city'
     _description = 'City, ordered by country then name'
     _order = 'country_id, name, id'
 
@@ -1257,6 +1329,7 @@ class Test_New_ApiCity(models.Model):
 
 # abstract model with a selection field
 class Test_New_ApiState_Mixin(models.AbstractModel):
+    _name = 'test_new_api.state_mixin'
     _description = 'Dummy state mixin model'
 
     state = fields.Selection([
@@ -1267,6 +1340,7 @@ class Test_New_ApiState_Mixin(models.AbstractModel):
 
 
 class Test_New_ApiModel_Selection_Base(models.Model):
+    _name = 'test_new_api.model_selection_base'
     _description = "Model with a base selection field"
 
     my_selection = fields.Selection([
@@ -1277,7 +1351,7 @@ class Test_New_ApiModel_Selection_Base(models.Model):
 
 # pylint: disable=E0102
 class Test_New_ApiModel_Selection_Base(models.Model):  # noqa: F811
-    _inherit = ['test_new_api.model_selection_base']
+    _inherit = 'test_new_api.model_selection_base'
     _description = "Model with a selection field extension with ondelete null"
 
     my_selection = fields.Selection(selection_add=[
@@ -1287,7 +1361,7 @@ class Test_New_ApiModel_Selection_Base(models.Model):  # noqa: F811
 
 # pylint: disable=E0102
 class Test_New_ApiModel_Selection_Base(models.Model):  # noqa: F811
-    _inherit = ['test_new_api.model_selection_base']
+    _inherit = 'test_new_api.model_selection_base'
     _description = "Model with a selection field extension without ondelete"
 
     my_selection = fields.Selection(selection_add=[
@@ -1296,6 +1370,7 @@ class Test_New_ApiModel_Selection_Base(models.Model):  # noqa: F811
 
 
 class Test_New_ApiModel_Selection_Related(models.Model):
+    _name = 'test_new_api.model_selection_related'
     _description = "Model with a related selection field"
 
     selection_id = fields.Many2one(
@@ -1308,6 +1383,7 @@ class Test_New_ApiModel_Selection_Related(models.Model):
 
 
 class Test_New_ApiModel_Selection_Related_Updatable(models.Model):
+    _name = 'test_new_api.model_selection_related_updatable'
     _description = "Model with an updatable related selection field"
 
     selection_id = fields.Many2one(
@@ -1321,6 +1397,7 @@ class Test_New_ApiModel_Selection_Related_Updatable(models.Model):
 
 
 class Test_New_ApiModel_Selection_Required(models.Model):
+    _name = 'test_new_api.model_selection_required'
     _description = "Model with a required selection field"
 
     active = fields.Boolean(default=True)
@@ -1332,7 +1409,7 @@ class Test_New_ApiModel_Selection_Required(models.Model):
 
 # pylint: disable=E0102
 class Test_New_ApiModel_Selection_Required(models.Model):  # noqa: F811
-    _inherit = ['test_new_api.model_selection_required']
+    _inherit = 'test_new_api.model_selection_required'
     _description = "Model with a selection field extension with ondelete default"
 
     my_selection = fields.Selection(selection_add=[
@@ -1342,7 +1419,7 @@ class Test_New_ApiModel_Selection_Required(models.Model):  # noqa: F811
 
 # pylint: disable=E0102
 class Test_New_ApiModel_Selection_Required(models.Model):  # noqa: F811
-    _inherit = ['test_new_api.model_selection_required']
+    _inherit = 'test_new_api.model_selection_required'
     _description = "Model with a selection field extension with ondelete cascade"
 
     my_selection = fields.Selection(selection_add=[
@@ -1352,7 +1429,7 @@ class Test_New_ApiModel_Selection_Required(models.Model):  # noqa: F811
 
 # pylint: disable=E0102
 class Test_New_ApiModel_Selection_Required(models.Model):  # noqa: F811
-    _inherit = ['test_new_api.model_selection_required']
+    _inherit = 'test_new_api.model_selection_required'
     _description = "Model with a selection field extension with ondelete set <option>"
 
     my_selection = fields.Selection(selection_add=[
@@ -1362,7 +1439,7 @@ class Test_New_ApiModel_Selection_Required(models.Model):  # noqa: F811
 
 # pylint: disable=E0102
 class Test_New_ApiModel_Selection_Required(models.Model):  # noqa: F811
-    _inherit = ['test_new_api.model_selection_required']
+    _inherit = 'test_new_api.model_selection_required'
     _description = "Model with a selection field extension with multiple ondelete policies"
 
     my_selection = fields.Selection(selection_add=[
@@ -1373,7 +1450,7 @@ class Test_New_ApiModel_Selection_Required(models.Model):  # noqa: F811
 
 # pylint: disable=E0102
 class Test_New_ApiModel_Selection_Required(models.Model):  # noqa: F811
-    _inherit = ['test_new_api.model_selection_required']
+    _inherit = 'test_new_api.model_selection_required'
     _description = "Model with a selection field extension with ondelete callback"
 
     my_selection = fields.Selection(selection_add=[
@@ -1384,6 +1461,7 @@ class Test_New_ApiModel_Selection_Required(models.Model):  # noqa: F811
 
 
 class Test_New_ApiModel_Selection_Non_Stored(models.Model):
+    _name = 'test_new_api.model_selection_non_stored'
     _description = "Model with non-stored selection field"
 
     my_selection = fields.Selection([
@@ -1393,6 +1471,7 @@ class Test_New_ApiModel_Selection_Non_Stored(models.Model):
 
 
 class Test_New_ApiModel_Selection_Required_For_Write_Override(models.Model):
+    _name = 'test_new_api.model_selection_required_for_write_override'
     _description = "Model with required selection field for an extension with write override"
 
     my_selection = fields.Selection([
@@ -1403,7 +1482,7 @@ class Test_New_ApiModel_Selection_Required_For_Write_Override(models.Model):
 
 # pylint: disable=E0102
 class Test_New_ApiModel_Selection_Required_For_Write_Override(models.Model):  # noqa: F811
-    _inherit = ['test_new_api.model_selection_required_for_write_override']
+    _inherit = 'test_new_api.model_selection_required_for_write_override'
 
     my_selection = fields.Selection(selection_add=[
         ('divinity', "Divinity: Original Sin 2"),
@@ -1420,6 +1499,7 @@ class Test_New_ApiModel_Selection_Required_For_Write_Override(models.Model):  # 
 
 # See the method test_shared_cache_computed_field
 class Test_New_ApiModel_Shared_Cache_Compute_Parent(models.Model):
+    _name = 'test_new_api.model_shared_cache_compute_parent'
     _description = 'model_shared_cache_compute_parent'
 
     name = fields.Char(string="Task Name")
@@ -1434,6 +1514,7 @@ class Test_New_ApiModel_Shared_Cache_Compute_Parent(models.Model):
 
 
 class Test_New_ApiModel_Shared_Cache_Compute_Line(models.Model):
+    _name = 'test_new_api.model_shared_cache_compute_line'
     _description = 'model_shared_cache_compute_line'
 
     parent_id = fields.Many2one('test_new_api.model_shared_cache_compute_parent')
@@ -1442,6 +1523,7 @@ class Test_New_ApiModel_Shared_Cache_Compute_Line(models.Model):
 
 
 class Test_New_ApiComputeContainer(models.Model):
+    _name = 'test_new_api.compute.container'
     _description = 'test_new_api.compute.container'
 
     name = fields.Char()
@@ -1455,6 +1537,7 @@ class Test_New_ApiComputeContainer(models.Model):
 
 
 class Test_New_ApiComputeMember(models.Model):
+    _name = 'test_new_api.compute.member'
     _description = 'test_new_api.compute.member'
 
     name = fields.Char()
@@ -1468,6 +1551,7 @@ class Test_New_ApiComputeMember(models.Model):
 
 
 class Test_New_ApiUser(models.Model):
+    _name = 'test_new_api.user'
     _description = 'test_new_api.user'
     _allow_sudo_commands = False
 
@@ -1482,6 +1566,7 @@ class Test_New_ApiUser(models.Model):
 
 
 class Test_New_ApiGroup(models.Model):
+    _name = 'test_new_api.group'
     _description = 'test_new_api.group'
     _allow_sudo_commands = False
 
@@ -1490,6 +1575,7 @@ class Test_New_ApiGroup(models.Model):
 
 
 class Test_New_ApiModelNo_Access(models.Model):
+    _name = 'test_new_api.model.no_access'
     _description = "Testing Utilities attrs and groups: if never access rights"
 
     ab = fields.Integer(default=1)
@@ -1497,6 +1583,7 @@ class Test_New_ApiModelNo_Access(models.Model):
 
 
 class Test_New_ApiModelAll_Access(models.Model):
+    _name = 'test_new_api.model.all_access'
     _description = "Testing Utilities attrs and groups: if free access rights"
 
     ab = fields.Integer(default=1)
@@ -1508,6 +1595,7 @@ class Test_New_ApiModelAll_Access(models.Model):
 
 
 class Test_New_ApiModelSome_Access(models.Model):
+    _name = 'test_new_api.model.some_access'
     _description = 'Testing Utilities attrs and groups'
 
     a = fields.Integer()
@@ -1525,6 +1613,7 @@ class Test_New_ApiModelSome_Access(models.Model):
 
 
 class Test_New_ApiModel2Some_Access(models.Model):
+    _name = 'test_new_api.model2.some_access'
     _description = 'Testing Utilities attrs and groups sub'
 
     g_id = fields.Many2one('test_new_api.model.some_access', domain='[("a", "=", g_d)]')
@@ -1532,6 +1621,7 @@ class Test_New_ApiModel2Some_Access(models.Model):
 
 
 class Test_New_ApiModel3Some_Access(models.Model):
+    _name = 'test_new_api.model3.some_access'
     _description = 'Testing Utilities attrs and groups sub sub'
 
     xxx_id = fields.Many2one('test_new_api.model2.some_access')
@@ -1539,6 +1629,7 @@ class Test_New_ApiModel3Some_Access(models.Model):
 
 
 class Test_New_ApiComputedModifier(models.Model):
+    _name = 'test_new_api.computed.modifier'
     _description = 'Test onchange and compute for automatically added invisible fields'
 
     foo = fields.Integer()
@@ -1558,6 +1649,7 @@ class Test_New_ApiComputedModifier(models.Model):
 
 
 class Test_New_ApiCompute_Editable(models.Model):
+    _name = 'test_new_api.compute_editable'
     _description = 'test_new_api.compute_editable'
 
     precision_rounding = fields.Float(default=0.01, digits=(1, 10))
@@ -1571,6 +1663,7 @@ class Test_New_ApiCompute_Editable(models.Model):
 
 
 class Test_New_ApiCompute_EditableLine(models.Model):
+    _name = 'test_new_api.compute_editable.line'
     _description = 'test_new_api.compute_editable.line'
 
     parent_id = fields.Many2one('test_new_api.compute_editable')
@@ -1597,6 +1690,7 @@ class Test_New_ApiCompute_EditableLine(models.Model):
 
 
 class Test_New_ApiModel_Constrained_Unlinks(models.Model):
+    _name = 'test_new_api.model_constrained_unlinks'
     _description = 'Model with unlink override that is constrained'
 
     foo = fields.Char()
@@ -1616,6 +1710,7 @@ class Test_New_ApiModel_Constrained_Unlinks(models.Model):
 
 
 class Test_New_ApiTriggerLeft(models.Model):
+    _name = 'test_new_api.trigger.left'
     _description = 'model with a related many2one'
 
     middle_ids = fields.One2many('test_new_api.trigger.middle', 'left_id')
@@ -1623,6 +1718,7 @@ class Test_New_ApiTriggerLeft(models.Model):
 
 
 class Test_New_ApiTriggerMiddle(models.Model):
+    _name = 'test_new_api.trigger.middle'
     _description = 'model linking test_new_api.trigger.left and test_new_api.trigger.right'
 
     left_id = fields.Many2one('test_new_api.trigger.left', required=True)
@@ -1630,6 +1726,7 @@ class Test_New_ApiTriggerMiddle(models.Model):
 
 
 class Test_New_ApiTriggerRight(models.Model):
+    _name = 'test_new_api.trigger.right'
     _description = 'model with a dependency on the inverse of the related many2one'
 
     left_ids = fields.One2many('test_new_api.trigger.left', 'right_id')
@@ -1642,6 +1739,7 @@ class Test_New_ApiTriggerRight(models.Model):
 
 
 class Test_New_ApiCrew(models.Model):
+    _name = 'test_new_api.crew'
     _description = 'All yaaaaaarrrrr by ship'
     _table = 'test_new_api_crew'
 
@@ -1653,6 +1751,7 @@ class Test_New_ApiCrew(models.Model):
 
 
 class Test_New_ApiShip(models.Model):
+    _name = 'test_new_api.ship'
     _description = 'Yaaaarrr machine'
 
     name = fields.Char('Name')
@@ -1661,6 +1760,7 @@ class Test_New_ApiShip(models.Model):
 
 
 class Test_New_ApiPirate(models.Model):
+    _name = 'test_new_api.pirate'
     _description = 'Yaaarrr'
 
     name = fields.Char('Name')
@@ -1668,6 +1768,7 @@ class Test_New_ApiPirate(models.Model):
 
 
 class Test_New_ApiPrisoner(models.Model):
+    _name = 'test_new_api.prisoner'
     _description = 'Yaaarrr minions'
 
     name = fields.Char('Name')
@@ -1675,6 +1776,7 @@ class Test_New_ApiPrisoner(models.Model):
 
 
 class Test_New_ApiPrecompute(models.Model):
+    _name = 'test_new_api.precompute'
     _description = 'model with precomputed fields'
 
     name = fields.Char(required=True)
@@ -1718,6 +1820,7 @@ class Test_New_ApiPrecompute(models.Model):
 
 
 class Test_New_ApiPrecomputeLine(models.Model):
+    _name = 'test_new_api.precompute.line'
     _description = 'secondary model with precomputed fields'
 
     parent_id = fields.Many2one('test_new_api.precompute')
@@ -1731,6 +1834,7 @@ class Test_New_ApiPrecomputeLine(models.Model):
 
 
 class Test_New_ApiPrecomputeCombo(models.Model):
+    _name = 'test_new_api.precompute.combo'
     _description = 'yet another model with precomputed fields'
 
     name = fields.Char()
@@ -1758,6 +1862,7 @@ class Test_New_ApiPrecomputeCombo(models.Model):
 
 
 class Test_New_ApiPrecomputeEditable(models.Model):
+    _name = 'test_new_api.precompute.editable'
     _description = 'yet another model with precomputed editable fields'
 
     foo = fields.Char()
@@ -1782,6 +1887,7 @@ class Test_New_ApiPrecomputeEditable(models.Model):
 
 
 class Test_New_ApiPrecomputeReadonly(models.Model):
+    _name = 'test_new_api.precompute.readonly'
     _description = 'a model with precomputed readonly fields'
 
     foo = fields.Char()
@@ -1802,6 +1908,7 @@ class Test_New_ApiPrecomputeReadonly(models.Model):
 
 
 class Test_New_ApiPrecomputeRequired(models.Model):
+    _name = 'test_new_api.precompute.required'
     _description = 'a model with precomputed required fields'
 
     partner_id = fields.Many2one('res.partner', required=True)
@@ -1809,6 +1916,7 @@ class Test_New_ApiPrecomputeRequired(models.Model):
 
 
 class Test_New_ApiPrecomputeMonetary(models.Model):
+    _name = 'test_new_api.precompute.monetary'
     _description = 'a model with precomputed monetary and currency'
 
     amount = fields.Monetary(
@@ -1825,6 +1933,7 @@ class Test_New_ApiPrecomputeMonetary(models.Model):
 
 
 class Test_New_ApiPrefetch(models.Model):
+    _name = 'test_new_api.prefetch'
     _description = 'A model to check the prefetching of fields (translated and group)'
 
     name = fields.Char('Name', translate=True)
@@ -1842,6 +1951,7 @@ class Test_New_ApiPrefetch(models.Model):
 
 
 class Test_New_ApiPrefetchLine(models.Model):
+    _name = 'test_new_api.prefetch.line'
     _description = 'test_new_api.prefetch.line'
 
     prefetch_id = fields.Many2one('test_new_api.prefetch')
@@ -1849,6 +1959,7 @@ class Test_New_ApiPrefetchLine(models.Model):
 
 
 class Test_New_ApiModified(models.Model):
+    _name = 'test_new_api.modified'
     _description = 'A model to check modified trigger'
 
     name = fields.Char('Name')
@@ -1862,6 +1973,7 @@ class Test_New_ApiModified(models.Model):
 
 
 class Test_New_ApiModifiedLine(models.Model):
+    _name = 'test_new_api.modified.line'
     _description = 'A model to check modified trigger'
 
     modified_id = fields.Many2one('test_new_api.modified')
@@ -1886,6 +1998,7 @@ class Test_New_ApiModifiedLine(models.Model):
 
 
 class Test_New_ApiRelated_Translation_1(models.Model):
+    _name = 'test_new_api.related_translation_1'
     _description = 'A model to test translation for related fields'
 
     name = fields.Char('Name', translate=True)
@@ -1893,6 +2006,7 @@ class Test_New_ApiRelated_Translation_1(models.Model):
 
 
 class Test_New_ApiRelated_Translation_2(models.Model):
+    _name = 'test_new_api.related_translation_2'
     _description = 'A model to test translation for related fields'
 
     related_id = fields.Many2one('test_new_api.related_translation_1', string='Parent Model')
@@ -1915,6 +2029,7 @@ class Test_New_ApiRelated_Translation_2(models.Model):
 
 
 class Test_New_ApiRelated_Translation_3(models.Model):
+    _name = 'test_new_api.related_translation_3'
     _description = 'A model to test translation for related fields'
 
     related_id = fields.Many2one('test_new_api.related_translation_2', string='Parent Model')
@@ -1923,24 +2038,28 @@ class Test_New_ApiRelated_Translation_3(models.Model):
 
 
 class Test_New_ApiIndexed_Translation(models.Model):
+    _name = 'test_new_api.indexed_translation'
     _description = 'A model to indexed translated fields'
 
     name = fields.Text('Name trigram', translate=True, index='trigram')
 
 
 class Test_New_ApiEmpty_Char(models.Model):
+    _name = 'test_new_api.empty_char'
     _description = 'A model to test emtpy char'
 
     name = fields.Char('Name')
 
 
 class Test_New_ApiEmpty_Int(models.Model):
+    _name = 'test_new_api.empty_int'
     _description = 'A model to test empty int'
 
     number = fields.Integer('Number')
 
 
 class Test_New_ApiTeam(models.Model):
+    _name = 'test_new_api.team'
     _description = 'Odoo Team'
 
     name = fields.Char()
@@ -1949,6 +2068,7 @@ class Test_New_ApiTeam(models.Model):
 
 
 class Test_New_ApiTeamMember(models.Model):
+    _name = 'test_new_api.team.member'
     _description = 'Odoo Developer'
 
     name = fields.Char('Name')
@@ -1957,6 +2077,7 @@ class Test_New_ApiTeamMember(models.Model):
 
 
 class Test_New_ApiUnsearchableO2m(models.Model):
+    _name = 'test_new_api.unsearchable.o2m'
     _description = 'Test non-stored unsearchable o2m'
 
     name = fields.Char('Name')
@@ -1971,6 +2092,7 @@ class Test_New_ApiUnsearchableO2m(models.Model):
 
 
 class Test_New_ApiAnyParent(models.Model):
+    _name = 'test_new_api.any.parent'
     _description = 'Any Parent'
 
     name = fields.Char()
@@ -1978,6 +2100,7 @@ class Test_New_ApiAnyParent(models.Model):
 
 
 class Test_New_ApiAnyChild(models.Model):
+    _name = 'test_new_api.any.child'
     _description = 'Any Child'
     _inherits = {
         'test_new_api.any.parent': 'parent_id',
@@ -1990,6 +2113,7 @@ class Test_New_ApiAnyChild(models.Model):
 
 
 class Test_New_ApiAnyTag(models.Model):
+    _name = 'test_new_api.any.tag'
     _description = 'Any tag'
 
     name = fields.Char()
@@ -1997,12 +2121,14 @@ class Test_New_ApiAnyTag(models.Model):
 
 
 class Test_New_ApiHierarchyHead(models.Model):
+    _name = 'test_new_api.hierarchy.head'
     _description = 'Hierarchy Head'
 
     node_id = fields.Many2one('test_new_api.hierarchy.node')
 
 
 class Test_New_ApiHierarchyNode(models.Model):
+    _name = 'test_new_api.hierarchy.node'
     _description = 'Hierarchy Node'
 
     name = fields.Char()
@@ -2011,6 +2137,7 @@ class Test_New_ApiHierarchyNode(models.Model):
 
 
 class Test_New_ApiCustomView(models.Model):
+    _name = 'test_new_api.custom.view'
     _description = "test_new_api.custom.view"
     _auto = False
     _depends = {
@@ -2035,6 +2162,7 @@ class Test_New_ApiCustomView(models.Model):
 
 
 class Test_New_ApiCustomTable_Query(models.Model):
+    _name = 'test_new_api.custom.table_query'
     _description = "test_new_api.custom.table_query"
     _auto = False
     _depends = {
@@ -2057,6 +2185,7 @@ class Test_New_ApiCustomTable_Query(models.Model):
 
 
 class Test_New_ApiCustomTable_Query_Sql(models.Model):
+    _name = 'test_new_api.custom.table_query_sql'
     _description = "test_new_api.custom.table_query_sql"
     _auto = False
     _depends = {
@@ -2081,6 +2210,7 @@ class Test_New_ApiCustomTable_Query_Sql(models.Model):
 
 
 class Test_New_ApiAutovacuumed(models.Model):
+    _name = 'test_new_api.autovacuumed'
     _description = 'test_new_api.autovacuumed'
 
     expire_at = fields.Datetime('Expires at')
@@ -2091,6 +2221,7 @@ class Test_New_ApiAutovacuumed(models.Model):
 
 
 class Test_New_ApiSharedCompute(models.Model):
+    _name = 'test_new_api.shared.compute'
     _description = 'test_new_api.shared.compute'
 
     name = fields.Char(compute='_compute_name', store=True, readonly=False)

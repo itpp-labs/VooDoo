@@ -8,6 +8,7 @@ PEGASUS_REGIONS = ['M4R', 'P3Y', 'M6R']
 
 
 class Test_HttpStargate(models.Model):
+    _name = 'test_http.stargate'
     _description = 'Stargate'
     _inherit = ['mail.thread', 'mail.activity.mixin']
 
@@ -24,9 +25,10 @@ class Test_HttpStargate(models.Model):
     availability = fields.Float(default=0.99, aggregator="avg")
     last_use_date = fields.Date()
 
-    _sql_constraints = [
-        ('address_length', 'CHECK(LENGTH(address) = 6)', "Local addresses have 6 glyphs"),
-    ]
+    _address_length = models.Constraint(
+        'CHECK(LENGTH(address) = 6)',
+        "Local addresses have 6 glyphs",
+    )
 
     @api.depends('galaxy_id')
     def _compute_has_galaxy_crystal(self):
@@ -63,6 +65,7 @@ class Test_HttpStargate(models.Model):
 
 
 class Test_HttpGalaxy(models.Model):
+    _name = 'test_http.galaxy'
     _description = 'Galaxy'
 
     name = fields.Char(required=True, help='The galaxy common name.')

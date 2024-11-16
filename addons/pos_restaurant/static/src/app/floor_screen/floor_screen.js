@@ -3,10 +3,10 @@ import { sprintf } from "@web/core/utils/strings";
 import { debounce } from "@web/core/utils/timing";
 import { registry } from "@web/core/registry";
 
-import { TextInputPopup } from "@point_of_sale/app/utils/input_popups/text_input_popup";
-import { NumberPopup } from "@point_of_sale/app/utils/input_popups/number_popup";
+import { TextInputPopup } from "@point_of_sale/app/components/popups/text_input_popup/text_input_popup";
+import { NumberPopup } from "@point_of_sale/app/components/popups/number_popup/number_popup";
 import { AlertDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
-import { usePos } from "@point_of_sale/app/store/pos_hook";
+import { usePos } from "@point_of_sale/app/hooks/pos_hook";
 import { useService } from "@web/core/utils/hooks";
 import {
     Component,
@@ -17,22 +17,18 @@ import {
     useEffect,
     useExternalListener,
 } from "@odoo/owl";
-import { ask } from "@point_of_sale/app/store/make_awaitable_dialog";
+import { ask } from "@point_of_sale/app/utils/make_awaitable_dialog";
 import { loadImage } from "@point_of_sale/utils";
 import { getDataURLFromFile } from "@web/core/utils/urls";
 import { hasTouch } from "@web/core/browser/feature_detection";
-import {
-    getButtons,
-    DECIMAL,
-    ZERO,
-    BACKSPACE,
-} from "@point_of_sale/app/generic_components/numpad/numpad";
+import { getButtons, DECIMAL, ZERO, BACKSPACE } from "@point_of_sale/app/components/numpad/numpad";
 import { makeDraggableHook } from "@web/core/utils/draggable_hook_builder_owl";
 import { pick } from "@web/core/utils/objects";
 import { getOrderChanges } from "@point_of_sale/app/models/utils/order_change";
 import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
-import { useTrackedAsync } from "@point_of_sale/app/utils/hooks";
+import { useTrackedAsync } from "@point_of_sale/app/hooks/hooks";
+import { FloorEditingPopup } from "../popup/floor_editing_popup/floor_editing_popup";
 
 function constrain(num, min, max) {
     return Math.min(Math.max(num, min), max);
@@ -531,7 +527,7 @@ export class FloorScreen extends Component {
                 floor_id: this.activeFloor.id,
             };
         }
-        if (!duplicateFloor) {
+        if (!duplicateFloor && !copyTable) {
             newTableData.table_number = this._getNewTableNumber();
         }
         const table = await this.createTableFromRaw(newTableData);
@@ -544,8 +540,15 @@ export class FloorScreen extends Component {
     }
     _getNewTableNumber() {
         let firstNum = 1;
+        const floorPrefix = this.activeFloor.floor_prefix;
+        const floorPrefixLength = floorPrefix.toString().length;
         const tablesNumber = this.activeTables
-            .map((table) => table.table_number)
+            .filter(
+                (table) =>
+                    parseInt(table.table_number.toString().slice(0, floorPrefixLength)) ===
+                        floorPrefix && table.table_number.toString().length > floorPrefixLength
+            )
+            .map((table) => parseInt(table.table_number.toString().slice(floorPrefixLength)))
             .sort(function (a, b) {
                 return a - b;
             });
@@ -557,7 +560,7 @@ export class FloorScreen extends Component {
                 break;
             }
         }
-        return firstNum;
+        return parseInt(floorPrefix + firstNum.toString().padStart(2, "0"));
     }
     get activeFloor() {
         return this.state.selectedFloorId
@@ -637,6 +640,10 @@ export class FloorScreen extends Component {
             title: _t("New Floor"),
             placeholder: _t("Floor name"),
             getPayload: async (newName) => {
+                const prefixes = this.pos.models["restaurant.floor"]
+                    .map((floor) => floor.floor_prefix)
+                    .sort((a, b) => b - a);
+                const highestPrefix = prefixes[0] || 0;
                 const floor = await this.pos.data.create(
                     "restaurant.floor",
                     [
@@ -644,6 +651,7 @@ export class FloorScreen extends Component {
                             name: newName,
                             background_color: "#FFFFFF",
                             pos_config_ids: [this.pos.config.id],
+                            floor_prefix: highestPrefix + 1,
                         },
                     ],
                     false
@@ -669,6 +677,7 @@ export class FloorScreen extends Component {
             {
                 name: newFloorName,
                 background_color: "#ACADAD",
+                floor_prefix: this.activeFloor.floor_prefix,
                 pos_config_ids: [this.pos.config.id],
             },
         ]);
@@ -694,15 +703,21 @@ export class FloorScreen extends Component {
         }
     }
     async renameFloor() {
-        this.dialog.add(TextInputPopup, {
-            startingValue: this.activeFloor.name,
-            title: _t("Floor Name ?"),
-            getPayload: (newName) => {
-                if (newName !== this.activeFloor.name) {
-                    this.activeFloor.name = newName;
-                    this.pos.data.write("restaurant.floor", [this.activeFloor.id], {
-                        name: newName,
+        this.dialog.add(FloorEditingPopup, {
+            title: _t("Floor edit"),
+            floor: this.activeFloor,
+            getPayload: async (data) => {
+                if (data.floor_prefix && data.name) {
+                    await this.pos.data.ormWrite("restaurant.floor", [this.activeFloor.id], {
+                        name: data.name,
+                        floor_prefix: data.floor_prefix,
                     });
+                    this.activeFloor.name = data.name;
+                    this.activeFloor.floor_prefix = data.floor_prefix;
+                    await this.pos.data.read(
+                        "restaurant.table",
+                        this.activeFloor.table_ids.map((t) => t.id)
+                    );
                 }
             },
         });
@@ -712,13 +727,22 @@ export class FloorScreen extends Component {
             return;
         }
         if (this.selectedTables.length === 1) {
+            const allTableNumber = this.pos.models["restaurant.table"]
+                .filter((t) => t.table_number !== this.selectedTables[0].table_number)
+                .map((t) => t.table_number);
             this.dialog.add(NumberPopup, {
                 startingValue: parseInt(this.selectedTables[0].table_number) || false,
                 title: _t("Change table number?"),
                 placeholder: _t("Enter a table number"),
                 buttons: getButtons([{ ...DECIMAL, disabled: true }, ZERO, BACKSPACE]),
-                isValid: (x) => x,
+                isValid: (x) => !allTableNumber.includes(parseInt(x)),
+                isValidFeedback: (x) => _t("Warning, table number %s is already taken", x),
+                isValidBlocking: false,
                 getPayload: (newNumber) => {
+                    if (!newNumber) {
+                        return;
+                    }
+
                     if (parseInt(newNumber) !== this.selectedTables[0].table_number) {
                         this.pos.data.write("restaurant.table", [this.selectedTables[0].id], {
                             table_number: parseInt(newNumber),

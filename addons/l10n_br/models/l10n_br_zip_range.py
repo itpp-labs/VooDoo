@@ -6,16 +6,21 @@ from odoo.exceptions import ValidationError
 
 
 class L10n_BrZipRange(models.Model):
+    _name = 'l10n_br.zip.range'
     _description = "Brazilian city zip range"
 
     city_id = fields.Many2one("res.city", string="City", required=True)
     start = fields.Char(string="From", required=True)
     end = fields.Char(string="To", required=True)
 
-    _sql_constraints = [
-        ("uniq_start", "unique(start)", 'The "from" zip must be unique'),
-        ("uniq_end", 'unique("end")', 'The "to" zip must be unique.'),
-    ]
+    _uniq_start = models.Constraint(
+        'unique(start)',
+        'The "from" zip must be unique',
+    )
+    _uniq_end = models.Constraint(
+        'unique("end")',
+        'The "to" zip must be unique.',
+    )
 
     @api.constrains("start", "end")
     def _check_range(self):

@@ -8,6 +8,7 @@ from odoo.tools import format_list
 
 
 class MrpAccountWipAccountingLine(models.TransientModel):
+    _name = 'mrp.account.wip.accounting.line'
     _description = 'Account move line to be created when posting WIP account move'
 
     account_id = fields.Many2one('account.account', "Account")
@@ -17,10 +18,10 @@ class MrpAccountWipAccountingLine(models.TransientModel):
     currency_id = fields.Many2one('res.currency', "Currency", default=lambda self: self.env.company.currency_id)
     wip_accounting_id = fields.Many2one('mrp.account.wip.accounting', "WIP accounting wizard")
 
-    _sql_constraints = [
-        ('check_debit_credit', 'CHECK ( debit = 0 OR credit = 0 )',
-         'A single line cannot be both credit and debit.')
-    ]
+    _check_debit_credit = models.Constraint(
+        'CHECK ( debit = 0 OR credit = 0 )',
+        'A single line cannot be both credit and debit.',
+    )
 
     @api.depends('credit')
     def _compute_debit(self):
@@ -36,6 +37,7 @@ class MrpAccountWipAccountingLine(models.TransientModel):
 
 
 class MrpAccountWipAccounting(models.TransientModel):
+    _name = 'mrp.account.wip.accounting'
     _description = 'Wizard to post Manufacturing WIP account move'
 
     @api.model

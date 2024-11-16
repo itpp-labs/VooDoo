@@ -12,6 +12,7 @@ from odoo.tools import html_escape
 
 
 class BlogBlog(models.Model):
+    _name = 'blog.blog'
     _description = 'Blog'
     _inherit = [
         'mail.thread',
@@ -22,6 +23,10 @@ class BlogBlog(models.Model):
     ]
     _order = 'name'
 
+    def _default_sequence(self):
+        return (self.search([], order="sequence desc", limit=1).sequence or 0) + 1
+
+    sequence = fields.Integer("Sequence", default=_default_sequence)
     name = fields.Char('Blog Name', required=True, translate=True)
     subtitle = fields.Char('Blog Subtitle', translate=True)
     active = fields.Boolean('Active', default=True)
@@ -122,18 +127,21 @@ class BlogBlog(models.Model):
 
 
 class BlogTagCategory(models.Model):
+    _name = 'blog.tag.category'
     _description = 'Blog Tag Category'
     _order = 'name'
 
     name = fields.Char('Name', required=True, translate=True)
     tag_ids = fields.One2many('blog.tag', 'category_id', string='Tags')
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (name)', "Tag category already exists!"),
-    ]
+    _name_uniq = models.Constraint(
+        'unique (name)',
+        'Tag category already exists!',
+    )
 
 
 class BlogTag(models.Model):
+    _name = 'blog.tag'
     _description = 'Blog Tag'
     _inherit = ['website.seo.metadata']
     _order = 'name'
@@ -143,12 +151,14 @@ class BlogTag(models.Model):
     color = fields.Integer('Color')
     post_ids = fields.Many2many('blog.post', string='Posts')
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (name)', "Tag name already exists!"),
-    ]
+    _name_uniq = models.Constraint(
+        'unique (name)',
+        'Tag name already exists!',
+    )
 
 
 class BlogPost(models.Model):
+    _name = 'blog.post'
     _description = "Blog Post"
     _inherit = ['mail.thread', 'website.seo.metadata', 'website.published.multi.mixin',
         'website.cover_properties.mixin', 'website.searchable.mixin']

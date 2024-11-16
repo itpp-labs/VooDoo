@@ -258,7 +258,7 @@ test("properly handle case when action xmlId does not exist", async () => {
 test("actions can be cached", async () => {
     onRpc("/web/action/load", async (request) => {
         const { params } = await request.json();
-        expect.step(JSON.stringify(params));
+        expect.step(params.context);
     });
 
     await makeMockEnv();
@@ -293,16 +293,22 @@ test("actions can be cached", async () => {
     await getService("action").loadAction(3, { active_model: "b" });
 
     // should load from server once per active_id/active_ids/active_model change, nothing else
+    const baseCtx = {
+        lang: "en",
+        tz: "taht",
+        uid: 7,
+        allowed_company_ids: [1],
+    };
     expect.verifySteps([
-        '{"action_id":3,"context":{"lang":"en","tz":"taht","uid":7,"allowed_company_ids":[1]}}',
-        '{"action_id":3,"context":{"lang":"en","tz":"taht","uid":7,"allowed_company_ids":[1],"configuratorMode":"add"}}',
-        '{"action_id":3,"context":{"lang":"en","tz":"taht","uid":7,"allowed_company_ids":[1],"configuratorMode":"edit"}}',
-        '{"action_id":3,"context":{"lang":"en","tz":"taht","uid":7,"allowed_company_ids":[1],"active_id":1}}',
-        '{"action_id":3,"context":{"lang":"en","tz":"taht","uid":7,"allowed_company_ids":[1],"active_id":2}}',
-        '{"action_id":3,"context":{"lang":"en","tz":"taht","uid":7,"allowed_company_ids":[1],"active_ids":[1,2]}}',
-        '{"action_id":3,"context":{"lang":"en","tz":"taht","uid":7,"allowed_company_ids":[1],"active_ids":[1,2,3]}}',
-        '{"action_id":3,"context":{"lang":"en","tz":"taht","uid":7,"allowed_company_ids":[1],"active_model":"a"}}',
-        '{"action_id":3,"context":{"lang":"en","tz":"taht","uid":7,"allowed_company_ids":[1],"active_model":"b"}}',
+        { ...baseCtx },
+        { ...baseCtx, configuratorMode: "add" },
+        { ...baseCtx, configuratorMode: "edit" },
+        { ...baseCtx, active_id: 1 },
+        { ...baseCtx, active_id: 2 },
+        { ...baseCtx, active_ids: [1, 2] },
+        { ...baseCtx, active_ids: [1, 2, 3] },
+        { ...baseCtx, active_model: "a" },
+        { ...baseCtx, active_model: "b" },
     ]);
 });
 
@@ -620,49 +626,45 @@ test("retrieving a stored action should remove 'allowed_company_ids' from its co
     });
 });
 
-test.tags("desktop")(
-    "action is removed while waiting for another action with selectMenu",
-    async () => {
-        let def;
-        class SlowClientAction extends Component {
-            static template = xml`<div>My client action</div>`;
-            static props = ["*"];
+test.tags("desktop");
+test("action is removed while waiting for another action with selectMenu", async () => {
+    let def;
+    class SlowClientAction extends Component {
+        static template = xml`<div>My client action</div>`;
+        static props = ["*"];
 
-            setup() {
-                onWillStart(() => def);
-            }
+        setup() {
+            onWillStart(() => def);
         }
-        actionRegistry.add("slow_client_action", SlowClientAction);
-        defineActions([
-            {
-                id: 1001,
-                tag: "slow_client_action",
-                target: "main",
-                type: "ir.actions.client",
-                params: { description: "Id 1" },
-            },
-        ]);
-        defineMenus([
-            { id: 1, children: [], name: "App1", appID: 1, actionID: 1001, xmlid: "menu_1" },
-        ]);
-
-        await mountWithCleanup(WebClient);
-        // starting point: a kanban view
-        await getService("action").doAction(4);
-        expect(".o_kanban_view").toHaveCount(1);
-
-        // select app in navbar menu
-        def = new Deferred();
-        await contains(".o_navbar_apps_menu .dropdown-toggle").click();
-        const appsMenu = getDropdownMenu(".o_navbar_apps_menu");
-        await contains(".o_app:contains(App1)", { root: appsMenu }).click();
-
-        // check that the action manager is empty, even though client action is loading
-        expect(".o_action_manager").toHaveText("");
-
-        // resolve onwillstart so client action is ready
-        def.resolve();
-        await animationFrame();
-        expect(".o_action_manager").toHaveText("My client action");
     }
-);
+    actionRegistry.add("slow_client_action", SlowClientAction);
+    defineActions([
+        {
+            id: 1001,
+            tag: "slow_client_action",
+            target: "main",
+            type: "ir.actions.client",
+            params: { description: "Id 1" },
+        },
+    ]);
+    defineMenus([{ id: 1, children: [], name: "App1", appID: 1, actionID: 1001, xmlid: "menu_1" }]);
+
+    await mountWithCleanup(WebClient);
+    // starting point: a kanban view
+    await getService("action").doAction(4);
+    expect(".o_kanban_view").toHaveCount(1);
+
+    // select app in navbar menu
+    def = new Deferred();
+    await contains(".o_navbar_apps_menu .dropdown-toggle").click();
+    const appsMenu = getDropdownMenu(".o_navbar_apps_menu");
+    await contains(".o_app:contains(App1)", { root: appsMenu }).click();
+
+    // check that the action manager is empty, even though client action is loading
+    expect(".o_action_manager").toHaveText("");
+
+    // resolve onwillstart so client action is ready
+    def.resolve();
+    await animationFrame();
+    expect(".o_action_manager").toHaveText("My client action");
+});

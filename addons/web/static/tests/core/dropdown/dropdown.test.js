@@ -12,7 +12,7 @@ import {
 import { Deferred, animationFrame, runAllTimers } from "@odoo/hoot-mock";
 import { App, Component, onMounted, onPatched, useState, xml } from "@odoo/owl";
 
-import { getMockEnv, makeMockEnv } from "@web/../tests/_framework/env_test_helpers";
+import { getMockEnv, makeMockEnv, mockService } from "@web/../tests/_framework/env_test_helpers";
 import { getPickerCell } from "@web/../tests/core/datetime/datetime_test_helpers";
 import { defineParams, mountWithCleanup, patchWithCleanup } from "@web/../tests/web_test_helpers";
 import { DateTimeInput } from "@web/core/datetime/datetime_input";
@@ -1326,14 +1326,13 @@ test("multi-level dropdown: submenu keeps position when patched", async () => {
     expect.verifySteps(["submenu patched"]);
 });
 
-test.tags("desktop")(
-    "multi-level dropdown: mouseentering a dropdown item should close any subdropdown",
-    async () => {
-        expect.assertions(4);
-        class Parent extends Component {
-            static components = { Dropdown, DropdownItem };
-            static props = [];
-            static template = xml`
+test.tags("desktop");
+test("multi-level dropdown: mouseentering a dropdown item should close any subdropdown", async () => {
+    expect.assertions(4);
+    class Parent extends Component {
+        static components = { Dropdown, DropdownItem };
+        static props = [];
+        static template = xml`
                     <Dropdown>
                         <button class="main">Main</button>
                         <t t-set-slot="content">
@@ -1347,32 +1346,31 @@ test.tags("desktop")(
                         </t>
                     </Dropdown>
                 `;
-        }
-        await mountWithCleanup(Parent);
-        expect(DROPDOWN_MENU).toHaveCount(0, {
-            message: "menus are closed at the start",
-        });
-
-        // Open main dropdown
-        await click(".main");
-        await animationFrame();
-        expect(DROPDOWN_MENU).toHaveCount(1, {
-            message: "1st menu is opened",
-        });
-
-        // Mouse enter sub dropdown
-        await hover(".sub");
-        await animationFrame();
-        expect(DROPDOWN_MENU).toHaveCount(2);
-
-        // Mouse enter the adjacent dropdown item
-        await hover(".item");
-        await animationFrame();
-        expect(DROPDOWN_MENU).toHaveCount(1, {
-            message: "only 1st menu is opened",
-        });
     }
-);
+    await mountWithCleanup(Parent);
+    expect(DROPDOWN_MENU).toHaveCount(0, {
+        message: "menus are closed at the start",
+    });
+
+    // Open main dropdown
+    await click(".main");
+    await animationFrame();
+    expect(DROPDOWN_MENU).toHaveCount(1, {
+        message: "1st menu is opened",
+    });
+
+    // Mouse enter sub dropdown
+    await hover(".sub");
+    await animationFrame();
+    expect(DROPDOWN_MENU).toHaveCount(2);
+
+    // Mouse enter the adjacent dropdown item
+    await hover(".item");
+    await animationFrame();
+    expect(DROPDOWN_MENU).toHaveCount(1, {
+        message: "only 1st menu is opened",
+    });
+});
 
 test.tags("desktop")("multi-level dropdown: unsubscribe all keynav when root close", async () => {
     class Parent extends Component {
@@ -1423,8 +1421,8 @@ test.tags("desktop")("multi-level dropdown: unsubscribe all keynav when root clo
         keySet.clear();
     }
 
-    const env = await makeMockEnv();
-    patchWithCleanup(env.services.hotkey, {
+    await makeMockEnv();
+    mockService("hotkey", {
         add(key) {
             const remove = super.add(...arguments);
             registeredHotkeys.add(key);
@@ -1435,7 +1433,7 @@ test.tags("desktop")("multi-level dropdown: unsubscribe all keynav when root clo
         },
     });
 
-    await mountWithCleanup(Parent, { env });
+    await mountWithCleanup(Parent);
     expect(DROPDOWN_MENU).toHaveCount(0);
     expect(registeredHotkeys.size).toBe(0);
 

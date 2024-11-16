@@ -39,7 +39,6 @@
                         <filter string="Customer" name="customer" context="{'group_by': 'partner_id'}"/>
                         <filter string="Company" name="company_id" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
                         <filter string="Creation Date" name="create_date" context="{'group_by': 'create_date'}"/>
-                        <filter string="Assignment Date" name="date_assign" context="{'group_by': 'date_assign'}"/>
                         <filter string="Last Stage Update" name="last_stage_update" context="{'group_by': 'date_last_stage_update'}"/>
                     </group>
                 </search>
@@ -741,7 +740,7 @@
                     <field name="allow_milestones" column_invisible="True"/>
                     <field name="subtask_count" column_invisible="True"/>
                     <field name="closed_subtask_count" column_invisible="True"/>
-                    <field name="id" optional="hide" options="{'enable_formatting': False}"/>
+                    <field name="id" optional="hide" options="{'enable_formatting': False}" width="30px"/>
                     <field name="priority" widget="priority" nolabel="1" width="20px"/>
                     <field name="state" widget="project_task_state_selection" nolabel="1" width="20px" options="{'is_toggle_mode': false}"/>
                     <field name="name" string="Title" widget="name_with_subtask_count"/>
@@ -783,7 +782,7 @@
                     <field name="recurrence_id" column_invisible="True" />
                 </list>
                 <xpath expr="//field[@name='partner_id']" position="after">
-                    <field name="parent_id" optional="hide" context="{'search_view_ref': 'project.view_task_search_form', 'search_default_project_id': project_id}" groups="base.group_no_one"/>
+                    <field name="parent_id" optional="hide" context="{'search_view_ref': 'project.view_task_search_form', 'search_default_project_id': project_id}"/>
                 </xpath>
                 <xpath expr="//field[@name='stage_id']" position="after">
                     <field name="personal_stage_type_id" string="Personal Stage" optional="hide"/>
@@ -823,7 +822,7 @@
                     <field name="milestone_id" invisible="not allow_milestones or not milestone_id"/>
                     <field name="user_ids" widget="many2many_avatar_user" invisible="not user_ids"/>
                     <field name="partner_id" invisible="not partner_id"/>
-                    <field name="priority" widget="priority"/>
+                    <field name="priority" widget="priority" readonly="1"/>
                     <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}" invisible="not tag_ids"/>
                     <field name="stage_id" invisible="not project_id or not stage_id" widget="task_stage_with_state_selection"/>
                     <field name="personal_stage_id" string="Personal Stage" options="{'no_open': True}" invisible="project_id or not personal_stage_id"/>

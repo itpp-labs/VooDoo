@@ -1,5 +1,4 @@
 import {
-    assertSteps,
     click,
     contains,
     defineMailModels,
@@ -8,13 +7,20 @@ import {
     openFormView,
     start,
     startServer,
-    step,
 } from "@mail/../tests/mail_test_helpers";
 import { beforeEach, describe, test } from "@odoo/hoot";
 import { Deferred, tick } from "@odoo/hoot-mock";
-import { Command, onRpc, patchWithCleanup, serverState } from "@web/../tests/web_test_helpers";
+import {
+    asyncStep,
+    Command,
+    onRpc,
+    patchWithCleanup,
+    serverState,
+    waitForSteps,
+} from "@web/../tests/web_test_helpers";
 
 import { Composer } from "@mail/core/common/composer";
+import { press } from "@odoo/hoot-dom";
 
 describe.current.tags("desktop");
 defineMailModels();
@@ -76,7 +82,7 @@ test('post a first message then display partner mention suggestions on typing "@
     await openDiscuss(channelId);
     await contains(".o-mail-Composer-input");
     await insertText(".o-mail-Composer-input", "first message");
-    await click("button[aria-label='Send']:enabled");
+    await press("Enter");
     await contains(".o-mail-Message");
     await insertText(".o-mail-Composer-input", "@");
     await contains(".o-mail-Composer-suggestion strong", { count: 3 });
@@ -94,7 +100,7 @@ test('display partner mention suggestions on typing "@" in chatter', async () =>
 test("Do not fetch if search more specific and fetch had no result", async () => {
     await startServer();
     onRpc("res.partner", "get_mention_suggestions", () => {
-        step("get_mention_suggestions");
+        asyncStep("get_mention_suggestions");
     });
     await start();
     await openFormView("res.partner", serverState.partnerId);
@@ -102,12 +108,12 @@ test("Do not fetch if search more specific and fetch had no result", async () =>
     await insertText(".o-mail-Composer-input", "@");
     await contains(".o-mail-Composer-suggestion", { count: 3 }); // Mitchell Admin, Hermit, Public user
     await contains(".o-mail-Composer-suggestion", { text: "Mitchell Admin" });
-    await assertSteps(["get_mention_suggestions"]);
+    await waitForSteps(["get_mention_suggestions"]);
     await insertText(".o-mail-Composer-input", "x");
     await contains(".o-mail-Composer-suggestion", { count: 0 });
-    await assertSteps(["get_mention_suggestions"]);
+    await waitForSteps(["get_mention_suggestions"]);
     await insertText(".o-mail-Composer-input", "x");
-    await assertSteps([]);
+    await waitForSteps([]);
 });
 
 test("show other channel member in @ mention", async () => {
@@ -222,7 +228,7 @@ test("mention a channel thread", async () => {
     });
     await click(".o-mail-Composer-suggestion:eq(1)");
     await contains(".o-mail-Composer-input", { value: "#General > ThreadOne " });
-    await click(".o-mail-Composer-send:enabled");
+    await press("Enter");
     await contains(".o-mail-Message a.o_channel_redirect:has(i.fa-comments-o)", {
         text: "General > ThreadOne",
     });
@@ -235,7 +241,7 @@ test("Channel suggestions do not crash after rpc returns", async () => {
     const channelId = pyEnv["discuss.channel"].create({ name: "general" });
     const deferred = new Deferred();
     onRpc("discuss.channel", "get_mention_suggestions", () => {
-        step("get_mention_suggestions");
+        asyncStep("get_mention_suggestions");
         deferred.resolve();
     });
     await start();
@@ -245,7 +251,7 @@ test("Channel suggestions do not crash after rpc returns", async () => {
     await tick();
     await insertText(".o-mail-Composer-input", "f");
     await deferred;
-    await assertSteps(["get_mention_suggestions"]);
+    await waitForSteps(["get_mention_suggestions"]);
 });
 
 test("Suggestions are shown after delimiter was used in text (@)", async () => {
@@ -379,6 +385,6 @@ test("Mention with @everyone", async () => {
     await insertText(".o-mail-Composer-input", "@ever");
     await click(".o-mail-Composer-suggestion");
     await contains(".o-mail-Composer-input", { value: "@everyone " });
-    await click(".o-mail-Composer-send:enabled");
+    await press("Enter");
     await contains(".o-mail-Message-bubble.o-orange");
 });

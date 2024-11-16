@@ -4,7 +4,6 @@ import {
     loadDefaultEmbedConfig,
 } from "@im_livechat/../tests/livechat_test_helpers";
 import {
-    assertSteps,
     click,
     contains,
     focus,
@@ -12,14 +11,21 @@ import {
     onRpcBefore,
     start,
     startServer,
-    step,
     triggerHotkey,
 } from "@mail/../tests/mail_test_helpers";
 import { describe, test } from "@odoo/hoot";
-import { Command, mountWithCleanup, serverState, withUser } from "@web/../tests/web_test_helpers";
+import {
+    asyncStep,
+    Command,
+    mountWithCleanup,
+    serverState,
+    waitForSteps,
+    withUser,
+} from "@web/../tests/web_test_helpers";
 
 import { expirableStorage } from "@im_livechat/embed/common/expirable_storage";
 import { LivechatButton } from "@im_livechat/embed/common/livechat_button";
+import { queryFirst } from "@odoo/hoot-dom";
 import { rpc } from "@web/core/network/rpc";
 
 describe.current.tags("desktop");
@@ -47,17 +53,17 @@ test("new message from operator displays unread counter", async () => {
             livechatUserId: serverState.publicUserId,
         })
     );
-    onRpcBefore("/mail/action", (args) => {
+    onRpcBefore("/mail/data", (args) => {
         if (args.init_messaging) {
-            step(`/mail/action - ${JSON.stringify(args)}`);
+            asyncStep(`/mail/data - ${JSON.stringify(args)}`);
         }
     });
     const userId = serverState.userId;
     await start({
         authenticateAs: { ...pyEnv["mail.guest"].read(guestId)[0], _name: "mail.guest" },
     });
-    await assertSteps([
-        `/mail/action - ${JSON.stringify({
+    await waitForSteps([
+        `/mail/data - ${JSON.stringify({
             init_messaging: {
                 channel_types: ["livechat"],
             },
@@ -77,12 +83,12 @@ test("new message from operator displays unread counter", async () => {
     await contains(".o-mail-ChatBubble-counter", { text: "1" });
 });
 
-test("focus on unread livechat marks it as read [REQUIRE FOCUS]", async () => {
+test.tags("focus required")("focus on unread livechat marks it as read", async () => {
     const pyEnv = await startServer();
     await loadDefaultEmbedConfig();
-    onRpcBefore("/mail/action", (args) => {
+    onRpcBefore("/mail/data", (args) => {
         if (args.init_messaging) {
-            step(`/mail/action - ${JSON.stringify(args)}`);
+            asyncStep(`/mail/data - ${JSON.stringify(args)}`);
         }
     });
     const userId = serverState.userId;
@@ -95,8 +101,8 @@ test("focus on unread livechat marks it as read [REQUIRE FOCUS]", async () => {
     // presence of the message is not enough (temporary message).
     await waitUntilSubscribe();
     await contains(".o-mail-Message-content", { text: "Hello World!" });
-    await assertSteps([
-        `/mail/action - ${JSON.stringify({
+    await waitForSteps([
+        `/mail/data - ${JSON.stringify({
             init_messaging: {
                 channel_types: ["livechat"],
             },
@@ -105,7 +111,7 @@ test("focus on unread livechat marks it as read [REQUIRE FOCUS]", async () => {
             context: { lang: "en", tz: "taht", uid: serverState.userId, allowed_company_ids: [1] },
         })}`,
     ]);
-    $(".o-mail-Composer-input").blur();
+    queryFirst(".o-mail-Composer-input").blur();
     const [channelId] = pyEnv["discuss.channel"].search([
         ["channel_type", "=", "livechat"],
         [

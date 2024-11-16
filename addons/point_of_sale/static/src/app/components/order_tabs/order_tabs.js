@@ -1,7 +1,7 @@
-import { usePos } from "@point_of_sale/app/store/pos_hook";
+import { usePos } from "@point_of_sale/app/hooks/pos_hook";
 import { useService } from "@web/core/utils/hooks";
 import { Component, useState } from "@odoo/owl";
-import { ListContainer } from "@point_of_sale/app/generic_components/list_container/list_container";
+import { ListContainer } from "@point_of_sale/app/components/list_container/list_container";
 
 export class OrderTabs extends Component {
     static template = "point_of_sale.OrderTabs";
@@ -21,7 +21,7 @@ export class OrderTabs extends Component {
         this.dialog = useService("dialog");
     }
     async newFloatingOrder() {
-        const order = await this.pos.add_new_order();
+        const order = this.pos.add_new_order();
         this.pos.showScreen("ProductScreen");
         this.dialog.closeAll();
         return order;

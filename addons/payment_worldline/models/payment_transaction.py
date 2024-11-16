@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 
 class PaymentTransaction(models.Model):
-    _inherit = ['payment.transaction']
+    _inherit = 'payment.transaction'
 
     def _get_specific_rendering_values(self, processing_values):
         """ Override of `payment` to return Worldline-specific processing values.
@@ -43,7 +43,7 @@ class PaymentTransaction(models.Model):
         """
         self.ensure_one()
 
-        base_url = self.get_base_url()
+        base_url = self.provider_id.get_base_url()
         return_route = WorldlineController._return_url
         return_url_params = urls.url_encode({'provider_id': str(self.provider_id.id)})
         return_url = f'{urls.url_join(base_url, return_route)}?{return_url_params}'
@@ -209,7 +209,7 @@ class PaymentTransaction(models.Model):
 
         # Update the provider reference.
         payment_data = notification_data['payment']
-        self.provider_reference = payment_data['hostedCheckoutSpecificOutput']['hostedCheckoutId']
+        self.provider_reference = payment_data.get('id', '').rstrip('_0')
 
         # Update the payment method.
         payment_output = payment_data.get('paymentOutput', {})

@@ -13,6 +13,7 @@ from odoo.osv.expression import AND
 
 
 class PosSession(models.Model):
+    _name = 'pos.session'
     _order = 'id desc'
     _description = 'Point of Sale Session'
     _inherit = ['mail.thread', 'mail.activity.mixin', "pos.bus.mixin", 'pos.load.mixin']
@@ -92,7 +93,10 @@ class PosSession(models.Model):
     update_stock_at_closing = fields.Boolean('Stock should be updated at closing')
     bank_payment_ids = fields.One2many('account.payment', 'pos_session_id', 'Bank Payments', help='Account payments representing aggregated and bank split payments.')
 
-    _sql_constraints = [('uniq_name', 'unique(name)', "The name of this POS Session must be unique!")]
+    _uniq_name = models.Constraint(
+        'unique(name)',
+        'The name of this POS Session must be unique!',
+    )
 
     @api.model
     def _load_pos_data_relations(self, model, response):
@@ -1129,7 +1133,10 @@ class PosSession(models.Model):
         return account_payment.move_id.line_ids.filtered(lambda line: line.account_id == self._get_receivable_account(payment_method))
 
     def _apply_diff_on_account_payment_move(self, account_payment, payment_method, diff_amount):
-        source_vals, dest_vals = self._get_diff_vals(payment_method.id, diff_amount)
+        diff_vals = self._get_diff_vals(payment_method.id, diff_amount)
+        if not diff_vals:
+            return
+        source_vals, dest_vals = diff_vals
         outstanding_line = account_payment.move_id.line_ids.filtered(lambda line: line.account_id.id == source_vals['account_id'])
         new_balance = outstanding_line.balance + self._amount_converter(diff_amount, self.stop_at, False)
         new_balance_compare_to_zero = self.currency_id.compare_amounts(new_balance, 0)
@@ -1721,7 +1728,7 @@ class PosSession(models.Model):
     def _alert_old_session(self):
         # If the session is open for more then one week,
         # log a next activity to close the session.
-        sessions = self.sudo().search([('start_at', '<=', (fields.datetime.now() - timedelta(days=7))), ('state', '!=', 'closed')])
+        sessions = self.sudo().search([('start_at', '<=', (fields.Datetime.now() - timedelta(days=7))), ('state', '!=', 'closed')])
         for session in sessions:
             if self.env['mail.activity'].search_count([('res_id', '=', session.id), ('res_model', '=', 'pos.session')]) == 0:
                 session.activity_schedule(
@@ -1913,7 +1920,7 @@ class PosSession(models.Model):
 
 
 class ProcurementGroup(models.Model):
-    _inherit = ['procurement.group']
+    _inherit = 'procurement.group'
 
     @api.model
     def _run_scheduler_tasks(self, use_new_cursor=False, company_id=False):

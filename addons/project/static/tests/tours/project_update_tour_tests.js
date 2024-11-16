@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { registry } from "@web/core/registry";
 import { stepUtils } from "@web_tour/tour_service/tour_utils";
 
@@ -132,7 +130,7 @@ registry.category("web_tour.tours").add('project_update_tour', {
     run: "edit New milestone",
 }, {
     trigger: "input[data-field=deadline]",
-    run: "edit 12/12/2099 && click body",
+    run: "edit 12/12/2099",
 }, {
     trigger: ".o_list_button_save",
     run: "click",

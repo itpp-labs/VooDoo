@@ -8,6 +8,7 @@ from odoo.exceptions import UserError, ValidationError
 
 
 class LoyaltyProgram(models.Model):
+    _name = 'loyalty.program'
     _description = 'Loyalty Program'
     _order = 'sequence'
     _rec_name = 'name'
@@ -118,10 +119,10 @@ class LoyaltyProgram(models.Model):
         """
     )
 
-    _sql_constraints = [
-        ('check_max_usage', 'CHECK (limit_usage = False OR max_usage > 0)',
-            'Max usage must be strictly positive if a limit is used.'),
-    ]
+    _check_max_usage = models.Constraint(
+        'CHECK (limit_usage = False OR max_usage > 0)',
+        'Max usage must be strictly positive if a limit is used.',
+    )
 
     @api.constrains('currency_id', 'pricelist_ids')
     def _check_pricelist_currency(self):

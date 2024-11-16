@@ -6,6 +6,7 @@ from odoo.tools.misc import formatLang
 
 
 class L10n_It_Edi_DoiDeclaration_Of_Intent(models.Model):
+    _name = 'l10n_it_edi_doi.declaration_of_intent'
     _inherit = ['mail.thread.main.attachment', 'mail.activity.mixin']
     _description = "Declaration of Intent"
     _order = 'protocol_number_part1, protocol_number_part2'
@@ -133,14 +134,14 @@ class L10n_It_Edi_DoiDeclaration_Of_Intent(models.Model):
         readonly=True,
     )
 
-    _sql_constraints = [
-        ('protocol_number_unique',
-         'unique(protocol_number_part1, protocol_number_part2)',
-         "The Protocol Number of a Declaration of Intent must be unique! Please choose another one."),
-        ('threshold_positive',
-         'CHECK(threshold > 0)',
-         "The Threshold of a Declaration of Intent must be positive."),
-    ]
+    _protocol_number_unique = models.Constraint(
+        'unique(protocol_number_part1, protocol_number_part2)',
+        'The Protocol Number of a Declaration of Intent must be unique! Please choose another one.',
+    )
+    _threshold_positive = models.Constraint(
+        'CHECK(threshold > 0)',
+        'The Threshold of a Declaration of Intent must be positive.',
+    )
 
     @api.depends('protocol_number_part1', 'protocol_number_part2')
     def _compute_display_name(self):

@@ -5,7 +5,7 @@ from odoo.tools import float_is_zero
 
 
 class StockMove(models.Model):
-    _inherit = ['stock.move']
+    _inherit = 'stock.move'
 
     def _sale_get_invoice_price(self, order):
         """ Based on the current stock move, compute the price to reinvoice the analytic line that is going to be created (so the
@@ -49,7 +49,7 @@ class StockMove(models.Model):
             'name': self.name,
             'sequence': last_sequence,
             'price_unit': price,
-            'tax_id': [x.id for x in taxes],
+            'tax_ids': [x.id for x in taxes],
             'discount': 0.0,
             'product_id': self.product_id.id,
             'product_uom_qty': self.product_uom_qty,

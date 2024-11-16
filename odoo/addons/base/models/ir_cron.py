@@ -14,6 +14,7 @@ from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.modules.registry import Registry
 from odoo.tools import SQL
+from odoo.tools.constants import GC_UNLINK_LIMIT
 
 _logger = logging.getLogger(__name__)
 
@@ -82,13 +83,10 @@ class IrCron(models.Model):
     failure_count = fields.Integer(default=0, help="The number of consecutive failures of this job. It is automatically reset on success.")
     first_failure_date = fields.Datetime(string='First Failure Date', help="The first time the cron failed. It is automatically reset on success.")
 
-    _sql_constraints = [
-        (
-            'check_strictly_positive_interval',
-            'CHECK(interval_number > 0)',
-            'The interval number must be a strictly positive number.'
-        ),
-    ]
+    _check_strictly_positive_interval = models.Constraint(
+        'CHECK(interval_number > 0)',
+        "The interval number must be a strictly positive number.",
+    )
 
     @api.depends('ir_actions_server_id.name')
     def _compute_cron_name(self):
@@ -552,8 +550,7 @@ class IrCron(models.Model):
         try:
             if self.pool != self.pool.check_signaling():
                 # the registry has changed, reload self in the new registry
-                self.env.reset()
-                self = self.env()[self._name]
+                self.env.transaction.reset()
 
             _logger.debug(
                 "cron.object.execute(%r, %d, '*', %r, %d)",
@@ -748,6 +745,7 @@ class IrCron(models.Model):
 
 
 class IrCronTrigger(models.Model):
+    _name = 'ir.cron.trigger'
     _description = 'Triggered actions'
     _rec_name = 'cron_id'
     _allow_sudo_commands = False
@@ -758,13 +756,14 @@ class IrCronTrigger(models.Model):
     @api.autovacuum
     def _gc_cron_triggers(self):
         domain = [('call_at', '<', datetime.now() + relativedelta(weeks=-1))]
-        records = self.search(domain, limit=models.GC_UNLINK_LIMIT)
-        if len(records) >= models.GC_UNLINK_LIMIT:
+        records = self.search(domain, limit=GC_UNLINK_LIMIT)
+        if len(records) >= GC_UNLINK_LIMIT:
             self.env.ref('base.autovacuum_job')._trigger()
         return records.unlink()
 
 
 class IrCronProgress(models.Model):
+    _name = 'ir.cron.progress'
     _description = 'Progress of Scheduled Actions'
     _rec_name = 'cron_id'
 

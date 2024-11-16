@@ -20,6 +20,7 @@ class MaintenanceStage(models.Model):
 
 
 class MaintenanceEquipmentCategory(models.Model):
+    _name = 'maintenance.equipment.category'
     _inherit = ['mail.alias.mixin', 'mail.thread']
     _description = 'Maintenance Equipment Category'
 
@@ -76,6 +77,7 @@ class MaintenanceEquipmentCategory(models.Model):
 
 
 class MaintenanceMixin(models.AbstractModel):
+    _name = 'maintenance.mixin'
     _check_company_auto = True
     _description = 'Maintenance Maintained Item'
 
@@ -116,6 +118,7 @@ class MaintenanceMixin(models.AbstractModel):
 
 
 class MaintenanceEquipment(models.Model):
+    _name = 'maintenance.equipment'
     _inherit = ['mail.thread', 'mail.activity.mixin', 'maintenance.mixin']
     _description = 'Maintenance Equipment'
     _check_company_auto = True
@@ -157,9 +160,10 @@ class MaintenanceEquipment(models.Model):
     def _onchange_category_id(self):
         self.technician_user_id = self.category_id.technician_user_id
 
-    _sql_constraints = [
-        ('serial_no', 'unique(serial_no)', "Another asset already exists with this serial number!"),
-    ]
+    _serial_no = models.Constraint(
+        'unique(serial_no)',
+        'Another asset already exists with this serial number!',
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -186,6 +190,7 @@ class MaintenanceEquipment(models.Model):
 
 
 class MaintenanceRequest(models.Model):
+    _name = 'maintenance.request'
     _inherit = ['mail.thread.cc', 'mail.activity.mixin']
     _description = 'Maintenance Request'
     _order = "id desc"
@@ -382,6 +387,7 @@ class MaintenanceRequest(models.Model):
 
 
 class MaintenanceTeam(models.Model):
+    _name = 'maintenance.team'
     _description = 'Maintenance Teams'
 
     name = fields.Char('Team Name', required=True, translate=True)

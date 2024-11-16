@@ -8,7 +8,7 @@ from odoo.http import request
 
 
 class SaleOrder(models.Model):
-    _inherit = ['sale.order']
+    _inherit = 'sale.order'
 
     def set_delivery_line(self, carrier, amount):
         """ Override of `website_sale` to recompute warehouse when a new delivery method
@@ -27,7 +27,10 @@ class SaleOrder(models.Model):
             return res
 
         self.pickup_location_data = json.loads(pickup_location_data)
-        self.warehouse_id = self.pickup_location_data['id']
+        if self.pickup_location_data:
+            self.warehouse_id = self.pickup_location_data['id']
+        else:
+            self._compute_warehouse_id()
 
     def _get_pickup_locations(self, zip_code=None, country=None, **kwargs):
         """ Override of `website_sale` to ensure that a country is provided when there is a zip

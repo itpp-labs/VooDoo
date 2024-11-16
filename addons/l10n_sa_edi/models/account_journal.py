@@ -33,7 +33,7 @@ SANDBOX_AUTH = {
 
 
 class AccountJournal(models.Model):
-    _inherit = ['account.journal']
+    _inherit = 'account.journal'
 
     """
         In order to clear/report an invoice through the ZATCA API, we need to onboard each journal by following
@@ -472,7 +472,7 @@ class AccountJournal(models.Model):
         """
             Helper function to make api calls to the ZATCA API Endpoint
         """
-        api_url = ZATCA_API_URLS[self.env.company.l10n_sa_api_mode]
+        api_url = ZATCA_API_URLS[self.company_id.l10n_sa_api_mode]
         request_url = urljoin(api_url, request_url)
         try:
             request_response = requests.request(method, request_url, data=request_data.get('body'),

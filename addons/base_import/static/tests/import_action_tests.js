@@ -1,5 +1,3 @@
-/** @odoo-module */
-
 import { browser } from "@web/core/browser/browser";
 import {
     click,
@@ -116,7 +114,7 @@ function parsePreview(opts) {
         advanced_mode: opts.advanced,
         batch: false,
         fields: getFieldsTree(serverData),
-        file_length: opts.has_headers ? totalRows - 1 : totalRows,
+        num_rows: opts.has_headers ? totalRows - 1 : totalRows,
         header_types: false,
         headers: headers,
         matches: opts.has_headers && getMatches(serverData, headers),
@@ -138,7 +136,7 @@ function customParsePreview(opts, { fields, headers, rowCount, matches, preview 
         advanced_mode: opts.advanced,
         batch: false,
         fields: fields,
-        file_length: opts.has_headers ? totalRows - 1 : totalRows,
+        num_rows: opts.has_headers ? totalRows - 1 : totalRows,
         header_types: false,
         headers: headers,
         matches: matches,

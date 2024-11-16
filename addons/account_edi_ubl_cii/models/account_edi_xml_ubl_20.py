@@ -11,6 +11,7 @@ UBL_NAMESPACES = {
 
 
 class AccountEdiXmlUbl_20(models.AbstractModel):
+    _name = 'account.edi.xml.ubl_20'
     _inherit = ['account.edi.common']
     _description = "UBL 2.0"
 
@@ -205,8 +206,23 @@ class AccountEdiXmlUbl_20(models.AbstractModel):
                 tax_totals_vals['tax_subtotal_vals'].append(subtotal)
 
         if epd_tax_to_discount:
-            # early payment discounts: hence, need to recompute the total tax amount
+            # early payment discounts: hence, need to recompute the total tax amount...
             tax_totals_vals['tax_amount'] = sum([subtot['tax_amount'] for subtot in tax_totals_vals['tax_subtotal_vals']])
+            # ... and add a subtotal section
+            tax_totals_vals['tax_subtotal_vals'].append({
+                'currency': invoice.currency_id,
+                'currency_dp': invoice.currency_id.decimal_places,
+                'taxable_amount': sum(epd_tax_to_discount.values()),
+                'tax_amount': 0.0,
+                'tax_category_vals': {
+                    'id': 'E',
+                    'percent': 0.0,
+                    'tax_scheme_vals': {
+                        'id': "VAT",
+                    },
+                    'tax_exemption_reason': "Exempt from tax",
+                },
+            })
         return [tax_totals_vals]
 
     def _get_invoice_line_item_vals(self, line, taxes_vals):

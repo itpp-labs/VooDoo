@@ -19,7 +19,7 @@ _logger = logging.getLogger(__name__)
 
 
 class ResUsers(models.Model):
-    _inherit = ['res.users']
+    _inherit = 'res.users'
 
     state = fields.Selection(compute='_compute_state', search='_search_state', string='Status',
                  selection=[('new', 'Never Connected'), ('active', 'Confirmed')])
@@ -118,14 +118,12 @@ class ResUsers(models.Model):
                 raise SignupError(_('Signup is not allowed for uninvited users'))
         return self._create_user_from_template(values)
 
-    @classmethod
-    def authenticate(cls, db, credential, user_agent_env):
-        auth_info = super().authenticate(db, credential, user_agent_env)
+    def authenticate(self, credential, user_agent_env):
+        auth_info = super().authenticate(credential, user_agent_env)
         try:
-            with cls.pool.cursor() as cr:
-                env = api.Environment(cr, auth_info['uid'], {})
-                if env.user._should_alert_new_device():
-                    env.user._alert_new_device()
+            env = self.env(user=auth_info['uid'])
+            if env.user._should_alert_new_device():
+                env.user._alert_new_device()
         except MailDeliveryException:
             pass
         return auth_info
@@ -220,12 +218,13 @@ class ResUsers(models.Model):
                         user.id, force_send=True,
                         raise_exception=True, email_values=email_values)
                 else:
-                    body = self.env['mail.render.mixin']._render_template(
+                    user_lang = user.lang or self.env.lang or 'en_US'
+                    body = self.env['mail.render.mixin'].with_context(lang=user_lang)._render_template(
                         self.env.ref('auth_signup.reset_password_email'),
                         model='res.users', res_ids=user.ids,
                         engine='qweb_view', options={'post_process': True})[user.id]
                     mail = self.env['mail.mail'].sudo().create({
-                        'subject': _('Password reset'),
+                        'subject': self.with_context(lang=user_lang).env._('Password reset'),
                         'email_from': user.company_id.email_formatted or user.email_formatted,
                         'body_html': body,
                         **email_values,

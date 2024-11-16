@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { BurndownChartModel } from "./burndown_chart_model";
 import { graphView } from "@web/views/graph/graph_view";
 import { registry } from "@web/core/registry";
@@ -12,7 +10,6 @@ const burndownChartGraphView = {
   buttonTemplate: "project.BurndownChartView.Buttons",
   hideCustomGroupBy: true,
   Model: BurndownChartModel,
-  searchMenuTypes: graphView.searchMenuTypes.filter(menuType => menuType !== "comparison"),
   SearchModel: BurndownChartSearchModel,
 };
 

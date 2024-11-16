@@ -1,6 +1,5 @@
 import { presenceService } from "@bus/services/presence_service";
 import {
-    assertSteps,
     click,
     contains,
     defineMailModels,
@@ -11,12 +10,19 @@ import {
     scroll,
     start,
     startServer,
-    step,
     triggerHotkey,
 } from "@mail/../tests/mail_test_helpers";
 import { describe, test } from "@odoo/hoot";
+import { press, queryFirst } from "@odoo/hoot-dom";
 import { mockDate, tick } from "@odoo/hoot-mock";
-import { Command, mockService, serverState, withUser } from "@web/../tests/web_test_helpers";
+import {
+    asyncStep,
+    Command,
+    mockService,
+    serverState,
+    waitForSteps,
+    withUser,
+} from "@web/../tests/web_test_helpers";
 
 import { rpc } from "@web/core/network/rpc";
 
@@ -45,7 +51,7 @@ test("keep new message separator when message is deleted", async () => {
     await start();
     await openDiscuss(generalId);
     await contains(".o-mail-Message", { count: 2 });
-    $(".o-mail-Composer-input").blur();
+    queryFirst(".o-mail-Composer-input").blur();
     await click("[title='Expand']", {
         parent: [".o-mail-Message", { text: "message 0" }],
     });
@@ -159,7 +165,7 @@ test("keep new message separator until current user sends a message", async () =
     await click(".o-mail-Message-moreMenu [title='Mark as Unread']");
     await contains(".o-mail-Thread-newMessage hr + span", { count: 1, text: "New" });
     await insertText(".o-mail-Composer-input", "hey!");
-    await click(".o-mail-Composer-send:enabled");
+    await press("Enter");
     await contains(".o-mail-Message", { count: 2 });
     await contains(".o-mail-Thread-newMessage hr + span", { count: 0, text: "New" });
 });
@@ -240,14 +246,14 @@ test("show new message separator when message is received while chat window is c
         ],
         channel_type: "chat",
     });
-    onRpcBefore("/mail/action", (args) => {
+    onRpcBefore("/mail/data", (args) => {
         if (args.init_messaging) {
-            step(`/mail/action - ${JSON.stringify(args)}`);
+            asyncStep(`/mail/data - ${JSON.stringify(args)}`);
         }
     });
     await start();
-    await assertSteps([
-        `/mail/action - ${JSON.stringify({
+    await waitForSteps([
+        `/mail/data - ${JSON.stringify({
             init_messaging: {},
             failures: true,
             systray_get_activities: true,

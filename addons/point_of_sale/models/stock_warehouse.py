@@ -4,7 +4,7 @@ from odoo import models, fields, api, _
 
 
 class StockWarehouse(models.Model):
-    _inherit = ["stock.warehouse"]
+    _inherit = "stock.warehouse"
 
     pos_type_id = fields.Many2one('stock.picking.type', string="Point of Sale Operation Type")
 
@@ -13,7 +13,7 @@ class StockWarehouse(models.Model):
         sequence_values.update({
             'pos_type_id': {
                 'name': _('%(name)s Picking POS', name=self.name),
-                'prefix': self.code + '/POS/',
+                'prefix': self.code + '/' + (self.pos_type_id.sequence_code or 'POS') + '/',
                 'padding': 5,
                 'company_id': self.company_id.id,
             }

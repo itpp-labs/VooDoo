@@ -10,6 +10,7 @@ from odoo.tools import email_normalize, float_repr, float_round, is_html_empty
 
 
 class HrExpense(models.Model):
+    _name = 'hr.expense'
     _inherit = ['mail.thread.main.attachment', 'mail.activity.mixin', 'analytic.mixin']
     _description = "Expense"
     _order = "date desc, id desc"
@@ -102,6 +103,7 @@ class HrExpense(models.Model):
         domain="[('employee_id', '=', employee_id), ('company_id', '=', company_id)]",
         readonly=True,
         copy=False,
+        tracking=True,
     )
     approved_by = fields.Many2one(comodel_name='res.users', string="Approved By", related='sheet_id.user_id', tracking=False)
     approved_on = fields.Datetime(string="Approved On", related='sheet_id.approval_date')
@@ -984,8 +986,8 @@ class HrExpense(models.Model):
         if self.product_id:
             account = self.product_id.product_tmpl_id._get_product_accounts()['expense']
         else:
-            field = self.env['property.category']._fields['property_account_expense_categ_id']
-            account = field.get_company_dependent_fallback(self.env['property.category'])
+            field = self.env['product.category']._fields['property_account_expense_categ_id']
+            account = field.get_company_dependent_fallback(self.env['product.category'])
 
         if account:
             return account

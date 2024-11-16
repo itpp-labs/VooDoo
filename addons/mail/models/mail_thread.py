@@ -2357,11 +2357,11 @@ class MailThread(models.AbstractModel):
                 attachement_values_list.append(attachement_values)
 
                 # keep cid, name list and token synced with attachement_values_list length to match ids latter
-                attachement_extra_list.append((cid, name, token))
+                attachement_extra_list.append((cid, name, token, info))
 
-            new_attachments = self.env['ir.attachment'].sudo().create(attachement_values_list)
+            new_attachments = self._create_attachments_for_post(attachement_values_list, attachement_extra_list)
             attach_cid_mapping, attach_name_mapping = {}, {}
-            for attachment, (cid, name, token) in zip(new_attachments, attachement_extra_list):
+            for attachment, (cid, name, token, _info) in zip(new_attachments, attachement_extra_list):
                 if cid:
                     attach_cid_mapping[cid] = (attachment.id, token)
                 if name:
@@ -2387,6 +2387,12 @@ class MailThread(models.AbstractModel):
                     return_values['body'] = Markup(lxml.html.tostring(root, pretty_print=False, encoding='unicode'))
         return_values['attachment_ids'] = m2m_attachment_ids
         return return_values
+
+    def _create_attachments_for_post(self, values_list, extra_list):
+        """ Ease tweaking attachment creation when processing them in posting
+        process. Mainly meant for stable version, to be cleaned when reaching
+        master. """
+        return self.env['ir.attachment'].sudo().create(values_list)
 
     def _process_attachments_for_template_post(self, mail_template):
         """ Model specific management of attachments used with template attachments
@@ -3193,7 +3199,7 @@ class MailThread(models.AbstractModel):
             )
             for user in users:
                 user._bus_send_store(
-                    message.with_user(user),
+                    message.with_user(user).with_context(allowed_company_ids=None),
                     msg_vals=msg_vals,
                     for_current_user=True,
                     add_followers=True,
@@ -3273,7 +3279,7 @@ class MailThread(models.AbstractModel):
                 msg_vals=msg_vals,
                 render_values=render_values,
             )
-            recipients_ids = recipients_group.pop('recipients')
+            recipients_ids = recipients_group.get('recipients_ids')
 
             # create email
             for recipients_ids_chunk in split_every(gen_batch_size, recipients_ids):
@@ -3372,8 +3378,12 @@ class MailThread(models.AbstractModel):
                                string};
               'has_button_access': display access document main button in email;
               'notification_group_name': name of the group, to ease usage;
-              'recipients': list of partner IDs, will be fillup when evaluating
-                            groups;
+              'recipients_data': list of recipients data, following format used
+                                 in '_notify_get_recipients'. It is fillup when
+                                 evaluating groups;
+              'recipients_ids': list of partner IDs, based on partner ID present in
+                                recipients_data (allows mainly to speedup some
+                                data computation);
            }
           );
         """
@@ -3644,25 +3654,33 @@ class MailThread(models.AbstractModel):
         """
         msg_vals = dict(msg_vals or {})
         partner_ids = self._extract_partner_ids_for_notifications(message, msg_vals, recipients_data)
-        if not partner_ids:
-            return
-
-        partner_devices_sudo = self.env['mail.push.device'].sudo()
-        devices = partner_devices_sudo.search([
-            ('partner_id', 'in', partner_ids)
-        ])
+        devices, private_key, public_key = self._get_web_push_parameters(partner_ids)
         if not devices:
             return
+        payload = self._truncate_payload(self._notify_by_web_push_prepare_payload(message, msg_vals=msg_vals))
+        self._push_web_notification(devices, private_key, public_key, payload=payload)
 
-        ir_parameter_sudo = self.env['ir.config_parameter'].sudo()
-        vapid_private_key = ir_parameter_sudo.get_param('mail.web_push_vapid_private_key')
-        vapid_public_key = ir_parameter_sudo.get_param('mail.web_push_vapid_public_key')
+    def _get_web_push_parameters(self, partner_ids):
+        """
+        :param partner_ids: IDs of the res.partners
+        :returns: the `mail.push.device` records, the vapid private key and the vapid public key
+        """
+        if not partner_ids:
+            return self.env["mail.push.device"].sudo(), None, None
+        ir_parameter_sudo = self.env["ir.config_parameter"].sudo()
+        vapid_private_key = ir_parameter_sudo.get_param("mail.web_push_vapid_private_key")
+        vapid_public_key = ir_parameter_sudo.get_param("mail.web_push_vapid_public_key")
         if not vapid_private_key or not vapid_public_key:
-            _logger.warning("Missing web push vapid keys !")
-            return
+            return self.env["mail.push.device"].sudo(), None, None
+        partner_devices_sudo = self.env["mail.push.device"].sudo()
+        devices = partner_devices_sudo.search([("partner_id", "in", partner_ids)])
+        return devices, vapid_private_key, vapid_public_key
 
-        payload = self._notify_by_web_push_prepare_payload(message, msg_vals=msg_vals)
-        payload = self._truncate_payload(payload)
+    def _push_web_notification(self, devices, private_key, public_key, payload_by_lang=None, payload=None):
+        """
+        :param payload: JSON serializable dict following the notification api specs https://notifications.spec.whatwg.org/#api
+        :param payload_by_lang a dict mapping payload by lang, either this or payload must be provided
+        """
         if len(devices) < MAX_DIRECT_PUSH:
             session = Session()
             devices_to_unlink = set()
@@ -3675,9 +3693,9 @@ class MailThread(models.AbstractModel):
                             'endpoint': device.endpoint,
                             'keys': device.keys
                         },
-                        payload=json.dumps(payload),
-                        vapid_private_key=vapid_private_key,
-                        vapid_public_key=vapid_public_key,
+                        payload=json.dumps(payload_by_lang and payload_by_lang[device.partner_id.lang] or payload),
+                        vapid_private_key=private_key,
+                        vapid_public_key=public_key,
                         session=session,
                     )
                 except DeviceUnreachableError:
@@ -3694,7 +3712,7 @@ class MailThread(models.AbstractModel):
         else:
             self.env['mail.push'].sudo().create([{
                 'mail_push_device_id': device.id,
-                'payload': json.dumps(payload),
+                'payload': json.dumps(payload_by_lang and payload_by_lang[device.partner_id.lang] or payload),
             } for device in devices])
             self.env.ref('mail.ir_cron_web_push_notification')._trigger()
 
@@ -3846,8 +3864,12 @@ class MailThread(models.AbstractModel):
                              string};
             'has_button_access': display access document main button in email;
             'notification_group_name': name of the group, to ease usage;
-            'recipients': list of partner IDs, will be fillup when evaluating
-                          groups;
+            'recipients_data': list of recipients data, following format used
+                               in '_notify_get_recipients'. It is fillup when
+                               evaluating groups;
+            'recipients_ids': list of partner IDs, based on partner ID present in
+                              recipients_data (allows mainly to speedup some
+                              data computation);
            }
 
         Default groups:
@@ -3931,7 +3953,8 @@ class MailThread(models.AbstractModel):
             group_data.setdefault('active', True)
             group_data.setdefault('has_button_access', is_thread_message)
             group_data.setdefault('notification_group_name', group_name)
-            group_data.setdefault('recipients', [])
+            group_data.setdefault('recipients_data', [])
+            group_data.setdefault('recipients_ids', [])
             group_button_access = group_data.setdefault('button_access', {})
             group_button_access.setdefault('url', access_link)
             group_button_access.setdefault('title', view_title)
@@ -3963,7 +3986,8 @@ class MailThread(models.AbstractModel):
                 'button_access': {'url': 'https://odoo.com/url', 'title': 'Title'},
                 'has_button_access': False,
                 'notification_group_name': 'user',
-                'recipients': [11],
+                'recipients_data': [{...}],
+                'recipients_ids': [11],
              }, {...}]
         """
         # keep a local copy of msg_vals as it may be modified to include more
@@ -3985,14 +4009,15 @@ class MailThread(models.AbstractModel):
         for recipient_data in recipients_data:
             for _group_name, group_func, group_data in groups:
                 if group_data['active'] and group_func(recipient_data):
-                    group_data['recipients'].append(recipient_data['id'])
+                    group_data['recipients_data'].append(recipient_data)
+                    group_data['recipients_ids'].append(recipient_data['id'])
                     break
 
         # filter out groups without recipients
         return [
             group_data
             for _group_name, _group_func, group_data in groups
-            if group_data['recipients']
+            if group_data['recipients_data']
         ]
 
     def _notify_get_action_link(self, link_type, **kwargs):

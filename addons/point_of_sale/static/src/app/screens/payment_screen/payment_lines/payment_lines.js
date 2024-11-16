@@ -1,10 +1,10 @@
 import { _t } from "@web/core/l10n/translation";
-import { NumberPopup } from "@point_of_sale/app/utils/input_popups/number_popup";
+import { NumberPopup } from "@point_of_sale/app/components/popups/number_popup/number_popup";
 import { useService } from "@web/core/utils/hooks";
 import { Component, useState } from "@odoo/owl";
-import { usePos } from "@point_of_sale/app/store/pos_hook";
+import { usePos } from "@point_of_sale/app/hooks/pos_hook";
 import { parseFloat } from "@web/views/fields/parsers";
-import { enhancedButtons } from "@point_of_sale/app/generic_components/numpad/numpad";
+import { enhancedButtons } from "@point_of_sale/app/components/numpad/numpad";
 
 export class PaymentScreenPaymentLines extends Component {
     static template = "point_of_sale.PaymentScreenPaymentLines";

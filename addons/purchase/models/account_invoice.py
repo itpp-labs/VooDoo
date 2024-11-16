@@ -13,7 +13,7 @@ TOLERANCE = 0.02  # tolerance applied to the total when searching for a matching
 
 
 class AccountMove(models.Model):
-    _inherit = ['account.move']
+    _inherit = 'account.move'
 
     purchase_vendor_bill_id = fields.Many2one('purchase.bill.union', store=False, readonly=False,
         string='Auto-complete',
@@ -526,7 +526,7 @@ class AccountMoveLine(models.Model):
             {
                 'product_id': line.product_id.id,
                 'product_qty': line.quantity,
-                'product_uom': line.product_uom_id.id,
+                'product_uom_id': line.product_uom_id.id,
                 'price_unit': line.price_unit,
                 'discount': line.discount,
             }

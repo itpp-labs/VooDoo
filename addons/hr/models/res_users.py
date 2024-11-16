@@ -76,7 +76,7 @@ HR_WRITABLE_FIELDS = [
 
 
 class ResUsers(models.Model):
-    _inherit = ['res.users']
+    _inherit = 'res.users'
 
     def _employee_ids_domain(self):
         # employee_ids is considered a safe field and as such will be fetched as sudo.
@@ -339,5 +339,14 @@ class ResUsers(models.Model):
             'type': 'ir.actions.act_window',
             'res_model': model,
             'res_id': employees.id,
+            'view_mode': 'form',
+        }
+
+    def action_related_contact(self):
+        return {
+            'name': _("Related Contact"),
+            'res_id': self.partner_id.id,
+            'type': 'ir.actions.act_window',
+            'res_model': 'res.partner',
             'view_mode': 'form',
         }

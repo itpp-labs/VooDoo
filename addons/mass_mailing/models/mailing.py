@@ -113,9 +113,9 @@ class MailingMailing(models.Model):
         copy=False,
         help="Date at which the mailing was or will be sent.")
     # don't translate 'body_arch', the translations are only on 'body_html'
-    body_arch = fields.Html(string='Body', translate=False, sanitize=False)
+    body_arch = fields.Html(string='Body', translate=False, sanitize='email_outgoing', sanitize_output_method="html")
     body_html = fields.Html(
-        string='Body converted to be sent by mail', sanitize=False,
+        string='Body converted to be sent by mail', sanitize='email_outgoing',
         render_engine='qweb', render_options={'post_process': True})
     is_body_empty = fields.Boolean(compute="_compute_is_body_empty")
     attachment_ids = fields.Many2many(
@@ -234,11 +234,10 @@ class MailingMailing(models.Model):
         'Warning Message', compute='_compute_warning_message',
         help='Warning message displayed in the mailing form view')
 
-    _sql_constraints = [(
-        'percentage_valid',
+    _percentage_valid = models.Constraint(
         'CHECK(ab_testing_pc >= 0 AND ab_testing_pc <= 100)',
-        'The A/B Testing Percentage needs to be between 0 and 100%'
-    )]
+        'The A/B Testing Percentage needs to be between 0 and 100%',
+    )
 
     @api.constrains('mailing_model_id', 'mailing_filter_id')
     def _check_mailing_filter_model(self):
@@ -356,9 +355,9 @@ class MailingMailing(models.Model):
         for mass_mailing in self:
             if mass_mailing.schedule_date:
                 # max in case the user schedules a date in the past
-                mass_mailing.next_departure = max(mass_mailing.schedule_date, fields.datetime.now())
+                mass_mailing.next_departure = max(mass_mailing.schedule_date, fields.Datetime.now())
             else:
-                mass_mailing.next_departure = fields.datetime.now()
+                mass_mailing.next_departure = fields.Datetime.now()
         past = self.filtered(
             lambda mailing: mailing.state == 'in_queue' and mailing.next_departure < fields.Datetime.now()
         )

@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
     import { registry } from "@web/core/registry";
     import FinalSteps from "@website_event_booth_exhibitor/../tests/tours/website_event_booth_exhibitor_steps";
 
@@ -23,7 +21,7 @@
         run: "click",
     }, {
         content: 'Choose Booth',
-        trigger: '.o_wbooth_booths div:contains("OpenWood Demonstrator 2") input',
+        trigger: ".o_wbooth_booths div:contains(OpenWood Demonstrator 2) input:not(:visible)",
         run: "click",
     }, {
         content: "Validate attendees details",

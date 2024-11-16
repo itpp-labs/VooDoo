@@ -4,6 +4,7 @@
 from odoo import api, models, Command
 from odoo.addons.base.tests.common import SavepointCaseWithUserDemo
 from odoo.tools import mute_logger, unique, lazy
+from odoo.tools.constants import PREFETCH_MAX
 from odoo.exceptions import AccessError
 
 
@@ -214,15 +215,6 @@ class TestAPI(SavepointCaseWithUserDemo):
         with self.assertRaises(AccessError):
             demo_partner.company_id.name
 
-    def test_56_environment_uid_origin(self):
-        """Check the expected behavior of `env.uid_origin`"""
-        user_demo = self.user_demo
-        user_admin = self.env.ref('base.user_admin')
-        self.assertEqual(self.env.uid_origin, None)
-        self.assertEqual(self.env['base'].with_user(user_demo).env.uid_origin, user_demo.id)
-        self.assertEqual(self.env['base'].with_user(user_demo).with_user(user_admin).env.uid_origin, user_demo.id)
-        self.assertEqual(self.env['base'].with_user(user_admin).with_user(user_demo).env.uid_origin, user_admin.id)
-
     @mute_logger('odoo.models')
     def test_60_cache(self):
         """ Check the record cache behavior """
@@ -287,7 +279,7 @@ class TestAPI(SavepointCaseWithUserDemo):
     @mute_logger('odoo.models')
     def test_60_prefetch(self):
         """ Check the record cache prefetching """
-        partners = self.env['res.partner'].search([('id', 'in', self.partners.ids)], limit=models.PREFETCH_MAX)
+        partners = self.env['res.partner'].search([('id', 'in', self.partners.ids)], limit=PREFETCH_MAX)
         self.assertTrue(len(partners) > 1)
 
         # all the records in partners are ready for prefetching
@@ -322,7 +314,7 @@ class TestAPI(SavepointCaseWithUserDemo):
     @mute_logger('odoo.models')
     def test_60_prefetch_model(self):
         """ Check the prefetching model. """
-        partners = self.env['res.partner'].search([('id', 'in', self.partners.ids)], limit=models.PREFETCH_MAX)
+        partners = self.env['res.partner'].search([('id', 'in', self.partners.ids)], limit=PREFETCH_MAX)
         self.assertTrue(partners)
 
         def same_prefetch(a, b):

@@ -6,6 +6,7 @@ from odoo.osv import expression
 
 
 class ProductTag(models.Model):
+    _name = 'product.tag'
     _description = 'Product Tag'
     _order = 'sequence, id'
 
@@ -36,9 +37,10 @@ class ProductTag(models.Model):
         compute='_compute_product_ids', search='_search_product_ids'
     )
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (name)', "Tag name already exists!"),
-    ]
+    _name_uniq = models.Constraint(
+        'unique (name)',
+        'Tag name already exists!',
+    )
 
     @api.depends('product_template_ids', 'product_product_ids')
     def _compute_product_ids(self):

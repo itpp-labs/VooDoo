@@ -23,6 +23,7 @@ DOMAIN_REGEX = re.compile(r'(-?sum)\((.*)\)')
 
 
 class AccountReport(models.Model):
+    _name = 'account.report'
     _description = "Accounting Report"
     _order = 'sequence, id'
 
@@ -297,6 +298,7 @@ class AccountReport(models.Model):
 
 
 class AccountReportLine(models.Model):
+    _name = 'account.report.line'
     _description = "Accounting Report Line"
     _order = 'sequence, id'
 
@@ -343,9 +345,10 @@ class AccountReportLine(models.Model):
     horizontal_split_side = fields.Selection(string="Horizontal Split Side", selection=[('left', "Left"), ('right', "Right")], compute='_compute_horizontal_split_side', readonly=False, store=True, recursive=True)
     tax_tags_formula = fields.Char(string="Tax Tags Formula Shortcut", help="Internal field to shorten expression_ids creation for the tax_tags engine", inverse='_inverse_aggregation_tax_formula', store=False)
 
-    _sql_constraints = [
-        ('code_uniq', 'unique (report_id, code)', "A report line with the same code already exists."),
-    ]
+    _code_uniq = models.Constraint(
+        'unique (report_id, code)',
+        'A report line with the same code already exists.',
+    )
 
     @api.depends('parent_id.hierarchy_level')
     def _compute_hierarchy_level(self):
@@ -524,6 +527,7 @@ class AccountReportLine(models.Model):
 
 
 class AccountReportExpression(models.Model):
+    _name = 'account.report.expression'
     _description = "Accounting Report Expression"
     _rec_name = 'report_line_name'
 
@@ -569,18 +573,14 @@ class AccountReportExpression(models.Model):
              "(on a _carryover_*-labeled expression), in case it is different from the parent line."
     )
 
-    _sql_constraints = [
-        (
-            "domain_engine_subformula_required",
-            "CHECK(engine != 'domain' OR subformula IS NOT NULL)",
-            "Expressions using 'domain' engine should all have a subformula."
-        ),
-        (
-            "line_label_uniq",
-            "UNIQUE(report_line_id,label)",
-            "The expression label must be unique per report line."
-        ),
-    ]
+    _domain_engine_subformula_required = models.Constraint(
+        "CHECK(engine != 'domain' OR subformula IS NOT NULL)",
+        "Expressions using 'domain' engine should all have a subformula.",
+    )
+    _line_label_uniq = models.Constraint(
+        'UNIQUE(report_line_id,label)',
+        'The expression label must be unique per report line.',
+    )
 
     @api.constrains('carryover_target', 'label')
     def _check_carryover_target(self):
@@ -844,6 +844,7 @@ class AccountReportExpression(models.Model):
 
 
 class AccountReportColumn(models.Model):
+    _name = 'account.report.column'
     _description = "Accounting Report Column"
     _order = 'sequence, id'
 
@@ -858,6 +859,7 @@ class AccountReportColumn(models.Model):
 
 
 class AccountReportExternalValue(models.Model):
+    _name = 'account.report.external.value'
     _description = 'Accounting Report External Value'
     _check_company_auto = True
     _order = 'date, id'

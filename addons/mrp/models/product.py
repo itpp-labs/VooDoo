@@ -20,7 +20,7 @@ OPERATORS = {
 
 
 class ProductTemplate(models.Model):
-    _inherit = ["product.template"]
+    _inherit = "product.template"
 
     bom_line_ids = fields.One2many('mrp.bom.line', 'product_tmpl_id', 'BoM Components')
     bom_ids = fields.One2many('mrp.bom', 'product_tmpl_id', 'Bill of Materials')
@@ -113,7 +113,7 @@ class ProductTemplate(models.Model):
 
 
 class ProductProduct(models.Model):
-    _inherit = ["product.product"]
+    _inherit = "product.product"
 
     variant_bom_ids = fields.One2many('mrp.bom', 'product_id', 'BOM Product Variants')
     bom_line_ids = fields.One2many('mrp.bom.line', 'product_id', 'BoM Components')
@@ -242,7 +242,7 @@ class ProductProduct(models.Model):
         return action
 
     def _compute_mrp_product_qty(self):
-        date_from = fields.Datetime.to_string(fields.datetime.now() - timedelta(days=365))
+        date_from = fields.Datetime.to_string(fields.Datetime.now() - timedelta(days=365))
         #TODO: state = done?
         domain = [('state', '=', 'done'), ('product_id', 'in', self.ids), ('date_start', '>', date_from)]
         read_group_res = self.env['mrp.production']._read_group(domain, ['product_id'], ['product_uom_qty:sum'])
@@ -328,11 +328,11 @@ class ProductProduct(models.Model):
                 ratios_free_qty.append(float_round(component_res["free_qty"] / qty_per_kit, precision_rounding=rounding))
             if bom_sub_lines and ratios_virtual_available:  # Guard against all cnsumable bom: at least one ratio should be present.
                 res[product.id] = {
-                    'virtual_available': min(ratios_virtual_available) * bom_kits[product].product_qty // 1,
-                    'qty_available': min(ratios_qty_available) * bom_kits[product].product_qty // 1,
-                    'incoming_qty': min(ratios_incoming_qty) * bom_kits[product].product_qty // 1,
-                    'outgoing_qty': min(ratios_outgoing_qty) * bom_kits[product].product_qty // 1,
-                    'free_qty': min(ratios_free_qty) * bom_kits[product].product_qty // 1,
+                    'virtual_available': float_round(min(ratios_virtual_available) * bom_kits[product].product_qty, precision_rounding=rounding) // 1,
+                    'qty_available': float_round(min(ratios_qty_available) * bom_kits[product].product_qty, precision_rounding=rounding) // 1,
+                    'incoming_qty': float_round(min(ratios_incoming_qty) * bom_kits[product].product_qty, precision_rounding=rounding) // 1,
+                    'outgoing_qty': float_round(min(ratios_outgoing_qty) * bom_kits[product].product_qty, precision_rounding=rounding) // 1,
+                    'free_qty': float_round(min(ratios_free_qty) * bom_kits[product].product_qty, precision_rounding=rounding) // 1,
                 }
             else:
                 res[product.id] = {

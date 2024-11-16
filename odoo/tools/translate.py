@@ -350,7 +350,7 @@ _HTML_PARSER = etree.HTMLParser(encoding='utf8')
 def parse_html(text):
     try:
         parse = html.fragment_fromstring(text, parser=_HTML_PARSER)
-    except TypeError as e:
+    except (etree.ParserError, TypeError) as e:
         raise UserError(_("Error while parsing view:\n\n%s") % e) from e
     return parse
 
@@ -435,13 +435,6 @@ html_translate.is_text = is_text
 
 xml_translate.term_adapter = xml_term_adapter
 
-def translate_sql_constraint(cr, key, lang):
-    cr.execute("""
-        SELECT COALESCE(c.message->>%s, c.message->>'en_US') as message
-        FROM ir_model_constraint c
-        WHERE name=%s and type='u'
-        """, (lang, key))
-    return cr.fetchone()[0]
 
 
 def get_translation(module: str, lang: str, source: str, args: tuple | dict) -> str:
@@ -1095,7 +1088,8 @@ def extract_spreadsheet_terms(fileobj, keywords, comment_tags, options):
     data = json.load(fileobj)
     for sheet in data.get('sheets', []):
         for cell in sheet['cells'].values():
-            content = cell.get('content', '')
+            # 'cell' was an object in versions <saas-18.1
+            content = cell if isinstance(cell, str) else cell.get('content', '')
             if content.startswith('='):
                 terms += extract_formula_terms(content)
             else:

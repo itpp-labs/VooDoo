@@ -4,6 +4,7 @@ from odoo import _, api, exceptions, fields, models
 
 
 class CrmTeamMember(models.Model):
+    _name = 'crm.team.member'
     _inherit = ['mail.thread']
     _description = 'Sales Team Member'
     _rec_name = 'user_id'
@@ -129,7 +130,8 @@ class CrmTeamMember(models.Model):
                 teams = user_mapping.get(member.user_id, self.env['crm.team'])
                 remaining = teams - (member.crm_team_id | member._origin.crm_team_id)
                 if remaining:
-                    member.member_warning = _("Adding %(user_name)s in this team would remove him/her from its current teams %(team_names)s.",
+                    member.member_warning = _("Adding %(user_name)s in this team will remove them from %(team_names)s. "
+                                              "Working in multiple teams? Activate the option under Configuration>Settings.",
                                               user_name=member.user_id.name,
                                               team_names=", ".join(remaining.mapped('name'))
                                              )

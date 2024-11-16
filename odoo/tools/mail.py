@@ -110,6 +110,7 @@ class _Cleaner(clean.Cleaner):
 
     strip_classes = False
     sanitize_style = False
+    conditional_comments = True
 
     def __call__(self, doc):
         super(_Cleaner, self).__call__(doc)
@@ -141,6 +142,24 @@ class _Cleaner(clean.Cleaner):
                 el.attrib['style'] = '; '.join('%s:%s' % (key, val) for (key, val) in valid_styles.items())
             else:
                 del el.attrib['style']
+
+    def kill_conditional_comments(self, doc):
+        """Override the default behavior of lxml.
+
+        https://github.com/lxml/lxml/blob/e82c9153c4a7d505480b94c60b9a84d79d948efb/src/lxml/html/clean.py#L501-L510
+
+        In some use cases, e.g. templates used for mass mailing,
+        we send emails containing conditional comments targeting Microsoft Outlook,
+        to give special styling instructions.
+        https://github.com/odoo/odoo/pull/119325/files#r1301064789
+
+        Within these conditional comments, unsanitized HTML can lie.
+        However, in modern browser, these comments are considered as simple comments,
+        their content is not executed.
+        https://caniuse.com/sr_ie-features
+        """
+        if self.conditional_comments:
+            super().kill_conditional_comments(doc)
 
 
 def tag_quote(el):
@@ -282,7 +301,7 @@ def fromstring(html_, base_url=None, parser=None, **kw):
     return body, False
 
 
-def html_normalize(src, filter_callback=None):
+def html_normalize(src, filter_callback=None, output_method="html"):
     """ Normalize `src` for storage as an html field value.
 
     The string is parsed as an html tag soup, made valid, then decorated for
@@ -295,6 +314,8 @@ def html_normalize(src, filter_callback=None):
     :param filter_callback: optional callable taking a single `etree._Element`
         document parameter, to be called during normalization in order to
         filter the output document
+    :param output_method: defines the output method to pass to `html.tostring`.
+        It defaults to 'html', but can also be 'xml' for xhtml output.
     """
     if not src:
         return src
@@ -323,7 +344,7 @@ def html_normalize(src, filter_callback=None):
     if filter_callback:
         doc = filter_callback(doc)
 
-    src = html.tostring(doc, encoding='unicode')
+    src = html.tostring(doc, encoding='unicode', method=output_method)
 
     if not single_body_element and src.startswith('<div>') and src.endswith('</div>'):
         # the <div></div> may come from 2 places
@@ -342,7 +363,7 @@ def html_normalize(src, filter_callback=None):
     return src
 
 
-def html_sanitize(src, silent=True, sanitize_tags=True, sanitize_attributes=False, sanitize_style=False, sanitize_form=True, strip_style=False, strip_classes=False):
+def html_sanitize(src, silent=True, sanitize_tags=True, sanitize_attributes=False, sanitize_style=False, sanitize_form=True, sanitize_conditional_comments=True, strip_style=False, strip_classes=False, output_method="html"):
     if not src:
         return src
 
@@ -356,6 +377,7 @@ def html_sanitize(src, silent=True, sanitize_tags=True, sanitize_attributes=Fals
             'forms': sanitize_form,            # True = remove form tags
             'remove_unknown_tags': False,
             'comments': False,
+            'conditional_comments': sanitize_conditional_comments,   # True = remove conditional comments
             'processing_instructions': False
         }
         if sanitize_tags:
@@ -381,7 +403,7 @@ def html_sanitize(src, silent=True, sanitize_tags=True, sanitize_attributes=Fals
         return doc
 
     try:
-        sanitized = html_normalize(src, filter_callback=sanitize_handler)
+        sanitized = html_normalize(src, filter_callback=sanitize_handler, output_method=output_method)
     except etree.ParserError:
         if not silent:
             raise
@@ -429,6 +451,7 @@ def is_html_empty(html_content):
     tag_re = r'<\s*\/?(?:p|div|section|span|br|b|i|font)\b(?:(\s+[A-Za-z_-][A-Za-z0-9-_]*(\s*=\s*[\'"][^"\']*[\'"]))*)(?:\s*>|\s*\/\s*>)'
     return not bool(re.sub(tag_re, '', html_content).strip()) and not re.search(icon_re, html_content)
 
+
 def html_keep_url(text):
     """ Transform the url into clickable link with <a/> tag """
     idx = 0
@@ -436,7 +459,7 @@ def html_keep_url(text):
     link_tags = re.compile(r"""(?<!["'])((ftp|http|https):\/\/(\w+:{0,1}\w*@)?([^\s<"']+)(:[0-9]+)?(\/|\/([^\s<"']))?)(?![^\s<"']*["']|[^\s<"']*</a>)""")
     for item in re.finditer(link_tags, text):
         final += text[idx:item.start()]
-        final += '<a href="%s" target="_blank" rel="noreferrer noopener">%s</a>' % (item.group(0), item.group(0))
+        final += create_link(item.group(0), item.group(0))
         idx = item.end()
     final += text[idx:]
     return final
@@ -456,6 +479,10 @@ def html_to_inner_content(html):
     processed = htmllib.unescape(processed)
     processed = processed.strip()
     return processed
+
+
+def create_link(url, label):
+    return f'<a href="{url}" target="_blank" rel="noreferrer noopener">{label}</a>'
 
 
 def html2plaintext(html, body_id=None, encoding='utf-8'):
@@ -759,6 +786,26 @@ def email_normalize_all(text):
     return list(filter(None, [_normalize_email(email) for email in emails]))
 
 def _normalize_email(email):
+    """ As of rfc5322 section 3.4.1 local-part is case-sensitive. However most
+    main providers do consider the local-part as case insensitive. With the
+    introduction of smtp-utf8 within odoo, this assumption is certain to fall
+    short for international emails. We now consider that
+
+      * if local part is ascii: normalize still 'lower' ;
+      * else: use as it, SMTP-UF8 is made for non-ascii local parts;
+
+    Concerning domain part of the address, as of v14 international domain (IDNA)
+    are handled fine. The domain is always lowercase, lowering it is fine as it
+    is probably an error. With the introduction of IDNA, there is an encoding
+    that allow non-ascii characters to be encoded to ascii ones, using 'idna.encode'.
+
+    A normalized email is considered as :
+    - having a left part + @ + a right part (the domain can be without '.something')
+    - having no name before the address. Typically, having no 'Name <>'
+    Ex:
+    - Possible Input Email : 'Name <NaMe@DoMaIn.CoM>'
+    - Normalized Output Email : 'name@domain.com'
+    """
     local_part, at, domain = email.rpartition('@')
     try:
         local_part.encode('ascii')

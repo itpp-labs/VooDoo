@@ -8,6 +8,7 @@ from odoo.fields import Command
 
 
 class SaleOrderDiscount(models.TransientModel):
+    _name = 'sale.order.discount'
     _description = "Discount Wizard"
 
     sale_order_id = fields.Many2one(
@@ -61,7 +62,7 @@ class SaleOrderDiscount(models.TransientModel):
             'product_id': product.id,
             'sequence': 999,
             'price_unit': -amount,
-            'tax_id': [Command.set(taxes.ids)],
+            'tax_ids': [Command.set(taxes.ids)],
         }
         if description:
             # If not given, name will fallback on the standard SOL logic (cf. _compute_name)
@@ -111,7 +112,7 @@ class SaleOrderDiscount(models.TransientModel):
                 if not line.product_uom_qty or not line.price_unit:
                     continue
 
-                total_price_per_tax_groups[line.tax_id] += (line.price_unit * line.product_uom_qty)
+                total_price_per_tax_groups[line.tax_ids] += (line.price_unit * line.product_uom_qty)
 
             if not total_price_per_tax_groups:
                 # No valid lines on which the discount can be applied

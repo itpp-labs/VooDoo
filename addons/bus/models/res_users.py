@@ -4,6 +4,7 @@ from odoo import fields, models
 
 
 class ResUsers(models.Model):
+    _name = 'res.users'
     _inherit = ["res.users", "bus.listener.mixin"]
 
     im_status = fields.Char("IM Status", compute="_compute_im_status")
@@ -19,3 +20,6 @@ class ResUsers(models.Model):
 
     def _bus_channel(self):
         return self.partner_id._bus_channel()
+
+    def _is_user_available(self):
+        return self.im_status == 'online'

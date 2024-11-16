@@ -1,9 +1,10 @@
-from odoo.addons.l10n_it_edi_ndd.models.account_payment_methode_line import L10N_IT_PAYMENT_METHOD_SELECTION
 from odoo import api, fields, models
+from odoo.tools.sql import column_exists, create_column
+from odoo.addons.l10n_it_edi_ndd.models.account_payment_methode_line import L10N_IT_PAYMENT_METHOD_SELECTION
 
 
 class AccountMove(models.Model):
-    _inherit = ['account.move']
+    _inherit = 'account.move'
 
     l10n_it_payment_method = fields.Selection(
         selection=L10N_IT_PAYMENT_METHOD_SELECTION,
@@ -18,6 +19,15 @@ class AccountMove(models.Model):
         store=True,
         readonly=False,
     )
+
+    def _auto_init(self):
+        # Create compute stored field l10n_it_document_type and l10n_it_payment_method
+        # here to avoid timeout error on large databases.
+        if not column_exists(self.env.cr, 'account_move', 'l10n_it_payment_method'):
+            create_column(self.env.cr, 'account_move', 'l10n_it_payment_method', 'varchar')
+        if not column_exists(self.env.cr, 'account_move', 'l10n_it_document_type'):
+            create_column(self.env.cr, 'account_move', 'l10n_it_document_type', 'integer')
+        return super()._auto_init()
 
     @api.depends('line_ids.matching_number', 'payment_state', 'matched_payment_ids')
     def _compute_l10n_it_payment_method(self):

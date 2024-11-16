@@ -6,10 +6,10 @@ from odoo.tools import float_compare
 
 
 class ReportMrpReport_Bom_Structure(models.AbstractModel):
-    _inherit = ['report.mrp.report_bom_structure']
+    _inherit = 'report.mrp.report_bom_structure'
 
     def _get_subcontracting_line(self, bom, seller, level, bom_quantity):
-        ratio_uom_seller = seller.product_uom.ratio / bom.product_uom_id.ratio
+        ratio_uom_seller = seller.product_uom_id.ratio / bom.product_uom_id.ratio
         price = seller.currency_id._convert(seller.price, self.env.company.currency_id, (bom.company_id or self.env.company), fields.Date.today())
         return {
             'name': seller.partner_id.display_name,
@@ -86,7 +86,7 @@ class ReportMrpReport_Bom_Structure(models.AbstractModel):
             # for subcontracting, we can't decide the lead time without component's resupply availability
             # we only return necessary info and calculate the lead time late when we have component's data
             if supplier:
-                qty_supplier_uom = product.uom_id._compute_quantity(quantity, supplier.product_uom)
+                qty_supplier_uom = product.uom_id._compute_quantity(quantity, supplier.product_uom_id)
                 return {
                     'route_type': 'subcontract',
                     'route_name': subcontract_rules[0].route_id.display_name,
@@ -113,8 +113,8 @@ class ReportMrpReport_Bom_Structure(models.AbstractModel):
                 if not product_info[product.id]['consumptions'].get(stock_loc, False):
                     product_info[product.id]['consumptions'][stock_loc] = 0
                 quantities_info['free_to_manufacture_qty'] = product.uom_id._compute_quantity(subloc_product.free_qty, bom_uom)
-                quantities_info['free_qty'] += quantities_info['free_to_manufacture_qty']
-                quantities_info['on_hand_qty'] += product.uom_id._compute_quantity(subloc_product.qty_available, bom_uom)
+                quantities_info['free_qty'] = quantities_info['free_to_manufacture_qty']
+                quantities_info['on_hand_qty'] = product.uom_id._compute_quantity(subloc_product.qty_available, bom_uom)
                 quantities_info['stock_loc'] = stock_loc
 
         return quantities_info

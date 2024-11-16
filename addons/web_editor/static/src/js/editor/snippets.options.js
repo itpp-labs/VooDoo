@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { attachComponent } from "@web_editor/js/core/owl_utils";
 import { MediaDialog } from "@web_editor/components/media_dialog/media_dialog";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
@@ -4818,8 +4816,9 @@ registry.sizing = SnippetOptionWidget.extend({
                         // Find the first element behind the overlay.
                         const sameCoordinatesEls = self.ownerDocument
                             .elementsFromPoint(ev.pageX, ev.pageY);
+                        // Check toBeClickEl has native JS `click` function
                         const toBeClickedEl = sameCoordinatesEls
-                            .find(el => !el.closest("#oe_manipulators"));
+                            .find(el => !el.closest("#oe_manipulators") && typeof el.click === "function");
                         if (toBeClickedEl) {
                             toBeClickedEl.click();
                         }

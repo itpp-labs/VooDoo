@@ -12,6 +12,7 @@ _logger = logging.getLogger(__name__)
 
 
 class WebsiteSnippetFilter(models.Model):
+    _name = 'website.snippet.filter'
     _inherit = ['website.published.multi.mixin']
     _description = 'Website Snippet Filter'
     _order = 'name ASC'
@@ -99,7 +100,7 @@ class WebsiteSnippetFilter(models.Model):
             if search_domain:
                 domain = expression.AND([domain, search_domain])
             try:
-                records = self.env[filter_sudo.model_id].with_context(**literal_eval(filter_sudo.context)).search(
+                records = self.env[filter_sudo.model_id].sudo(False).with_context(**literal_eval(filter_sudo.context)).search(
                     domain,
                     order=','.join(literal_eval(filter_sudo.sort)) or None,
                     limit=limit

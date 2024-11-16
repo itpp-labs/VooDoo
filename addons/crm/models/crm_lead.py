@@ -81,11 +81,12 @@ PARTNER_ADDRESS_FIELDS_TO_SYNC = [
 
 # Those values have been determined based on benchmark to minimise
 # computation time, number of transaction and transaction time.
-PLS_COMPUTE_BATCH_STEP = 50000  # odoo.models.PREFETCH_MAX = 1000 but larger cluster can speed up global computation
+PLS_COMPUTE_BATCH_STEP = 50000  # PREFETCH_MAX = 1000 but larger cluster can speed up global computation
 PLS_UPDATE_BATCH_STEP = 5000
 
 
 class CrmLead(models.Model):
+    _name = 'crm.lead'
     _description = "Lead"
     _order = "priority desc, id desc"
     _inherit = ['mail.thread.cc',
@@ -240,9 +241,12 @@ class CrmLead(models.Model):
     medium_id = fields.Many2one(ondelete='set null')
     source_id = fields.Many2one(ondelete='set null')
 
-    _sql_constraints = [
-        ('check_probability', 'check(probability >= 0 and probability <= 100)', 'The probability of closing the deal should be between 0% and 100%!')
-    ]
+    _check_probability = models.Constraint(
+        'check(probability >= 0 and probability <= 100)',
+        'The probability of closing the deal should be between 0% and 100%!',
+    )
+    _user_id_team_id_type_index = models.Index("(user_id, team_id, type)")
+    _create_date_team_id_idx = models.Index("(create_date, team_id)")
 
     @api.depends('company_id')
     def _compute_user_company_ids(self):
@@ -571,7 +575,7 @@ class CrmLead(models.Model):
             return res if len(res) < SEARCH_RESULT_LIMIT else model
 
         for lead in self:
-            lead_id = lead._origin.id if isinstance(lead.id, models.NewId) else lead.id
+            lead_id = lead._origin.id
             common_lead_domain = [
                 ('id', '!=', lead_id)
             ]
@@ -719,13 +723,6 @@ class CrmLead(models.Model):
     # ------------------------------------------------------------
     # ORM
     # ------------------------------------------------------------
-
-    def _auto_init(self):
-        super()._auto_init()
-        tools.create_index(self._cr, 'crm_lead_user_id_team_id_type_index',
-                           self._table, ['user_id', 'team_id', 'type'])
-        tools.create_index(self._cr, 'crm_lead_create_date_team_id_idx',
-                           self._table, ['create_date', 'team_id'])
 
     @api.model_create_multi
     def create(self, vals_list):

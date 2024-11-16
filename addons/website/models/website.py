@@ -91,6 +91,7 @@ DEFAULT_BLOCKED_THIRD_PARTY_DOMAINS = '\n'.join([  # noqa: FLY002
 
 
 class Website(models.Model):
+    _name = 'website'
 
     _description = "Website"
     _order = "sequence, id"
@@ -200,9 +201,10 @@ class Website(models.Model):
         ('b2c', 'Free sign up'),
     ], string='Customer Account', default='b2b')
 
-    _sql_constraints = [
-        ('domain_unique', 'unique(domain)', 'Website Domain should be unique.'),
-    ]
+    _domain_unique = models.Constraint(
+        'unique(domain)',
+        'Website Domain should be unique.',
+    )
 
     @api.onchange('language_ids')
     def _onchange_language_ids(self):
@@ -1148,16 +1150,21 @@ class Website(models.Model):
             page = self.env['website.page'].create(default_page_values)
             result['page_id'] = page.id
         if add_menu:
-            default_menu_values = {
-                'name': name,
-                'url': page_url,
-                'parent_id': website.menu_id.id,
-                'page_id': page.id,
-                'website_id': website.id,
-            }
-            if menu_values:
-                default_menu_values.update(menu_values)
-            menu = self.env['website.menu'].create(default_menu_values)
+            menu = self.env['website.menu'].search([
+                ('url', '=', page_url),
+                ('website_id', '=', website.id),
+            ], limit=1)
+            if not menu:
+                default_menu_values = {
+                    'name': name,
+                    'url': page_url,
+                    'parent_id': website.menu_id.id,
+                    'page_id': page.id,
+                    'website_id': website.id,
+                }
+                if menu_values:
+                    default_menu_values.update(menu_values)
+                menu = self.env['website.menu'].create(default_menu_values)
             result['menu_id'] = menu.id
         return result
 

@@ -1,22 +1,22 @@
 import { _t } from "@web/core/l10n/translation";
 import { parseFloat } from "@web/views/fields/parsers";
-import { useErrorHandlers, useAsyncLockedMethod } from "@point_of_sale/app/utils/hooks";
+import { useErrorHandlers, useAsyncLockedMethod } from "@point_of_sale/app/hooks/hooks";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
 import { AlertDialog, ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
-import { NumberPopup } from "@point_of_sale/app/utils/input_popups/number_popup";
-import { DatePickerPopup } from "@point_of_sale/app/utils/date_picker_popup/date_picker_popup";
+import { NumberPopup } from "@point_of_sale/app/components/popups/number_popup/number_popup";
+import { DatePickerPopup } from "@point_of_sale/app/components/popups/date_picker_popup/date_picker_popup";
 import { ConnectionLostError, RPCError } from "@web/core/network/rpc";
 
 import { PaymentScreenPaymentLines } from "@point_of_sale/app/screens/payment_screen/payment_lines/payment_lines";
 import { PaymentScreenStatus } from "@point_of_sale/app/screens/payment_screen/payment_status/payment_status";
-import { usePos } from "@point_of_sale/app/store/pos_hook";
+import { usePos } from "@point_of_sale/app/hooks/pos_hook";
 import { Component, useState, onMounted } from "@odoo/owl";
-import { Numpad, enhancedButtons } from "@point_of_sale/app/generic_components/numpad/numpad";
+import { Numpad, enhancedButtons } from "@point_of_sale/app/components/numpad/numpad";
 import { floatIsZero, roundPrecision as round_pr } from "@web/core/utils/numbers";
-import { ask } from "@point_of_sale/app/store/make_awaitable_dialog";
-import { handleRPCError } from "@point_of_sale/app/errors/error_handlers";
+import { ask } from "@point_of_sale/app/utils/make_awaitable_dialog";
+import { handleRPCError } from "@point_of_sale/app/utils/error_handlers";
 import { sprintf } from "@web/core/utils/strings";
 import { serializeDateTime } from "@web/core/l10n/dates";
 
@@ -122,7 +122,7 @@ export class PaymentScreen extends Component {
         if (
             paymentMethod.type === "pay_later" &&
             (!this.currentOrder.to_invoice ||
-                this.pos.data["ir.module.module"].find((m) => m.name === "pos_settle_due")
+                this.pos.models["ir.module.module"].find((m) => m.name === "pos_settle_due")
                     ?.state !== "installed")
         ) {
             this.notification.add(
@@ -377,7 +377,7 @@ export class PaymentScreen extends Component {
                     nextScreen = "ProductScreen";
 
                     if (switchScreen) {
-                        await this.pos.add_new_order();
+                        this.pos.add_new_order();
                     }
                 }
             }

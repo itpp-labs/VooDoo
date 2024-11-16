@@ -7,7 +7,6 @@ import io
 import logging
 import re
 import requests
-import PyPDF2
 
 from dateutil.relativedelta import relativedelta
 from markupsafe import Markup
@@ -17,11 +16,13 @@ from odoo import api, fields, models, _
 from odoo.exceptions import RedirectWarning, UserError, AccessError
 from odoo.http import request
 from odoo.tools import html2plaintext, sql
+from odoo.tools.pdf import PdfFileReader
 
 _logger = logging.getLogger(__name__)
 
 
 class SlideSlidePartner(models.Model):
+    _name = 'slide.slide.partner'
     _description = 'Slide / Partner decorated m2m'
     _table = 'slide_slide_partner'
     _rec_name = 'partner_id'
@@ -36,16 +37,14 @@ class SlideSlidePartner(models.Model):
     completed = fields.Boolean('Completed')
     quiz_attempts_count = fields.Integer('Quiz attempts count', default=0)
 
-    _sql_constraints = [
-        ('slide_partner_uniq',
-         'unique(slide_id, partner_id)',
-         'A partner membership to a slide must be unique!'
-        ),
-        ('check_vote',
-         'CHECK(vote IN (-1, 0, 1))',
-         'The vote must be 1, 0 or -1.'
-        ),
-    ]
+    _slide_partner_uniq = models.Constraint(
+        'unique(slide_id, partner_id)',
+        'A partner membership to a slide must be unique!',
+    )
+    _check_vote = models.Constraint(
+        'CHECK(vote IN (-1, 0, 1))',
+        'The vote must be 1, 0 or -1.',
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -82,12 +81,14 @@ class SlideTag(models.Model):
 
     name = fields.Char('Name', required=True, translate=True)
 
-    _sql_constraints = [
-        ('slide_tag_unique', 'UNIQUE(name)', 'A tag must be unique!'),
-    ]
+    _slide_tag_unique = models.Constraint(
+        'UNIQUE(name)',
+        'A tag must be unique!',
+    )
 
 
 class SlideSlide(models.Model):
+    _name = 'slide.slide'
     _inherit = [
         'mail.thread',
         'image.mixin',
@@ -236,9 +237,10 @@ class SlideSlide(models.Model):
     is_published = fields.Boolean(tracking=1)
     website_published = fields.Boolean(tracking=False)
 
-    _sql_constraints = [
-        ('exclusion_html_content_and_url', "CHECK(html_content IS NULL OR url IS NULL)", "A slide is either filled with a url or HTML content. Not both.")
-    ]
+    _exclusion_html_content_and_url = models.Constraint(
+        'CHECK(html_content IS NULL OR url IS NULL)',
+        'A slide is either filled with a url or HTML content. Not both.',
+    )
 
     @api.depends('slide_category', 'source_type', 'image_binary_content')
     def _compute_image_1920(self):
@@ -1317,7 +1319,7 @@ class SlideSlide(models.Model):
 
         if data_bytes.startswith(b'%PDF-'):
             try:
-                pdf = PyPDF2.PdfFileReader(io.BytesIO(data_bytes), overwriteWarnings=False)
+                pdf = PdfFileReader(io.BytesIO(data_bytes), overwriteWarnings=False)
                 return (5 * len(pdf.pages)) / 60
             except Exception:
                 pass  # as this is a nice to have, fail silently

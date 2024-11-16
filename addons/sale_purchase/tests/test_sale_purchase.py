@@ -37,19 +37,19 @@ class TestSalePurchase(TestCommonSalePurchaseNoChart):
             'product_id': cls.company_data['product_service_delivery'].id,
             'product_uom_qty': 1,
             'order_id': cls.sale_order_1.id,
-            'tax_id': False,
+            'tax_ids': False,
         })
         cls.sol1_product_order = cls.env['sale.order.line'].create({
             'product_id': cls.company_data['product_order_no'].id,
             'product_uom_qty': 2,
             'order_id': cls.sale_order_1.id,
-            'tax_id': False,
+            'tax_ids': False,
         })
         cls.sol1_service_purchase_1 = cls.env['sale.order.line'].create({
             'product_id': cls.service_purchase_1.id,
             'product_uom_qty': 4,
             'order_id': cls.sale_order_1.id,
-            'tax_id': False,
+            'tax_ids': False,
         })
 
         cls.sale_order_2 = SaleOrder.create({
@@ -62,19 +62,19 @@ class TestSalePurchase(TestCommonSalePurchaseNoChart):
             'product_id': cls.company_data['product_delivery_no'].id,
             'product_uom_qty': 5,
             'order_id': cls.sale_order_2.id,
-            'tax_id': False,
+            'tax_ids': False,
         })
         cls.sol2_service_order = cls.env['sale.order.line'].create({
             'product_id': cls.company_data['product_service_order'].id,
             'product_uom_qty': 6,
             'order_id': cls.sale_order_2.id,
-            'tax_id': False,
+            'tax_ids': False,
         })
         cls.sol2_service_purchase_2 = cls.env['sale.order.line'].create({
             'product_id': cls.service_purchase_2.id,
             'product_uom_qty': 7,
             'order_id': cls.sale_order_2.id,
-            'tax_id': False,
+            'tax_ids': False,
         })
 
     def test_sale_create_purchase(self):
@@ -120,8 +120,8 @@ class TestSalePurchase(TestCommonSalePurchaseNoChart):
         purchase_line = self.env['purchase.order.line'].search([('sale_line_id', '=', self.sol2_service_purchase_2.id)])  # only one line
 
         self.assertTrue(purchase_line, "The SO line should generate a PO line")
-        self.assertEqual(purchase_line.product_uom, self.service_purchase_2.uom_po_id, "The UoM on the purchase line should be the one from the product configuration")
-        self.assertNotEqual(purchase_line.product_uom, self.sol2_service_purchase_2.product_uom, "As the product configuration, the UoM on the SO line should still be different from the one on the PO line")
+        self.assertEqual(purchase_line.product_uom_id, self.service_purchase_2.uom_po_id, "The UoM on the purchase line should be the one from the product configuration")
+        self.assertNotEqual(purchase_line.product_uom_id, self.sol2_service_purchase_2.product_uom_id, "As the product configuration, the UoM on the SO line should still be different from the one on the PO line")
         self.assertEqual(purchase_line.product_qty, self.sol2_service_purchase_2.product_uom_qty * 12, "The quantity from the SO should be converted with th UoM factor on the PO line")
 
     def test_no_supplier(self):

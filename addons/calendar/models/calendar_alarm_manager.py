@@ -9,6 +9,7 @@ from odoo.tools import plaintext2html
 
 
 class CalendarAlarm_Manager(models.AbstractModel):
+    _name = 'calendar.alarm_manager'
     _description = 'Event Alarm Manager'
 
     def _get_next_potential_limit_alarm(self, alarm_type, seconds=None, partners=None):
@@ -147,7 +148,7 @@ class CalendarAlarm_Manager(models.AbstractModel):
         design. The attendees receive an invitation for any new event
         already.
         """
-        lastcall = self.env.context.get('lastcall', False) or fields.date.today() - relativedelta(weeks=1)
+        lastcall = self.env.context.get('lastcall', False) or fields.Date.today() - relativedelta(weeks=1)
         now = datetime.now(tz=UTC)
         self.env.cr.execute('''
             SELECT "alarm"."id", "event"."id"

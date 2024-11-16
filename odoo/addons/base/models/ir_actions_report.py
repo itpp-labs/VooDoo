@@ -136,6 +136,7 @@ else:
 
 
 class IrActionsReport(models.Model):
+    _name = 'ir.actions.report'
     _description = 'Report Action'
     _inherit = ['ir.actions.actions']
     _table = 'ir_act_report_xml'
@@ -965,7 +966,7 @@ class IrActionsReport(models.Model):
 
             # if res_id is false
             # we are unable to fetch the record, it won't be saved as we can't split the documents unambiguously
-            if not res_id:
+            if not res_id or not stream_data['stream']:
                 _logger.warning(
                     "These documents were not saved as an attachment because the template of %s doesn't "
                     "have any headers seperating different instances of it. If you want it saved,"

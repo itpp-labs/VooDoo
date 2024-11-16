@@ -1,11 +1,9 @@
-/** @odoo-module **/
-
 import { registry } from "@web/core/registry";
 import { kanbanView } from "@web/views/kanban/kanban_view";
 import { onWillStart, useState, onWillRender } from "@odoo/owl";
 import { KanbanRenderer } from "@web/views/kanban/kanban_renderer";
 import { useService } from "@web/core/utils/hooks";
-import { useTrackedAsync } from "@point_of_sale/app/utils/hooks";
+import { useTrackedAsync } from "@point_of_sale/app/hooks/hooks";
 import { _t } from "@web/core/l10n/translation";
 import { KanbanController } from "@web/views/kanban/kanban_controller";
 

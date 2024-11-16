@@ -6,15 +6,17 @@ from odoo.osv import expression
 
 
 class AccountPaymentMethod(models.Model):
+    _name = 'account.payment.method'
     _description = "Payment Methods"
 
     name = fields.Char(required=True, translate=True)
     code = fields.Char(required=True)  # For internal identification
     payment_type = fields.Selection(selection=[('inbound', 'Inbound'), ('outbound', 'Outbound')], required=True)
 
-    _sql_constraints = [
-        ('name_code_unique', 'unique (code, payment_type)', 'The combination code/payment type already exists!'),
-    ]
+    _name_code_unique = models.Constraint(
+        'unique (code, payment_type)',
+        'The combination code/payment type already exists!',
+    )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -93,6 +95,7 @@ class AccountPaymentMethod(models.Model):
 
 
 class AccountPaymentMethodLine(models.Model):
+    _name = 'account.payment.method.line'
     _description = "Payment Methods"
     _order = 'sequence, id'
 

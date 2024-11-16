@@ -5,7 +5,7 @@ from odoo import api, fields, models
 
 
 class SaleReport(models.Model):
-    _inherit = ["sale.report"]
+    _inherit = "sale.report"
 
     @api.model
     def _get_done_states(self):
@@ -28,7 +28,7 @@ class SaleReport(models.Model):
             -MIN(l.id) AS id,
             l.product_id AS product_id,
             NULL AS line_invoice_status,
-            t.uom_id AS product_uom,
+            t.uom_id AS product_uom_id,
             SUM(l.qty) AS product_uom_qty,
             SUM(l.qty_delivered) AS qty_delivered,
             SUM(l.qty - l.qty_delivered) AS qty_to_deliver,

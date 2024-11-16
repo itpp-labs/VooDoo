@@ -21,7 +21,7 @@ TIMESHEET_INVOICE_TYPES = [
 
 
 class AccountAnalyticLine(models.Model):
-    _inherit = ['account.analytic.line']
+    _inherit = 'account.analytic.line'
 
     def _domain_so_line(self):
         domain = expression.AND([
@@ -207,7 +207,7 @@ class AccountAnalyticLine(models.Model):
 
     def _timesheet_convert_sol_uom(self, sol, to_unit):
         to_uom = self.env.ref(to_unit)
-        return round(sol.product_uom._compute_quantity(sol.product_uom_qty, to_uom, raise_if_failure=False), 2)
+        return round(sol.product_uom_id._compute_quantity(sol.product_uom_qty, to_uom, raise_if_failure=False), 2)
 
     def _is_updatable_timesheet(self):
         return super()._is_updatable_timesheet and self._is_not_billed()
@@ -223,7 +223,7 @@ class AccountAnalyticLine(models.Model):
         ])
 
         plan_column_names = {account.root_plan_id._column_name() for account in accounts}
-        mandatory_plans = self._get_mandatory_plans(company, business_domain='timesheet')
+        mandatory_plans = [plan for plan in self._get_mandatory_plans(company, business_domain='timesheet') if plan['column_name'] != 'account_id']
         missing_plan_names = [plan['name'] for plan in mandatory_plans if plan['column_name'] not in plan_column_names]
         if missing_plan_names:
             raise ValidationError(_(
@@ -236,3 +236,11 @@ class AccountAnalyticLine(models.Model):
         for account in accounts:
             account_id_per_fname[account.root_plan_id._column_name()] = account.id
         return account_id_per_fname
+
+    def _timesheet_postprocess(self, values):
+        if values.get('so_line'):
+            for timesheet in self.sudo():
+                # If no account_id was found in the SOL's distribution, we fallback on the project's account_id
+                if not timesheet.account_id:
+                    timesheet.account_id = timesheet.project_id.account_id
+        return super()._timesheet_postprocess(values)

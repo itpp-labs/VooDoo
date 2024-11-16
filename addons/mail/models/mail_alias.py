@@ -39,7 +39,6 @@ class MailAlias(models.Model):
         'Alias Name', copy=False,
         help="The name of the email alias, e.g. 'jobs' if you want to catch emails for <jobs@example.odoo.com>")
     alias_full_name = fields.Char('Alias Email', compute='_compute_alias_full_name', store=True, index='btree_not_null')
-    display_name = fields.Char(string='Display Name', compute='_compute_display_name', search='_search_display_name')
     alias_domain_id = fields.Many2one(
         'mail.alias.domain', string='Alias Domain', ondelete='restrict',
         default=lambda self: self.env.company.alias_domain_id)
@@ -93,14 +92,7 @@ class MailAlias(models.Model):
         ], compute='_compute_alias_status', store=True,
         help='Alias status assessed on the last message received.')
 
-    def init(self):
-        """Make sure there aren't multiple records for the same name and alias
-        domain. Not in _sql_constraint because COALESCE is not supported for
-        PostgreSQL constraint. """
-        self.env.cr.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS mail_alias_name_domain_unique
-            ON mail_alias (alias_name, COALESCE(alias_domain_id, 0))
-        """)
+    _name_domain_unique = models.UniqueIndex('(alias_name, COALESCE(alias_domain_id, 0))')
 
     @api.constrains('alias_domain_id', 'alias_force_thread_id', 'alias_parent_model_id',
                     'alias_parent_thread_id', 'alias_model_id')

@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { rpc } from "@web/core/network/rpc";
 import { KeepLast } from "@web/core/utils/concurrency";
 import publicWidget from '@web/legacy/js/public/public_widget';
@@ -150,7 +148,7 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
             const results = res['results'];
             let template = 'website.s_searchbar.autocomplete';
             const candidate = template + '.' + this.searchType;
-            if (candidate in renderToString.app.rawTemplates) {
+            if (renderToString.app.getRawTemplate(candidate)) {
                 template = candidate;
             }
             this.$menu = $(renderToElement(template, {

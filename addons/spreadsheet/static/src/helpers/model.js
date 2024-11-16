@@ -1,4 +1,3 @@
-/** @odoo-module */
 // @ts-check
 
 import { parse, helpers, iterateAstNodes } from "@odoo/o-spreadsheet";
@@ -96,19 +95,20 @@ export async function freezeOdooData(model) {
     await waitForDataLoaded(model);
     const data = model.exportData();
     for (const sheet of Object.values(data.sheets)) {
-        for (const [xc, cell] of Object.entries(sheet.cells)) {
+        sheet.formats ??= {};
+        for (const [xc, content] of Object.entries(sheet.cells)) {
             const { col, row } = toCartesian(xc);
             const sheetId = sheet.id;
             const position = { sheetId, col, row };
             const evaluatedCell = model.getters.getEvaluatedCell(position);
-            if (containsOdooFunction(cell.content)) {
+            if (containsOdooFunction(content)) {
                 const pivotId = model.getters.getPivotIdFromPosition(position);
                 if (pivotId && model.getters.getPivotCoreDefinition(pivotId).type !== "ODOO") {
                     continue;
                 }
-                cell.content = evaluatedCell.value.toString();
+                sheet.cells[xc] = evaluatedCell.value.toString();
                 if (evaluatedCell.format) {
-                    cell.format = getItemId(evaluatedCell.format, data.formats);
+                    sheet.formats[xc] = getItemId(evaluatedCell.format, data.formats);
                 }
                 const spreadZone = model.getters.getSpreadZone(position);
                 if (spreadZone) {
@@ -121,22 +121,16 @@ export async function freezeOdooData(model) {
                                 col,
                                 row,
                             });
-                            sheet.cells[xc] = {
-                                ...sheet.cells[xc],
-                                content: evaluatedCell.value.toString(),
-                            };
+                            sheet.cells[xc] = evaluatedCell.value.toString();
                             if (evaluatedCell.format) {
-                                sheet.cells[xc].format = getItemId(
-                                    evaluatedCell.format,
-                                    data.formats
-                                );
+                                sheet.formats[xc] = getItemId(evaluatedCell.format, data.formats);
                             }
                         }
                     }
                 }
             }
             if (containsLinkToOdoo(evaluatedCell.link)) {
-                cell.content = evaluatedCell.link.label;
+                sheet.cells[xc] = evaluatedCell.link.label;
             }
         }
         for (const figure of sheet.figures) {

@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import publicWidget from "@web/legacy/js/public/public_widget";
 import { rpc } from "@web/core/network/rpc";
 
@@ -34,7 +32,7 @@ publicWidget.registry.portalDetails = publicWidget.Widget.extend({
         var countryID = ($country.val() || 0);
         this.$stateOptions.detach();
         var $displayedState = this.$stateOptions.filter('[data-country_id=' + countryID + ']');
-        var nb = $displayedState.appendTo(this.$state).show().length;
+        var nb = $displayedState.appendTo(this.$state).removeClass('d-none').show().length;
         this.$state.parent().toggle(nb >= 1);
     },
 

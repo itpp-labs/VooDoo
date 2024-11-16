@@ -5,6 +5,7 @@ from odoo import fields, models, api
 
 
 class UtmCampaign(models.Model):
+    _name = 'utm.campaign'
     _description = 'UTM Campaign'
     _rec_name = 'title'
 
@@ -27,9 +28,10 @@ class UtmCampaign(models.Model):
     is_auto_campaign = fields.Boolean(default=False, string="Automatically Generated Campaign", help="Allows us to filter relevant Campaigns")
     color = fields.Integer(string='Color Index')
 
-    _sql_constraints = [
-        ('unique_name', 'UNIQUE(name)', 'The name must be unique'),
-    ]
+    _unique_name = models.Constraint(
+        'UNIQUE(name)',
+        'The name must be unique',
+    )
 
     @api.depends('title')
     def _compute_name(self):

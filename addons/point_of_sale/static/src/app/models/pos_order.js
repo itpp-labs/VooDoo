@@ -32,9 +32,11 @@ export class PosOrder extends Base {
             ? JSON.parse(vals.last_order_preparation_change)
             : {
                   lines: {},
-                  generalNote: "",
+                  general_customer_note: "",
+                  internal_note: "",
               };
-        this.general_note = vals.general_note || "";
+        this.general_customer_note = vals.general_customer_note || "";
+        this.internal_note = vals.internal_note || "";
         if (!vals.lines) {
             this.lines = [];
         }
@@ -108,7 +110,7 @@ export class PosOrder extends Base {
             tax_details: this.get_tax_details(),
             change: this.amount_return,
             name: this.pos_reference,
-            generalNote: this.general_note || "",
+            general_customer_note: this.general_customer_note || "",
             invoice_id: null, //TODO
             cashier: this.getCashierName(),
             date: formatDateTime(parseUTCString(this.date_order)),
@@ -137,8 +139,7 @@ export class PosOrder extends Base {
         this.amount_total = this.get_total_with_tax();
         this.amount_return = this.get_change();
         this.lines.forEach((line) => {
-            line.price_subtotal = line.get_price_without_tax();
-            line.price_subtotal_incl = line.get_price_with_tax();
+            line.setLinePrice();
         });
     }
 
@@ -259,7 +260,8 @@ export class PosOrder extends Base {
                 delete this.last_order_preparation_change.lines[key];
             }
         }
-        this.last_order_preparation_change.generalNote = this.general_note;
+        this.last_order_preparation_change.general_customer_note = this.general_customer_note;
+        this.last_order_preparation_change.internal_note = this.internal_note;
     }
 
     hasSkippedChanges() {
@@ -431,7 +433,7 @@ export class PosOrder extends Base {
             }
         }
         if (!this.lines.length) {
-            this.general_note = ""; // reset general note on empty order
+            this.general_customer_note = ""; // reset general note on empty order
         }
         this.select_orderline(this.get_last_orderline());
         return true;
@@ -1043,10 +1045,10 @@ export class PosOrder extends Base {
                 amount: formatCurrency(pl.get_amount()),
             })),
             change: this.get_change() && formatCurrency(this.get_change()),
-            generalNote: this.general_note || "",
+            generalCustomerNote: this.general_customer_note || "",
         };
     }
-    getFloatingOrderName() {
+    get floatingOrderName() {
         return this.floating_order_name || this.tracking_number.toString() || "";
     }
 
@@ -1085,7 +1087,15 @@ export class PosOrder extends Base {
         }
     }
     getName() {
-        return this.getFloatingOrderName() || "";
+        return this.floatingOrderName || "";
+    }
+    setGeneralCustomerNote(note) {
+        this.general_customer_note = note || "";
+        this.setDirty();
+    }
+    setInternalNote(note) {
+        this.internal_note = note || "";
+        this.setDirty();
     }
 }
 

@@ -10,6 +10,7 @@ from odoo.tools import float_compare, float_round
 
 
 class ProductPackaging(models.Model):
+    _name = 'product.packaging'
     _description = "Product Packaging"
     _order = 'product_id, sequence, id'
     _check_company_auto = True
@@ -22,10 +23,14 @@ class ProductPackaging(models.Model):
     product_uom_id = fields.Many2one('uom.uom', related='product_id.uom_id', readonly=True)
     company_id = fields.Many2one('res.company', 'Company', index=True)
 
-    _sql_constraints = [
-        ('positive_qty', 'CHECK(qty > 0)', 'Contained Quantity should be positive.'),
-        ('barcode_uniq', 'unique(barcode)', 'A barcode can only be assigned to one packaging.'),
-    ]
+    _positive_qty = models.Constraint(
+        'CHECK(qty > 0)',
+        'Contained Quantity should be positive.',
+    )
+    _barcode_uniq = models.Constraint(
+        'unique(barcode)',
+        'A barcode can only be assigned to one packaging.',
+    )
 
     @api.constrains('barcode')
     def _check_barcode_uniqueness(self):

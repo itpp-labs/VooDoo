@@ -6,6 +6,7 @@ from odoo.exceptions import UserError, AccessError
 
 
 class ForumPostVote(models.Model):
+    _name = 'forum.post.vote'
     _description = 'Post Vote'
     _order = 'create_date desc, id desc'
 
@@ -16,9 +17,10 @@ class ForumPostVote(models.Model):
     forum_id = fields.Many2one('forum.forum', string='Forum', related="post_id.forum_id", store=True, readonly=False)
     recipient_id = fields.Many2one('res.users', string='To', related="post_id.create_uid", store=True, readonly=False)
 
-    _sql_constraints = [
-        ('vote_uniq', 'unique (post_id, user_id)', "Vote already exists!"),
-    ]
+    _vote_uniq = models.Constraint(
+        'unique (post_id, user_id)',
+        'Vote already exists!',
+    )
 
     def _get_karma_value(self, old_vote, new_vote, up_karma, down_karma):
         """Return the karma to add / remove based on the old vote and on the new vote."""

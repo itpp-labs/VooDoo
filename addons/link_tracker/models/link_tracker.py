@@ -17,6 +17,8 @@ LINK_TRACKER_UNIQUE_FIELDS = ('url', 'campaign_id', 'medium_id', 'source_id', 'l
 
 _logger = logging.getLogger(__name__)
 
+LINK_TRACKER_MIN_CODE_LENGTH = 3
+
 
 class LinkTracker(models.Model):
     """ Link trackers allow users to wrap any URL into a short URL that can be
@@ -290,19 +292,21 @@ class LinkTracker(models.Model):
 
 
 class LinkTrackerCode(models.Model):
+    _name = 'link.tracker.code'
     _description = "Link Tracker Code"
     _rec_name = 'code'
 
     code = fields.Char(string='Short URL Code', required=True, store=True)
     link_id = fields.Many2one('link.tracker', 'Link', required=True, ondelete='cascade')
 
-    _sql_constraints = [
-        ('code', 'unique( code )', 'Code must be unique.')
-    ]
+    _code = models.Constraint(
+        'unique( code )',
+        'Code must be unique.',
+    )
 
     @api.model
     def _get_random_code_strings(self, n=1):
-        size = 3
+        size = LINK_TRACKER_MIN_CODE_LENGTH
         while True:
             code_propositions = [
                 ''.join(random.choices(string.ascii_letters + string.digits, k=size))
@@ -316,6 +320,7 @@ class LinkTrackerCode(models.Model):
 
 
 class LinkTrackerClick(models.Model):
+    _name = 'link.tracker.click'
     _rec_name = "link_id"
     _description = "Link Tracker Click"
 

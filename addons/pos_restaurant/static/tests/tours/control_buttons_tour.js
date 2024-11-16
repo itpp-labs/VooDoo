@@ -1,13 +1,13 @@
-import * as TextInputPopup from "@point_of_sale/../tests/tours/utils/text_input_popup_util";
-import * as Dialog from "@point_of_sale/../tests/tours/utils/dialog_util";
-import * as NumberPopup from "@point_of_sale/../tests/tours/utils/number_popup_util";
+import * as TextInputPopup from "@point_of_sale/../tests/generic_helpers/text_input_popup_util";
+import * as Dialog from "@point_of_sale/../tests/generic_helpers/dialog_util";
+import * as NumberPopup from "@point_of_sale/../tests/generic_helpers/number_popup_util";
 import * as FloorScreen from "@pos_restaurant/../tests/tours/utils/floor_screen_util";
-import * as ProductScreenPos from "@point_of_sale/../tests/tours/utils/product_screen_util";
+import * as ProductScreenPos from "@point_of_sale/../tests/pos/tours/utils/product_screen_util";
 import * as ProductScreenResto from "@pos_restaurant/../tests/tours/utils/product_screen_util";
 const ProductScreen = { ...ProductScreenPos, ...ProductScreenResto };
 import * as SplitBillScreen from "@pos_restaurant/../tests/tours/utils/split_bill_screen_util";
-import * as Order from "@point_of_sale/../tests/tours/utils/generic_components/order_widget_util";
-import * as ChromePos from "@point_of_sale/../tests/tours/utils/chrome_util";
+import * as Order from "@point_of_sale/../tests/generic_helpers/order_widget_util";
+import * as ChromePos from "@point_of_sale/../tests/pos/tours/utils/chrome_util";
 import * as ChromeRestaurant from "@pos_restaurant/../tests/tours/utils/chrome";
 const Chrome = { ...ChromePos, ...ChromeRestaurant };
 import { registry } from "@web/core/registry";
@@ -18,11 +18,11 @@ registry.category("web_tour.tours").add("ControlButtonsTour", {
             // Test merging table, transfer is already tested in pos_restaurant_sync_second_login.
             Chrome.startPoS(),
             Dialog.confirm("Open Register"),
-            FloorScreen.clickTable("2"),
+            FloorScreen.clickTable("102"),
             Chrome.activeTableOrOrderIs("2"),
             ProductScreen.addOrderline("Water", "5", "2", "10.0"),
             Chrome.clickPlanButton(),
-            FloorScreen.clickTable("4"),
+            FloorScreen.clickTable("104"),
             Chrome.activeTableOrOrderIs("4"),
             ProductScreen.addOrderline("Minute Maid", "3", "2", "6.0"),
             // Extra line is added to test merging table.
@@ -31,7 +31,7 @@ registry.category("web_tour.tours").add("ControlButtonsTour", {
             ProductScreen.selectedOrderlineHas("Coca-Cola", "1"),
 
             ProductScreen.clickControlButton("Transfer"),
-            FloorScreen.clickTable("2"),
+            FloorScreen.clickTable("102"),
             Chrome.activeTableOrOrderIs("2"),
             Order.hasLine({ productName: "Water", quantity: "5" }),
             Order.hasLine({ productName: "Minute Maid", quantity: "3" }),
@@ -53,7 +53,7 @@ registry.category("web_tour.tours").add("ControlButtonsTour", {
             }),
             // Check that note is imported if come back to the table
             Chrome.clickPlanButton(),
-            FloorScreen.clickTable("2"),
+            FloorScreen.clickTable("102"),
             Order.hasLine({
                 productName: "Water",
                 quantity: "5",
@@ -96,5 +96,13 @@ registry.category("web_tour.tours").add("ControlButtonsTour", {
             NumberPopup.isShown("5"),
             Dialog.confirm(),
             ProductScreen.guestNumberIs("5"),
+
+            // Test Cancel Order Button
+            Dialog.cancel(),
+            Order.hasLine({ productName: "Water", quantity: "5" }),
+            ProductScreen.clickControlButton("Cancel Order"),
+            Dialog.confirm(),
+            Order.doesNotHaveLine(),
+            FloorScreen.isShown(),
         ].flat(),
 });

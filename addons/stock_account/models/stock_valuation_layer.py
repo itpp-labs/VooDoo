@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import _, fields, models, tools
+from odoo import _, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import float_compare, float_is_zero
 
@@ -38,11 +38,7 @@ class StockValuationLayer(models.Model):
     warehouse_id = fields.Many2one('stock.warehouse', string="Receipt WH", compute='_compute_warehouse_id', search='_search_warehouse_id')
     lot_id = fields.Many2one('stock.lot', 'Lot/Serial Number', check_company=True, index=True)
 
-    def init(self):
-        tools.create_index(
-            self._cr, 'stock_valuation_layer_index',
-            self._table, ['product_id', 'remaining_qty', 'stock_move_id', 'company_id', 'create_date']
-        )
+    _index = models.Index("(product_id, remaining_qty, stock_move_id, company_id, create_date)")
 
     def _compute_warehouse_id(self):
         for svl in self:
@@ -248,12 +244,14 @@ class StockValuationLayer(models.Model):
                     'debit': abs(value),
                     'credit': 0,
                     'product_id': product.id,
+                    'quantity': 0,
                 }), (0, 0, {
                     'name': name,
                     'account_id': credit_account_id,
                     'debit': 0,
                     'credit': abs(value),
                     'product_id': product.id,
+                    'quantity': 0,
                 })],
             }
             am_vals_list.append(move_vals)

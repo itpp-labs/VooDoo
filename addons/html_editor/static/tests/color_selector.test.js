@@ -13,6 +13,7 @@ import { animationFrame } from "@odoo/hoot-mock";
 import { setupEditor } from "./_helpers/editor";
 import { getContent, setSelection } from "./_helpers/selection";
 import { contains } from "@web/../tests/web_test_helpers";
+import { execCommand } from "./_helpers/userCommands";
 
 test("can set foreground color", async () => {
     const { el } = await setupEditor("<p>[test]</p>");
@@ -26,6 +27,7 @@ test("can set foreground color", async () => {
 
     await click(".o_color_button[data-color='#6BADDE']");
     await animationFrame();
+    await waitFor(".o-we-toolbar");
     expect(".o-we-toolbar").toHaveCount(1); // toolbar still open
     expect(".o_font_color_selector").toHaveCount(0); // selector closed
     expect(getContent(el)).toBe(`<p><font style="color: rgb(107, 173, 222);">[test]</font></p>`);
@@ -43,6 +45,7 @@ test("can set background color", async () => {
 
     await click(".o_color_button[data-color='#6BADDE']");
     await animationFrame();
+    await waitFor(".o-we-toolbar");
     expect(".o-we-toolbar").toHaveCount(1); // toolbar still open
     expect(".o_font_color_selector").toHaveCount(0); // selector closed
     expect(getContent(el)).toBe(
@@ -193,36 +196,34 @@ test("Can reset a color", async () => {
     await animationFrame();
     expect("font[style='color: rgb(255, 0, 0);']").toHaveCount(0);
     expect(".tested").toHaveInnerHTML("test");
-    editor.dispatch("HISTORY_UNDO");
+    execCommand(editor, "historyUndo");
     expect("font[style='color: rgb(255, 0, 0);']").toHaveCount(1);
     expect(".tested").not.toHaveInnerHTML("test");
 });
 
-test.tags("desktop")(
-    "selected text color is shown in the toolbar and update when hovering",
-    async () => {
-        await setupEditor(
-            `<p>
+test.tags("desktop");
+test("selected text color is shown in the toolbar and update when hovering", async () => {
+    await setupEditor(
+        `<p>
             <font style="color: rgb(255, 0, 0);">[test]</font>
         </p>`
-        );
+    );
 
-        await waitFor(".o-we-toolbar");
-        expect(".o_font_color_selector").toHaveCount(0);
-        await animationFrame();
-        expect("i.fa-font").toHaveStyle({ borderBottomColor: "rgb(255, 0, 0)" });
-        await click(".o-we-toolbar .o-select-color-foreground");
-        await animationFrame();
-        // Hover a color
-        await hover(queryOne("button[data-color='#FF00FF']"));
-        await animationFrame();
-        expect("i.fa-font").toHaveStyle({ borderBottomColor: "rgb(255, 0, 255)" });
-        // Hover out
-        await hover(queryOne(".o-we-toolbar .o-select-color-foreground"));
-        await animationFrame();
-        expect("i.fa-font").toHaveStyle({ borderBottomColor: "rgb(255, 0, 0)" });
-    }
-);
+    await waitFor(".o-we-toolbar");
+    expect(".o_font_color_selector").toHaveCount(0);
+    await animationFrame();
+    expect("i.fa-font").toHaveStyle({ borderBottomColor: "rgb(255, 0, 0)" });
+    await click(".o-we-toolbar .o-select-color-foreground");
+    await animationFrame();
+    // Hover a color
+    await hover(queryOne("button[data-color='#FF00FF']"));
+    await animationFrame();
+    expect("i.fa-font").toHaveStyle({ borderBottomColor: "rgb(255, 0, 255)" });
+    // Hover out
+    await hover(queryOne(".o-we-toolbar .o-select-color-foreground"));
+    await animationFrame();
+    expect("i.fa-font").toHaveStyle({ borderBottomColor: "rgb(255, 0, 0)" });
+});
 
 test("selected text color is shown in the toolbar and update when clicking", async () => {
     await setupEditor(
@@ -420,9 +421,9 @@ describe.tags("desktop")("color preview", () => {
         expect("font").toHaveCount(1);
         expect("font").toHaveClass("text-o-color-2");
         await animationFrame();
-        editor.dispatch("HISTORY_UNDO");
+        execCommand(editor, "historyUndo");
         expect("font").toHaveCount(0);
-        editor.dispatch("HISTORY_REDO");
+        execCommand(editor, "historyRedo");
         expect("font").toHaveCount(1);
         expect("font").toHaveClass("text-o-color-2");
     });
@@ -445,7 +446,7 @@ describe.tags("desktop")("color preview", () => {
         await press("escape");
         await animationFrame();
         expect("font").toHaveCount(0);
-        editor.dispatch("HISTORY_UNDO");
+        execCommand(editor, "historyUndo");
         expect("font").toHaveCount(0);
     });
 });

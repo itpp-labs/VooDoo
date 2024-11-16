@@ -5,6 +5,7 @@ from odoo import fields, models, tools
 
 
 class ReportStockQuantity(models.Model):
+    _name = 'report.stock.quantity'
     _auto = False
     _description = 'Stock Quantity Report'
 
@@ -143,7 +144,7 @@ FROM (SELECT
         GENERATE_SERIES(
         CASE
             WHEN m.state = 'done' THEN (now() at time zone 'utc')::date - interval '%(report_period)s month'
-            ELSE m.date::date
+            ELSE GREATEST(m.date::date, (now() at time zone 'utc')::date - interval '%(report_period)s month')
         END,
         CASE
             WHEN m.state != 'done' THEN (now() at time zone 'utc')::date + interval '%(report_period)s month'

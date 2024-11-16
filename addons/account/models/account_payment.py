@@ -1,12 +1,10 @@
-# -*- coding: utf-8 -*-
 from odoo import models, fields, api, _, Command
 from odoo.exceptions import UserError, ValidationError
-from odoo.tools.misc import format_date, formatLang
-from odoo.tools import create_index
 from odoo.tools import SQL
 
 
 class AccountPayment(models.Model):
+    _name = 'account.payment'
     _inherit = ['mail.thread.main.attachment', 'mail.activity.mixin']
     _description = "Payments"
     _order = "date desc, name desc"
@@ -194,29 +192,12 @@ class AccountPayment(models.Model):
     duplicate_payment_ids = fields.Many2many(comodel_name='account.payment', compute='_compute_duplicate_payment_ids')
     attachment_ids = fields.One2many('ir.attachment', 'res_id', string='Attachments')
 
-    _sql_constraints = [
-        (
-            'check_amount_not_negative',
-            'CHECK(amount >= 0.0)',
-            "The payment amount cannot be negative.",
-        ),
-    ]
-
-    def init(self):
-        super().init()
-        create_index(
-            self.env.cr,
-            indexname='account_payment_journal_id_company_id_idx',
-            tablename='account_payment',
-            expressions=['journal_id', 'company_id']
-        )
-        create_index(
-            self.env.cr,
-            indexname='account_payment_unmatched_idx',
-            tablename='account_payment',
-            expressions=['journal_id', 'company_id'],
-            where="NOT is_matched OR is_matched IS NULL"
-        )
+    _check_amount_not_negative = models.Constraint(
+        'CHECK(amount >= 0.0)',
+        'The payment amount cannot be negative.',
+    )
+    _journal_id_company_id_idx = models.Index("(journal_id, company_id)")
+    _unmatched_idx = models.Index("(journal_id, company_id) WHERE is_matched IS NOT TRUE")
 
     # -------------------------------------------------------------------------
     # HELPERS
@@ -393,17 +374,20 @@ class AccountPayment(models.Model):
             if payment.journal_id.company_id not in payment.company_id.parent_ids:
                 payment.company_id = (payment.journal_id.company_id or self.env.company)._accessible_branches()[:1]
 
-    @api.depends('invoice_ids.payment_state')
+    @api.depends('invoice_ids.payment_state', 'move_id.line_ids.amount_residual')
     def _compute_state(self):
+        accounting_installed = self.env['account.move']._get_invoice_in_payment_state() == 'in_payment'
         for payment in self:
             if not payment.state:
                 payment.state = 'draft'
-            if (
-                not payment.outstanding_account_id
-                and payment.invoice_ids
-                and all(invoice.payment_state == 'paid' for invoice in payment.invoice_ids)
-            ):
-                payment.state = 'paid'
+            if payment.state == 'in_process':  # in_process --> paid
+                if payment.outstanding_account_id and accounting_installed:
+                    move = payment.move_id
+                    liquidity, _counterpart, _writeoff = payment._seek_for_lines()
+                    if move and move.currency_id.is_zero(sum(liquidity.mapped('amount_residual'))):
+                        payment.state = 'paid'
+                elif payment.invoice_ids and all(invoice.payment_state == 'paid' for invoice in payment.invoice_ids):
+                    payment.state = 'paid'
 
     @api.depends('move_id.line_ids.amount_residual', 'move_id.line_ids.amount_residual_currency', 'move_id.line_ids.account_id', 'state')
     def _compute_reconciliation_status(self):
@@ -854,7 +838,15 @@ class AccountPayment(models.Model):
 
         payments = super().create(vals_list)
 
+        # Outstanding account should be set on the payment in community edition to force the generation of journal entries on the payment
+        # This is required because no reconciliation is possible in community, which would prevent the user to reconcile the bank statement with the invoice
+        accounting_installed = self.env['account.move']._get_invoice_in_payment_state() == 'in_payment'
+
         for i, (pay, vals) in enumerate(zip(payments, vals_list)):
+            if not accounting_installed and not pay.outstanding_account_id:
+                outstanding_account = pay._get_outstanding_account(pay.payment_type)
+                pay.outstanding_account_id = outstanding_account.id
+
             if (
                 write_off_line_vals_list[i] is not None
                 or force_balance_vals_list[i] is not None
@@ -873,6 +865,17 @@ class AccountPayment(models.Model):
                 }:
                     pay.move_id.write(move_vals)
         return payments
+
+    def _get_outstanding_account(self, payment_type):
+        account_ref = 'account_journal_payment_debit_account_id' if payment_type == 'inbound' else 'account_journal_payment_credit_account_id'
+        chart_template = self.with_context(allowed_company_ids=self.company_id.root_id.ids).env['account.chart.template']
+        outstanding_account = (
+            chart_template.ref(account_ref, raise_if_not_found=False)
+            or self.company_id.transfer_account_id
+        )
+        if not outstanding_account:
+            raise UserError(_("No outstanding account could be found to make the payment"))
+        return outstanding_account
 
     def write(self, vals):
         if vals.get('state') == 'in_process' and not vals.get('move_id'):
@@ -1126,6 +1129,6 @@ class AccountPayment(models.Model):
 
 # a lot of SQL queries
 class AccountMove(models.Model):
-    _inherit = ['account.move']
+    _inherit = 'account.move'
 
     payment_ids = fields.One2many('account.payment', 'move_id', string='Payments')

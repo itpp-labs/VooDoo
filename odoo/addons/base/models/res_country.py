@@ -30,6 +30,7 @@ NO_FLAG_COUNTRIES = [
 
 
 class ResCountry(models.Model):
+    _name = 'res.country'
     _description = 'Country'
     _order = 'name'
     _rec_names_search = ['name', 'code']
@@ -75,12 +76,14 @@ class ResCountry(models.Model):
     state_required = fields.Boolean(default=False)
     zip_required = fields.Boolean(default=True)
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (name)',
-            'The name of the country must be unique!'),
-        ('code_uniq', 'unique (code)',
-            'The code of the country must be unique!')
-    ]
+    _name_uniq = models.Constraint(
+        'unique (name)',
+        "The name of the country must be unique!",
+    )
+    _code_uniq = models.Constraint(
+        'unique (code)',
+        "The code of the country must be unique!",
+    )
 
     @api.model
     def name_search(self, name='', args=None, operator='ilike', limit=100):
@@ -149,6 +152,7 @@ class ResCountry(models.Model):
 
 
 class ResCountryGroup(models.Model):
+    _name = 'res.country.group'
     _description = "Country Group"
 
     name = fields.Char(required=True, translate=True)
@@ -157,6 +161,7 @@ class ResCountryGroup(models.Model):
 
 
 class ResCountryState(models.Model):
+    _name = 'res.country.state'
     _description = "Country state"
     _order = 'code'
     _rec_names_search = ['name', 'code']
@@ -166,9 +171,10 @@ class ResCountryState(models.Model):
                help='Administrative divisions of a country. E.g. Fed. State, Departement, Canton')
     code = fields.Char(string='State Code', help='The state code.', required=True)
 
-    _sql_constraints = [
-        ('name_code_uniq', 'unique(country_id, code)', 'The code of the state must be unique by country!')
-    ]
+    _name_code_uniq = models.Constraint(
+        'unique(country_id, code)',
+        "The code of the state must be unique by country!",
+    )
 
     @api.model
     def name_search(self, name='', args=None, operator='ilike', limit=100):

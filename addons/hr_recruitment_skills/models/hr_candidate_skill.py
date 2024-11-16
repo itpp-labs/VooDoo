@@ -5,6 +5,7 @@ from odoo.exceptions import ValidationError
 
 
 class HrCandidateSkill(models.Model):
+    _name = 'hr.candidate.skill'
     _description = "Skill level for a candidate"
     _rec_name = 'skill_id'
     _order = "skill_level_id"
@@ -33,9 +34,10 @@ class HrCandidateSkill(models.Model):
     level_progress = fields.Integer(
         related='skill_level_id.level_progress')
 
-    _sql_constraints = [
-        ('_unique_skill', 'unique (candidate_id, skill_id)', "Two levels for the same skill is not allowed"),
-    ]
+    __unique_skill = models.Constraint(
+        'unique (candidate_id, skill_id)',
+        'Two levels for the same skill is not allowed',
+    )
 
     @api.constrains('skill_id', 'skill_type_id')
     def _check_skill_type(self):

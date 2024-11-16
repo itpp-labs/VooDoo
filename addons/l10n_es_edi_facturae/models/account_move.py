@@ -52,7 +52,7 @@ REVERSED_COUNTRY_CODE = {v: k for k, v in COUNTRY_CODE_MAP.items()}
 
 
 class AccountMove(models.Model):
-    _inherit = ['account.move']
+    _inherit = 'account.move'
 
     l10n_es_edi_facturae_xml_id = fields.Many2one(
         comodel_name='ir.attachment',
@@ -769,7 +769,7 @@ class AccountMove(models.Model):
             'x509_certificate': base64.encodebytes(base64.b64decode(certificate_sudo._get_der_certificate_bytes())).decode(),
             'public_modulus': n.decode(),
             'public_exponent': e.decode(),
-            'iso_now': fields.datetime.now().isoformat(),
+            'iso_now': fields.Datetime.now().isoformat(),
             'keyinfo_id': keyinfo_id,
             'signature_id': signature_id,
             'sigproperties_id': sigproperties_id,

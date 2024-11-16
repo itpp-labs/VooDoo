@@ -9,7 +9,7 @@ from pytz import timezone, UTC
 
 
 class ResUsers(models.Model):
-    _inherit = ['res.users']
+    _inherit = 'res.users'
 
     calendar_default_privacy = fields.Selection(
         [('public', 'Public'),
@@ -21,10 +21,6 @@ class ResUsers(models.Model):
 
     @property
     def SELF_READABLE_FIELDS(self):
-        return super().SELF_READABLE_FIELDS + ['calendar_default_privacy']
-
-    @property
-    def SELF_WRITEABLE_FIELDS(self):
         return super().SELF_READABLE_FIELDS + ['calendar_default_privacy']
 
     def get_selected_calendars_partner_ids(self, include_user=True):

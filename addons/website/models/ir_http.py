@@ -59,7 +59,7 @@ def get_request_website():
 
 
 class IrHttp(models.AbstractModel):
-    _inherit = ['ir.http']
+    _inherit = 'ir.http'
 
     def routing_map(self, key=None):
         if not key and request:
@@ -291,7 +291,7 @@ class IrHttp(models.AbstractModel):
     @classmethod
     def _get_translation_frontend_modules_name(cls):
         mods = super()._get_translation_frontend_modules_name()
-        installed = request.registry._init_modules.union(odoo.conf.server_wide_modules)
+        installed = request.registry._init_modules.union(odoo.tools.config['server_wide_modules'])
         return mods + [mod for mod in installed if mod.startswith('website')]
 
     @classmethod

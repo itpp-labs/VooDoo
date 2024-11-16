@@ -27,7 +27,7 @@ PROJECT_TASK_READABLE_FIELDS = {
 
 
 class ProjectTask(models.Model):
-    _inherit = ["project.task"]
+    _inherit = "project.task"
 
     project_id = fields.Many2one(domain="['|', ('company_id', '=', False), ('company_id', '=?',  company_id), ('is_internal_project', '=', False)]")
     analytic_account_active = fields.Boolean("Active Analytic Account", related='project_id.analytic_account_active', export_string_translation=False)
@@ -123,7 +123,10 @@ class ProjectTask(models.Model):
     @api.depends('effective_hours', 'subtask_effective_hours', 'allocated_hours')
     def _compute_remaining_hours(self):
         for task in self:
-            task.remaining_hours = task.allocated_hours - task.effective_hours - task.subtask_effective_hours
+            if not task.allocated_hours:
+                task.remaining_hours = 0.0
+            else:
+                task.remaining_hours = task.allocated_hours - task.effective_hours - task.subtask_effective_hours
 
     @api.depends('effective_hours', 'subtask_effective_hours')
     def _compute_total_hours_spent(self):

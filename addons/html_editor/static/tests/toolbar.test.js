@@ -30,23 +30,21 @@ import {
 import { withSequence } from "@html_editor/utils/resource";
 import { strong } from "./_helpers/tags";
 
-test.tags("desktop")(
-    "toolbar is only visible when selection is not collapsed in desktop",
-    async () => {
-        const { el } = await setupEditor("<p>test</p>");
+test.tags("desktop");
+test("toolbar is only visible when selection is not collapsed in desktop", async () => {
+    const { el } = await setupEditor("<p>test</p>");
 
-        // set a non-collapsed selection to open toolbar
-        expect(".o-we-toolbar").toHaveCount(0);
-        setContent(el, "<p>[test]</p>");
-        await waitFor(".o-we-toolbar");
-        expect(".o-we-toolbar").toHaveCount(1);
+    // set a non-collapsed selection to open toolbar
+    expect(".o-we-toolbar").toHaveCount(0);
+    setContent(el, "<p>[test]</p>");
+    await waitFor(".o-we-toolbar");
+    expect(".o-we-toolbar").toHaveCount(1);
 
-        // set a collapsed selection to close toolbar
-        setContent(el, "<p>test[]</p>");
-        await waitUntil(() => !document.querySelector(".o-we-toolbar"));
-        expect(".o-we-toolbar").toHaveCount(0);
-    }
-);
+    // set a collapsed selection to close toolbar
+    setContent(el, "<p>test[]</p>");
+    await waitUntil(() => !document.querySelector(".o-we-toolbar"));
+    expect(".o-we-toolbar").toHaveCount(0);
+});
 
 test.tags("mobile")("toolbar is also visible when selection is collapsed in mobile", async () => {
     const { el } = await setupEditor("<p>test</p>");
@@ -268,6 +266,11 @@ test("toolbar works: can select font size", async () => {
     await contains(`.o_font_selector_menu .dropdown-item:contains('${h1Size}')`).click();
     expect(getContent(el)).toBe(`<p><span class="h1-fs">[test]</span></p>`);
     expect(".o-we-toolbar [name='font-size']").toHaveText(h1Size);
+    await contains(".o-we-toolbar [name='font-size'] .dropdown-toggle").click();
+    const oSmallSize = getFontSizeFromVar("small-font-size").toString();
+    await contains(`.o_font_selector_menu .dropdown-item:contains('${oSmallSize}')`).click();
+    expect(getContent(el)).toBe(`<p><span class="o_small-fs">[test]</span></p>`);
+    expect(".o-we-toolbar [name='font-size']").toHaveText(oSmallSize);
 });
 
 test.tags("desktop")("toolbar should not open on keypress tab inside table", async () => {
@@ -353,9 +356,9 @@ test("toolbar behave properly if selection has no range", async () => {
 
 test("toolbar correctly show namespace button group and stop showing when namespace change", async () => {
     class TestPlugin extends Plugin {
-        static name = "TestPlugin";
+        static id = "TestPlugin";
         resources = {
-            toolbarNamespace: [
+            toolbar_namespaces: [
                 {
                     id: "aNamespace",
                     isApplied: (nodeList) => {
@@ -363,14 +366,15 @@ test("toolbar correctly show namespace button group and stop showing when namesp
                     },
                 },
             ],
-            toolbarCategory: withSequence(24, { id: "test_group", namespace: "aNamespace" }),
-            toolbarItems: [
+            user_commands: { id: "test_cmd", run: () => null },
+            toolbar_groups: withSequence(24, { id: "test_group", namespace: "aNamespace" }),
+            toolbar_items: [
                 {
                     id: "test_btn",
-                    category: "test_group",
+                    groupId: "test_group",
+                    commandId: "test_cmd",
                     title: "Test Button",
                     icon: "fa-square",
-                    action: () => null,
                 },
             ],
         };
@@ -385,57 +389,20 @@ test("toolbar correctly show namespace button group and stop showing when namesp
     expect(".btn-group[name='test_group']").toHaveCount(0);
 });
 
-test("toolbar correctly process inheritance buttons chain", async () => {
+test("toolbar does not evaluate isActive when namespace does not match", async () => {
     class TestPlugin extends Plugin {
-        static name = "TestPlugin";
+        static id = "TestPlugin";
         resources = {
-            toolbarCategory: withSequence(24, { id: "test_group" }),
-            toolbarItems: [
+            user_commands: { id: "test_cmd", run: () => null },
+            toolbar_groups: withSequence(24, { id: "test_group", namespace: "image" }),
+            toolbar_items: [
                 {
                     id: "test_btn",
-                    category: "test_group",
+                    groupId: "test_group",
+                    commandId: "test_cmd",
                     title: "Test Button",
                     icon: "fa-square",
-                    action: () => null,
-                },
-                {
-                    id: "test_btn2",
-                    category: "test_group",
-                    inherit: "test_btn",
-                    title: "Test Button 2",
-                },
-            ],
-        };
-    }
-    await setupEditor("<p>[abc]</p>", {
-        config: { Plugins: [...MAIN_PLUGINS, TestPlugin] },
-    });
-    await waitFor(".o-we-toolbar");
-    expect(".btn-group[name='test_group']").toHaveCount(1);
-    expect("button[name='test_btn']").toHaveCount(1);
-    expect("button[name='test_btn'] span.fa").toHaveClass("fa-square");
-    expect("button[name='test_btn']").toHaveAttribute("title", "Test Button");
-
-    expect("button[name='test_btn2']").toHaveCount(1);
-    expect("button[name='test_btn2'] span.fa").toHaveClass("fa-square");
-    expect("button[name='test_btn2']").toHaveAttribute("title", "Test Button 2");
-});
-
-test("toolbar does not evaluate isFormatApplied when namespace does not match", async () => {
-    class TestPlugin extends Plugin {
-        static name = "TestPlugin";
-        resources = {
-            toolbarCategory: withSequence(24, { id: "test_group", namespace: "image" }),
-            toolbarItems: [
-                {
-                    id: "test_btn",
-                    category: "test_group",
-                    action(dispatch) {
-                        dispatch("test_cmd");
-                    },
-                    title: "Test Button",
-                    icon: "fa-square",
-                    isFormatApplied: () => expect.step("image format evaluated"),
+                    isActive: () => expect.step("image format evaluated"),
                 },
             ],
         };
@@ -460,16 +427,15 @@ test("toolbar does not evaluate isFormatApplied when namespace does not match", 
 
 test("plugins can create buttons with text in toolbar", async () => {
     class TestPlugin extends Plugin {
-        static name = "TestPlugin";
+        static id = "TestPlugin";
         resources = {
-            toolbarCategory: withSequence(24, { id: "test_group" }),
-            toolbarItems: [
+            user_commands: { id: "test_cmd", run: () => null },
+            toolbar_groups: withSequence(24, { id: "test_group" }),
+            toolbar_items: [
                 {
                     id: "test_btn",
-                    category: "test_group",
-                    action(dispatch) {
-                        dispatch("test_cmd");
-                    },
+                    groupId: "test_group",
+                    commandId: "test_cmd",
                     title: "Test Button",
                     text: "Text button",
                 },
@@ -527,22 +493,28 @@ test("toolbar buttons should have title attribute", async () => {
 
 test("toolbar buttons should have title attribute with translated text", async () => {
     // Retrieve toolbar buttons descriptions in English
-    const { editor } = await setupEditor("");
-    // item.title could be a LazyTranslatedString so we ensure it is a string with toString()
-    const titles = editor.resources.toolbarItems.map((item) => item.title.toString());
+    const { editor, plugins } = await setupEditor("");
+    // item.label could be a LazyTranslatedString so we ensure it is a string with toString()
+    const titles = plugins
+        .get("toolbar")
+        .getButtons()
+        .map((item) => item.title.toString());
     editor.destroy();
 
     // Patch translations to return "Translated" for these terms
     patchTranslations(Object.fromEntries(titles.map((title) => [title, "Translated"])));
 
     // Instantiate a new editor.
-    const { editor: postPatchEditor } = await setupEditor("<p>[abc]</p>");
+    const { plugins: postPatchPlugins } = await setupEditor("<p>[abc]</p>");
 
     // Check that every registered button has the result of the call to _t
-    postPatchEditor.resources.toolbarItems.forEach((item) => {
-        // item.title could be a LazyTranslatedString so we ensure it is a string with toString()
-        expect(item.title.toString()).toBe("Translated");
-    });
+    postPatchPlugins
+        .get("toolbar")
+        .getButtons()
+        .forEach((item) => {
+            // item.label could be a LazyTranslatedString so we ensure it is a string with toString()
+            expect(item.title.toString()).toBe("Translated");
+        });
 
     await waitFor(".o-we-toolbar");
 
@@ -552,61 +524,55 @@ test("toolbar buttons should have title attribute with translated text", async (
     }
 });
 
-test.tags("desktop")(
-    "close the toolbar if the selection contains any nodes (traverseNode = [])",
-    async () => {
-        const { el } = await setupEditor("<p>a</p><p>b</p>");
-        expect(".o-we-toolbar").toHaveCount(0);
+test.tags("desktop");
+test("close the toolbar if the selection contains any nodes (traverseNode = [])", async () => {
+    const { el } = await setupEditor("<p>a</p><p>b</p>");
+    expect(".o-we-toolbar").toHaveCount(0);
 
-        setContent(el, "<p>[a</p><p>]b</p>");
-        await tick(); // selectionChange
-        await animationFrame();
-        expect(".o-we-toolbar").toHaveCount(1);
+    setContent(el, "<p>[a</p><p>]b</p>");
+    await tick(); // selectionChange
+    await animationFrame();
+    expect(".o-we-toolbar").toHaveCount(1);
 
-        // This selection is possible when you double-click at the end of a line.
-        setContent(el, "<p>a[</p><p>]b</p>");
-        await tick(); // selectionChange
-        await animationFrame();
-        expect(".o-we-toolbar").toHaveCount(0);
-    }
-);
+    // This selection is possible when you double-click at the end of a line.
+    setContent(el, "<p>a[</p><p>]b</p>");
+    await tick(); // selectionChange
+    await animationFrame();
+    expect(".o-we-toolbar").toHaveCount(0);
+});
 
-test.tags("desktop")(
-    "close the toolbar if the selection contains any nodes (traverseNode = [], ignore whitespace)",
-    async () => {
-        const { el } = await setupEditor("<p>a</p>\n<p>b</p>");
-        expect(".o-we-toolbar").toHaveCount(0);
+test.tags("desktop");
+test("close the toolbar if the selection contains any nodes (traverseNode = [], ignore whitespace)", async () => {
+    const { el } = await setupEditor("<p>a</p>\n<p>b</p>");
+    expect(".o-we-toolbar").toHaveCount(0);
 
-        setContent(el, "<p>[a</p>\n<p>]b</p>");
-        await tick(); // selectionChange
-        await animationFrame();
-        expect(".o-we-toolbar").toHaveCount(1);
+    setContent(el, "<p>[a</p>\n<p>]b</p>");
+    await tick(); // selectionChange
+    await animationFrame();
+    expect(".o-we-toolbar").toHaveCount(1);
 
-        // This selection is possible when you double-click at the end of a line.
-        setContent(el, "<p>a[</p>\n<p>]b</p>");
-        await tick(); // selectionChange
-        await animationFrame();
-        expect(".o-we-toolbar").toHaveCount(0);
-    }
-);
+    // This selection is possible when you double-click at the end of a line.
+    setContent(el, "<p>a[</p>\n<p>]b</p>");
+    await tick(); // selectionChange
+    await animationFrame();
+    expect(".o-we-toolbar").toHaveCount(0);
+});
 
-test.tags("desktop")(
-    "close the toolbar if the selection contains any nodes (traverseNode = [], ignore zws)",
-    async () => {
-        const { el } = await setupEditor(`<p>ab${strong("\u200B", "first")}cd</p>`);
-        expect(".o-we-toolbar").toHaveCount(0);
+test.tags("desktop");
+test("close the toolbar if the selection contains any nodes (traverseNode = [], ignore zws)", async () => {
+    const { el } = await setupEditor(`<p>ab${strong("\u200B", "first")}cd</p>`);
+    expect(".o-we-toolbar").toHaveCount(0);
 
-        setContent(el, `<p>a[b${strong("\u200B", "first")}c]d</p>`);
-        await tick(); // selectionChange
-        await animationFrame();
-        expect(".o-we-toolbar").toHaveCount(1);
+    setContent(el, `<p>a[b${strong("\u200B", "first")}c]d</p>`);
+    await tick(); // selectionChange
+    await animationFrame();
+    expect(".o-we-toolbar").toHaveCount(1);
 
-        setContent(el, `<p>ab${strong("[\u200B]", "first")}cd</p>`);
-        await tick(); // selectionChange
-        await animationFrame();
-        expect(".o-we-toolbar").toHaveCount(0);
-    }
-);
+    setContent(el, `<p>ab${strong("[\u200B]", "first")}cd</p>`);
+    await tick(); // selectionChange
+    await animationFrame();
+    expect(".o-we-toolbar").toHaveCount(0);
+});
 
 describe.tags("desktop")("toolbar open and close on user interaction", () => {
     describe("mouse", () => {

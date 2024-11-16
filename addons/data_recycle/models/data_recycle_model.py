@@ -18,6 +18,7 @@ DR_CREATE_STEP_MANUAL = 50000
 
 
 class Data_RecycleModel(models.Model):
+    _name = 'data_recycle.model'
     _description = 'Recycling Model'
     _order = 'name'
 
@@ -69,9 +70,10 @@ class Data_RecycleModel(models.Model):
         ('months', 'Months')], string='Notify Frequency Period', default='weeks')
     last_notification = fields.Datetime(readonly=True)
 
-    _sql_constraints = [
-        ('check_notif_freq', 'CHECK(notify_frequency > 0)', 'The notification frequency should be greater than 0'),
-    ]
+    _check_notif_freq = models.Constraint(
+        'CHECK(notify_frequency > 0)',
+        'The notification frequency should be greater than 0',
+    )
 
     @api.constrains('recycle_action')
     def _check_recycle_action(self):

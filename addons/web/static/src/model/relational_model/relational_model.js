@@ -31,7 +31,6 @@ import { FetchRecordError } from "./errors";
  * @property {number} [countLimit]
  * @property {number} [groupsLimit]
  * @property {string[]} [defaultOrderBy]
- * @property {string[]} [defaultGroupBy]
  * @property {number} [maxGroupByDepth]
  * @property {boolean} [multiEdit]
  * @property {Object} [groupByInfo]
@@ -134,7 +133,6 @@ export class RelationalModel extends Model {
         this.initialGroupsLimit = params.groupsLimit;
         this.initialCountLimit = params.countLimit || this.constructor.DEFAULT_COUNT_LIMIT;
         this.defaultOrderBy = params.defaultOrderBy;
-        this.defaultGroupBy = params.defaultGroupBy;
         this.maxGroupByDepth = params.maxGroupByDepth;
         this.groupByInfo = params.groupByInfo || {};
         this.multiEdit = params.multiEdit;
@@ -162,7 +160,6 @@ export class RelationalModel extends Model {
 
     /**
      * @param {Object} [params={}]
-     * @param {Comparison | null} [params.comparison]
      * @param {Context} [params.context]
      * @param {DomainListRepr} [params.domain]
      * @param {string[]} [params.groupBy]
@@ -248,14 +245,9 @@ export class RelationalModel extends Model {
             }
         } else {
             config.domain = "domain" in params ? params.domain : config.domain;
-            config.comparison = "comparison" in params ? params.comparison : config.comparison;
 
             // groupBy
             config.groupBy = "groupBy" in params ? params.groupBy : config.groupBy;
-            // apply default groupBy if any
-            if (this.defaultGroupBy && !config.groupBy.length) {
-                config.groupBy = [this.defaultGroupBy];
-            }
             // restrict the number of groupbys if requested
             if (this.maxGroupByDepth) {
                 config.groupBy = config.groupBy.slice(0, this.maxGroupByDepth);

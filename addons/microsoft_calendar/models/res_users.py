@@ -4,7 +4,7 @@
 import logging
 import requests
 from odoo.addons.microsoft_calendar.models.microsoft_sync import microsoft_calendar_token
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from odoo import api, fields, models, _, Command
 from odoo.exceptions import UserError
@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 
 class ResUsers(models.Model):
-    _inherit = ['res.users']
+    _inherit = 'res.users'
 
     microsoft_calendar_sync_token = fields.Char(related='res_users_settings_id.microsoft_calendar_sync_token', groups='base.group_system')
     microsoft_synchronization_stopped = fields.Boolean(related='res_users_settings_id.microsoft_synchronization_stopped', readonly=False, groups='base.group_system')
@@ -38,7 +38,7 @@ class ResUsers(models.Model):
     def _is_microsoft_calendar_valid(self):
         return self.sudo().microsoft_calendar_token_validity and self.sudo().microsoft_calendar_token_validity >= (fields.Datetime.now() + timedelta(minutes=1))
 
-    def _refresh_microsoft_calendar_token(self, service):
+    def _refresh_microsoft_calendar_token(self, service='calendar'):
         self.ensure_one()
         ICP_sudo = self.env['ir.config_parameter'].sudo()
         client_id = self.env['microsoft.service']._get_microsoft_client_id('calendar')
@@ -97,7 +97,7 @@ class ResUsers(models.Model):
 
     def _sync_microsoft_calendar(self):
         self.ensure_one()
-        self.sudo().microsoft_last_sync_date = fields.datetime.now()
+        self.sudo().microsoft_last_sync_date = datetime.now()
         if self._get_microsoft_sync_status() != "sync_active":
             return False
         calendar_service = self.env["calendar.event"]._get_microsoft_service()
@@ -121,7 +121,7 @@ class ResUsers(models.Model):
 
         events = self.env['calendar.event']._get_microsoft_records_to_sync(full_sync=full_sync)
         (events - synced_events)._sync_odoo2microsoft()
-        self.sudo().microsoft_last_sync_date = fields.datetime.now()
+        self.sudo().microsoft_last_sync_date = datetime.now()
 
         return bool(events | synced_events) or bool(recurrences | synced_recurrences)
 
@@ -145,7 +145,7 @@ class ResUsers(models.Model):
 
     def restart_microsoft_synchronization(self):
         self.ensure_one()
-        self.sudo().microsoft_last_sync_date = fields.datetime.now()
+        self.sudo().microsoft_last_sync_date = datetime.now()
         self.sudo().microsoft_synchronization_stopped = False
         self.env['calendar.recurrence']._restart_microsoft_sync()
         self.env['calendar.event']._restart_microsoft_sync()

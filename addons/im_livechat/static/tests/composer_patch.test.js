@@ -1,19 +1,23 @@
 import {
-    assertSteps,
-    click,
     contains,
     insertText,
     openDiscuss,
     start,
     startServer,
-    step,
 } from "@mail/../tests/mail_test_helpers";
 import { withGuest } from "@mail/../tests/mock_server/mail_mock_server";
 import { describe, test } from "@odoo/hoot";
-import { Command, onRpc, serverState } from "@web/../tests/web_test_helpers";
+import {
+    asyncStep,
+    Command,
+    onRpc,
+    serverState,
+    waitForSteps,
+} from "@web/../tests/web_test_helpers";
 import { defineLivechatModels } from "./livechat_test_helpers";
 
 import { rpc } from "@web/core/network/rpc";
+import { press } from "@odoo/hoot-dom";
 
 describe.current.tags("desktop");
 defineLivechatModels();
@@ -31,14 +35,14 @@ test("Can execute help command on livechat channels", async () => {
         livechat_operator_id: serverState.partnerId,
     });
     onRpc("/web/dataset/call_kw/discuss.channel/execute_command_help", () => {
-        step("execute_command_help");
+        asyncStep("execute_command_help");
         return true;
     });
     await start();
     await openDiscuss(channelId);
     await insertText(".o-mail-Composer-input", "/help");
-    await click(".o-mail-Composer-send:enabled");
-    await assertSteps(["execute_command_help"]);
+    await press("Enter");
+    await waitForSteps(["execute_command_help"]);
 });
 
 test('Receives visitor typing status "is typing"', async () => {

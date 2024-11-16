@@ -5,7 +5,7 @@ from odoo import models, fields, _
 
 
 class ResUsers(models.Model):
-    _inherit = ['res.users']
+    _inherit = 'res.users'
 
     hours_last_month = fields.Float(related='employee_id.hours_last_month')
     hours_last_month_display = fields.Char(related='employee_id.hours_last_month_display')
@@ -47,7 +47,7 @@ class ResUsers(models.Model):
                 "create": 0
             },
             "domain": [('employee_id', '=', self.employee_id.id),
-                       ('check_in', ">=", fields.datetime.today().replace(day=1, hour=0, minute=0))]
+                       ('check_in', ">=", fields.Datetime.today().replace(day=1))]
         }
 
     def action_open_last_month_overtime(self):
