@@ -3636,7 +3636,37 @@ X[]
                         contentAfter: '<pre>abc</pre><p>[]<br></p>',
                     });
                 });
+                it('should insert a new line within the pre', async () => {
+                    await testEditor(BasicEditor, {
+                        contentBefore: '<pre><p>abc</p><p>def[]</p></pre>',
+                        stepFunction: insertParagraphBreak,
+                        contentAfter: '<pre><p>abc</p><p>def</p><p>[]<br></p></pre>',
+                    });
+                });
+                it('should insert a new line after pre', async () => {
+                    await testEditor(BasicEditor, {
+                        contentBefore: '<pre><p>abc</p><p>def</p><p>[]<br></p></pre>',
+                        stepFunction: insertParagraphBreak,
+                        contentAfter: '<pre><p>abc</p><p>def</p></pre><p>[]<br></p>',
+                    });
+                });
             });
+            describe('Blockquote', () => {
+                it('should insert a new line within the blockquote', async () => {
+                    await testEditor(BasicEditor, {
+                        contentBefore: '<blockquote><h1>abc</h1><h2>def[]</h2></blockquote>',
+                        stepFunction: insertParagraphBreak,
+                        contentAfter: '<blockquote><h1>abc</h1><h2>def</h2><p>[]<br></p></blockquote>',
+                    });
+                });
+                it('should insert a new line after blockquote', async () => {
+                    await testEditor(BasicEditor, {
+                        contentBefore: '<blockquote><h1>abc</h1><h2>def</h2><p>[]<br></p></blockquote>',
+                        stepFunction: insertParagraphBreak,
+                        contentAfter: '<blockquote><h1>abc</h1><h2>def</h2></blockquote><p>[]<br></p>',
+                    });
+                });
+            })
             describe('Consecutive', () => {
                 it('should duplicate an empty paragraph twice', async () => {
                     await testEditor(BasicEditor, {
@@ -4932,7 +4962,7 @@ X[]
 
     describe('columnize', () => {
         const columnsContainer = contents => `<div class="container o_text_columns"><div class="row">${contents}</div></div>`;
-        const column = (size, contents) => `<div class="col-lg-${size}">${contents}</div>`;
+        const column = (size, contents) => `<div class="col-${size}">${contents}</div>`;
         describe('2 columns', () => {
             it('should do nothing', async () => {
                 await testEditor(BasicEditor, {
@@ -5174,10 +5204,10 @@ X[]
                     stepFunction: editor => editor.execCommand('columnize', 2),
                     contentAfter: '<div class="container"><div class="row"><div class="col">' +
                                       '<div class="o_text_columns"><div class="row">' + // no "container" class
-                                          '<div class="col-lg-6">' +
+                                          '<div class="col-6">' +
                                               '<p>ab[]cd</p>' +
                                           '</div>' +
-                                          '<div class="col-lg-6"><p><br></p></div>' +
+                                          '<div class="col-6"><p><br></p></div>' +
                                       '</div></div>' +
                                       '<p><br></p>' +
                                   '</div></div></div>',

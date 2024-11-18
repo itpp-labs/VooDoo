@@ -30,6 +30,7 @@ _ref_vat = {
     'be': 'BE0477472701',
     'bg': 'BG1234567892',
     'br': _('either 11 digits for CPF or 14 digits for CNPJ'),
+    'cr': _('3101012009'),
     'ch': _('CHE-123.456.788 TVA or CHE-123.456.788 MWST or CHE-123.456.788 IVA'),  # Swiss by Yannick Vaucher @ Camptocamp
     'cl': 'CL76086428-5',
     'co': _('CO213123432-1 or CO213.123.432-1'),
@@ -72,7 +73,7 @@ _ref_vat = {
     'si': 'SI12345679',
     'sk': 'SK2022749619',
     'sm': 'SM24165',
-    'tr': _('TR1234567890 (VERGINO) or TR17291716060 (TCKIMLIKNO)'),  # Levent Karakas @ Eska Yazilim A.S.
+    'tr': _('17291716060 (NIN) or 1729171602 (VKN)'),
     've': 'V-12345678-1, V123456781, V-12.345.678-1',
     'xi': 'XI123456782',
     'sa': _('310175397400003 [Fifteen digits, first and last digits should be "3"]')
@@ -543,48 +544,9 @@ class ResPartner(models.Model):
                 return False
         return True
 
-    # VAT validation in Turkey, contributed by # Levent Karakas @ Eska Yazilim A.S.
+    # VAT validation in Turkey
     def check_vat_tr(self, vat):
-
-        if not (10 <= len(vat) <= 11):
-            return False
-        try:
-            int(vat)
-        except ValueError:
-            return False
-
-        # check vat number (vergi no)
-        if len(vat) == 10:
-            sum = 0
-            check = 0
-            for f in range(0, 9):
-                c1 = (int(vat[f]) + (9-f)) % 10
-                c2 = (c1 * (2 ** (9-f))) % 9
-                if (c1 != 0) and (c2 == 0):
-                    c2 = 9
-                sum += c2
-            if sum % 10 == 0:
-                check = 0
-            else:
-                check = 10 - (sum % 10)
-            return int(vat[9]) == check
-
-        # check personal id (tc kimlik no)
-        if len(vat) == 11:
-            c1a = 0
-            c1b = 0
-            c2 = 0
-            for f in range(0, 9, 2):
-                c1a += int(vat[f])
-            for f in range(1, 9, 2):
-                c1b += int(vat[f])
-            c1 = ((7 * c1a) - c1b) % 10
-            for f in range(0, 10):
-                c2 += int(vat[f])
-            c2 = c2 % 10
-            return int(vat[9]) == c1 and int(vat[10]) == c2
-
-        return False
+        return stdnum.util.get_cc_module('tr', 'tckimlik').is_valid(vat) or stdnum.util.get_cc_module('tr', 'vkn').is_valid(vat)
 
     __check_vat_sa_re = re.compile(r"^3[0-9]{13}3$")
 
@@ -782,6 +744,16 @@ class ResPartner(models.Model):
             len(vat_clean) == 14 and _is_valid_cnpj(vat_clean)
             or len(vat_clean) == 11 and _is_valid_cpf(vat_clean)
         )
+
+    __check_vat_cr_re = re.compile(r'^(?:[1-9]\d{8}|\d{10}|[1-9]\d{10,11})$')
+
+    def check_vat_cr(self, vat):
+        # CÉDULA FÍSICA: 9 digits
+        # CÉDULA JURÍDICA: 10 digits
+        # CÉDULA DIMEX: 11 or 12 digits
+        # CÉDULA NITE: 10 digits
+
+        return self.__check_vat_cr_re.match(vat) or False
 
     def format_vat_eu(self, vat):
         # Foreign companies that trade with non-enterprises in the EU

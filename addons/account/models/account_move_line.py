@@ -464,6 +464,8 @@ class AccountMoveLine(models.Model):
                 product = line.product_id.with_context(lang=line.partner_id.lang)
             else:
                 product = line.product_id
+            if not product:
+                return False
 
             if product.partner_ref:
                 values.append(product.partner_ref)
@@ -473,12 +475,12 @@ class AccountMoveLine(models.Model):
             elif line.journal_id.type == 'purchase':
                 if product.description_purchase:
                     values.append(product.description_purchase)
-            return '\n'.join(values)
+            return '\n'.join(values) if values else False
 
         for line in self:
             if line.display_type == 'payment_term':
                 if not line.name or line._origin.name == line._origin.move_id.payment_reference:
-                    line.name = line.move_id.payment_reference or ''
+                    line.name = line.move_id.payment_reference or False
                 continue
             if not line.product_id or line.display_type in ('line_section', 'line_note'):
                 continue
@@ -1417,9 +1419,11 @@ class AccountMoveLine(models.Model):
         before = existing()
         yield
         after = existing()
+        protected = container.get('protected', {})
         for line in after:
             if (
                 line.display_type == 'product'
+                and 'amount_currency' not in protected.get(line, {})
                 and (not changed('amount_currency') or line not in before)
             ):
                 amount_currency = line.move_id.direction_sign * line.currency_id.round(line.price_subtotal)
@@ -1432,6 +1436,7 @@ class AccountMoveLine(models.Model):
         for line in after:
             if (
                 (changed('amount_currency') or changed('currency_rate') or changed('move_type'))
+                and 'balance' not in protected.get(line, {})
                 and (not changed('balance') or (line not in before and not line.balance))
             ):
                 balance = line.company_id.currency_id.round(line.amount_currency / line.currency_rate)
@@ -1452,6 +1457,7 @@ class AccountMoveLine(models.Model):
              self._sync_invoice(container):
             lines = super().create([self._sanitize_vals(vals) for vals in vals_list])
             container['records'] = lines
+            container['protected'] = {line: set(vals.keys()) for line, vals in zip(lines, vals_list)}
 
         for line in lines:
             if line.move_id.state == 'posted':
@@ -1507,7 +1513,7 @@ class AccountMoveLine(models.Model):
         move_container = {'records': self.move_id}
         with self.move_id._check_balanced(move_container),\
              self.move_id._sync_dynamic_lines(move_container),\
-             self._sync_invoice({'records': self}):
+             self._sync_invoice({'records': self, 'protected': {line: set(vals.keys()) for line in self}}):
             self = line_to_write
             if not self:
                 return True

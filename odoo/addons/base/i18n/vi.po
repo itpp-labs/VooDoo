@@ -11065,7 +11065,7 @@ msgid ""
 "======================================\n"
 msgstr ""
 "\n"
-"Xác thực dịch chuyển tồn kho cho Dịch vụ Hiện trường\n"
+"Xác thực điều chuyển tồn kho cho Dịch vụ Hiện trường\n"
 "======================================\n"
 
 #. module: base
@@ -11186,7 +11186,7 @@ msgstr ""
 "\n"
 "Tính năng:\n"
 "\n"
-"     - Có một kênh livechat liên quan đến nhóm để trả lời các câu hỏi của khách hàng của bạn.\n"
+"     - Có một kênh trò chuyện trực tiếp liên quan đến nhóm để trả lời các câu hỏi của khách hàng của bạn.\n"
 "     - Dễ dàng tạo phiếu hỗ trợ mới bằng các lệnh trong kênh.\n"
 "\n"
 "    "
@@ -20289,8 +20289,8 @@ msgstr ""
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_delivery_fedex
-msgid "Fedex Shipping"
-msgstr "Giao hàng Fedex"
+msgid "Fedex Shipping (Legacy)"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,summary:base.module_l10n_fr_fec
@@ -28582,7 +28582,7 @@ msgstr "OdooBot"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_im_livechat_mail_bot
 msgid "OdooBot for livechat"
-msgstr "Thêm OdooBot hỗ trợ livechat"
+msgstr "Thêm OdooBot hỗ trợ trò chuyện trực tiếp"
 
 #. module: base
 #: model:res.partner.category,name:base.res_partner_category_12
@@ -31545,7 +31545,7 @@ msgstr "Tập tin báo cáo"
 #. module: base
 #: model:ir.model.fields,field_description:base.field_res_company__report_footer
 msgid "Report Footer"
-msgstr "Lề dưới báo cáo"
+msgstr "Footer báo cáo"
 
 #. module: base
 #: model:ir.model,name:base.model_report_layout
@@ -32659,8 +32659,11 @@ msgstr "Gửi hàng của bạn qua DHL và theo dõi chúng online"
 
 #. module: base
 #: model:ir.module.module,description:base.module_delivery_fedex
-msgid "Send your shippings through Fedex and track them online"
-msgstr "Gửi hàng của bạn qua Fedex và theo dõi chúng trực tuyến"
+msgid ""
+"This is the legacy integration with FedEx that is no longer supported.Please"
+" install the new \"Fedex Shipping\" module and uninstall this one as soon as"
+" possible. This integration will stop working in 2024"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,summary:base.module_delivery_ups_rest
@@ -32848,7 +32851,7 @@ msgstr "Thiết lập dữ liệu công ty"
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.onboarding_company_step
 msgid "Set your company's data for documents header/footer."
-msgstr "Thiết lập dữ liệu công ty để hiển thị ở lề trên và lề dưới tài liệu."
+msgstr "Thiết lập dữ liệu công ty để hiển thị ở header và footer tài liệu."
 
 #. module: base
 #: model:ir.model.fields,help:base.field_ir_actions_act_url__binding_model_id
@@ -34366,6 +34369,17 @@ msgid "The \"App Switcher\" action cannot be selected as home action."
 msgstr ""
 "Không thể chọn hành động \"Trình Chuyển đổi Ứng dụng\" làm hành động trang "
 "chủ."
+
+#. module: base
+#. odoo-python
+#: code:addons/base/models/res_users.py:0
+#, python-format
+msgid ""
+"The action \"%s\" cannot be set as the home action because it requires a "
+"record to be selected beforehand."
+msgstr ""
+"Không thể thiết lập tác vụ \"%s\" làm tác vụ trang chủ vì nó yêu cầu phải "
+"chọn trước một bản ghi."
 
 #. module: base
 #: model:ir.model.fields,help:base.field_res_country__code

@@ -3617,6 +3617,8 @@ msgid ""
 "The allocation requirement of a time off type cannot be changed once leaves "
 "of that type have been taken. You should create a new time off type instead."
 msgstr ""
+"Không thể thay đổi yêu cầu phân bổ của loại nghỉ phép sau khi đã sử dụng "
+"ngày nghỉ phép thuộc loại đó. Thay vào đó, bạn nên tạo loại nghỉ phép mới."
 
 #. module: hr_holidays
 #: model:ir.model.fields,help:hr_holidays.field_hr_leave__color
@@ -4732,7 +4734,7 @@ msgstr "cuối cùng"
 #. module: hr_holidays
 #: model_terms:ir.ui.view,arch_db:hr_holidays.hr_accrual_plan_view_form
 msgid "lost"
-msgstr ""
+msgstr "mất"
 
 #. module: hr_holidays
 #: model:ir.model.fields.selection,name:hr_holidays.selection__hr_leave_accrual_level__start_type__month

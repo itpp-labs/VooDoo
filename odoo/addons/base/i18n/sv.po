@@ -19,7 +19,6 @@
 # Martin Wilderoth <martin.wilderoth@linserv.se>, 2022
 # Daniel Osser <danielosser@gmail.com>, 2023
 # Wil Odoo, 2024
-# Jakob Krabbe <jakob.krabbe@vertel.se>, 2024
 # Kristoffer Grundström <lovaren@gmail.com>, 2024
 # Simon S, 2024
 # Kim Asplund <kim.asplund@gmail.com>, 2024
@@ -29,6 +28,7 @@
 # Claes-Johan Dahlin, 2024
 # Anders Wallenquist <anders.wallenquist@vertel.se>, 2024
 # Lasse L, 2024
+# Jakob Krabbe <jakob.krabbe@vertel.se>, 2024
 # 
 msgid ""
 msgstr ""
@@ -36,7 +36,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-02-06 13:33+0000\n"
 "PO-Revision-Date: 2022-09-22 05:44+0000\n"
-"Last-Translator: Lasse L, 2024\n"
+"Last-Translator: Jakob Krabbe <jakob.krabbe@vertel.se>, 2024\n"
 "Language-Team: Swedish (https://app.transifex.com/odoo/teams/41243/sv/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -20199,8 +20199,8 @@ msgstr ""
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_delivery_fedex
-msgid "Fedex Shipping"
-msgstr "Fedex-frakt"
+msgid "Fedex Shipping (Legacy)"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,summary:base.module_l10n_fr_fec
@@ -32633,8 +32633,11 @@ msgstr "Skicka dina försändelser via DHL och spåra dem online"
 
 #. module: base
 #: model:ir.module.module,description:base.module_delivery_fedex
-msgid "Send your shippings through Fedex and track them online"
-msgstr "Skicka dina försändelser via Fedex och spåra dem online"
+msgid ""
+"This is the legacy integration with FedEx that is no longer supported.Please"
+" install the new \"Fedex Shipping\" module and uninstall this one as soon as"
+" possible. This integration will stop working in 2024"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,summary:base.module_delivery_ups_rest
@@ -34384,6 +34387,15 @@ msgid "The \"App Switcher\" action cannot be selected as home action."
 msgstr "Åtgärden \"App Switcher\" kan inte väljas som hemåtgärd."
 
 #. module: base
+#. odoo-python
+#: code:addons/base/models/res_users.py:0
+#, python-format
+msgid ""
+"The action \"%s\" cannot be set as the home action because it requires a "
+"record to be selected beforehand."
+msgstr ""
+
+#. module: base
 #: model:ir.model.fields,help:base.field_res_country__code
 #: model:ir.model.fields,help:base.field_res_partner__country_code
 #: model:ir.model.fields,help:base.field_res_users__country_code
@@ -36084,17 +36096,17 @@ msgstr "Tunisien"
 #. module: base
 #: model:res.country,name:base.tr
 msgid "Türkiye"
-msgstr ""
+msgstr "Turkiet"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_tr
 msgid "Türkiye - Accounting"
-msgstr ""
+msgstr "Turkiet - Redovisning"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_tr_reports
 msgid "Türkiye - Accounting Reports"
-msgstr ""
+msgstr "Türkiye - Redovisningsrapporter"
 
 #. module: base
 #: model:res.country,name:base.tm
@@ -37245,7 +37257,7 @@ msgstr "Visa livechat-sessioner för leads"
 #. odoo-python
 #: code:addons/base/models/ir_actions_report.py:0
 msgid "View Problematic Record(s)"
-msgstr ""
+msgstr "Visa problematisk(a) post(er)"
 
 #. module: base
 #. odoo-python

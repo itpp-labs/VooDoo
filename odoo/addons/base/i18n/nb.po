@@ -8238,12 +8238,12 @@ msgstr ""
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.report_irmodulereference
 msgid "<span>Module</span>"
-msgstr ""
+msgstr "<span>Modul</span>"
 
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.report_irmodulereference
 msgid "<span>Name</span>"
-msgstr ""
+msgstr "<span>Navn</span>"
 
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.report_irmodulereference
@@ -11063,7 +11063,7 @@ msgstr ""
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_account_batch_payment
 msgid "Batch Payment"
-msgstr ""
+msgstr "Batch betalinger"
 
 #. module: base
 #: model:ir.module.module,summary:base.module_delivery_stock_picking_batch
@@ -12361,7 +12361,7 @@ msgstr "Firmadata"
 #. module: base
 #: model:ir.model.fields,field_description:base.field_res_company__company_details
 msgid "Company Details"
-msgstr ""
+msgstr "Selskapdetaljer"
 
 #. module: base
 #: model:ir.model.fields,field_description:base.field_res_company__favicon
@@ -12938,7 +12938,7 @@ msgstr "Navn på stat"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_loyalty
 msgid "Coupons & Loyalty"
-msgstr ""
+msgstr "Kuponger og lojalitet"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_loyalty_delivery
@@ -13008,7 +13008,7 @@ msgstr ""
 #. module: base
 #: model_terms:ir.actions.act_window,help:base.action_res_partner_bank_account_form
 msgid "Create a Bank Account"
-msgstr ""
+msgstr "Opprett bankkonto"
 
 #. module: base
 #: model_terms:ir.actions.act_window,help:base.action_partner_category_form
@@ -14530,7 +14530,7 @@ msgstr "Fullført"
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.form_res_users_key_show
 msgid "Done!"
-msgstr ""
+msgstr "Ferdig!"
 
 #. module: base
 #: model:res.partner,website_short_description:base.res_partner_address_3
@@ -14908,7 +14908,7 @@ msgstr ""
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_hr_presence
 msgid "Employee Presence Control"
-msgstr ""
+msgstr "Kontroll tilstedeværelse ansatte"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_hr_referral
@@ -15481,7 +15481,7 @@ msgstr ""
 #. module: base
 #: model:ir.model,name:base.model_ir_exports
 msgid "Exports"
-msgstr ""
+msgstr "Eksporter"
 
 #. module: base
 #: model:ir.model,name:base.model_ir_exports_line
@@ -15670,8 +15670,8 @@ msgstr ""
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_delivery_fedex
-msgid "Fedex Shipping"
-msgstr "FedEx-frakt"
+msgid "Fedex Shipping (Legacy)"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,summary:base.module_l10n_fr_fec
@@ -17962,7 +17962,7 @@ msgstr "Inaktive brukere"
 #. module: base
 #: model:ir.model.fields.selection,name:base.selection__ir_asset__directive__include
 msgid "Include"
-msgstr ""
+msgstr "Inkluder"
 
 #. module: base
 #. odoo-python
@@ -19458,12 +19458,12 @@ msgstr ""
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.onboarding_step
 msgid "Let's do it"
-msgstr ""
+msgstr "La oss gjøre det!"
 
 #. module: base
 #: model_terms:ir.ui.view,arch_db:base.onboarding_company_step
 msgid "Let's start!"
-msgstr ""
+msgstr "La oss begynne!"
 
 #. module: base
 #: model:ir.model.fields.selection,name:base.selection__report_paperformat__format__letter
@@ -24235,7 +24235,7 @@ msgstr "Private metoder (som %s) kan ikke bli påkalt eksternt."
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_website_sale_stock
 msgid "Product Availability"
-msgstr ""
+msgstr "Produkt tilgjengelighet"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_website_sale_comparison_wishlist
@@ -25216,7 +25216,7 @@ msgstr "Relatert felt"
 #. module: base
 #: model:ir.model.fields,field_description:base.field_ir_model_fields__relation
 msgid "Related Model"
-msgstr ""
+msgstr "Relatert modell"
 
 #. module: base
 #: model:ir.model.fields,field_description:base.field_res_users__partner_id
@@ -25788,7 +25788,7 @@ msgstr "SSL/TLS"
 #. module: base
 #: model_terms:res.company,invoice_terms_html:base.main_company
 msgid "STANDARD TERMS AND CONDITIONS OF SALE"
-msgstr ""
+msgstr "STANDARD VILKÅR OG BETINGELSER FOR SALG"
 
 #. module: base
 #: model:res.country,name:base.bl
@@ -25828,7 +25828,7 @@ msgstr "Saint Vincent og Grenadinene"
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_hr_contract_salary
 msgid "Salary Configurator"
-msgstr ""
+msgstr "Lønnskonfigurator"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_be_hr_contract_salary
@@ -26463,7 +26463,10 @@ msgstr ""
 
 #. module: base
 #: model:ir.module.module,description:base.module_delivery_fedex
-msgid "Send your shippings through Fedex and track them online"
+msgid ""
+"This is the legacy integration with FedEx that is no longer supported.Please"
+" install the new \"Fedex Shipping\" module and uninstall this one as soon as"
+" possible. This integration will stop working in 2024"
 msgstr ""
 
 #. module: base
@@ -26858,7 +26861,7 @@ msgstr ""
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_hr_skills
 msgid "Skills Management"
-msgstr ""
+msgstr "Ferdighetsstyring"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_hr_skills_slides
@@ -28148,6 +28151,15 @@ msgid "The \"App Switcher\" action cannot be selected as home action."
 msgstr ""
 
 #. module: base
+#. odoo-python
+#: code:addons/base/models/res_users.py:0
+#, python-format
+msgid ""
+"The action \"%s\" cannot be set as the home action because it requires a "
+"record to be selected beforehand."
+msgstr ""
+
+#. module: base
 #: model:ir.model.fields,help:base.field_res_country__code
 #: model:ir.model.fields,help:base.field_res_partner__country_code
 #: model:ir.model.fields,help:base.field_res_users__country_code
@@ -28236,6 +28248,9 @@ msgid ""
 "order to be valid, any derogation must be expressly agreed to in advance in "
 "writing."
 msgstr ""
+"Klienten frasier seg eksplisitt sine egne standardvilkår og betingelser, "
+"selv om disse ble utarbeidet etter disse standardvilkårene for salg. For å "
+"være gyldig, må enhver avvik være uttrykkelig avtalt på forhånd skriftlig."
 
 #. module: base
 #: model:ir.model.constraint,message:base.constraint_res_country_code_uniq
@@ -31253,7 +31268,7 @@ msgstr ""
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_hr_work_entry
 msgid "Work Entries"
-msgstr ""
+msgstr "Arbeidsposter"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_hr_work_entry_contract_attendance
@@ -31740,7 +31755,7 @@ msgstr ""
 #. module: base
 #: model:ir.module.category,name:base.module_category_services_payroll_account
 msgid "account"
-msgstr ""
+msgstr "konto"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_account_qr_code_sepa
@@ -31750,7 +31765,7 @@ msgstr ""
 #. module: base
 #: model:ir.model.fields,field_description:base.field_ir_asset__active
 msgid "active"
-msgstr ""
+msgstr "aktiv"
 
 #. module: base
 #. odoo-python

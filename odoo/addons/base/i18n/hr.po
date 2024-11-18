@@ -19,9 +19,9 @@
 # Ivica Dimjašević <ivica.dimjasevic@storm.hr>, 2024
 # hrvoje sić <hrvoje.sic@gmail.com>, 2024
 # Vladimir Olujić <olujic.vladimir@storm.hr>, 2024
+# Đurđica Žarković <durdica.zarkovic@storm.hr>, 2024
 # Miro Sertić, 2024
 # Ivan Marijanović <ivanm101@yahoo.com>, 2024
-# Đurđica Žarković <durdica.zarkovic@storm.hr>, 2024
 # Tina Milas, 2024
 # Karolina Tonković <karolina.tonkovic@storm.hr>, 2024
 # Martin Trigaux, 2024
@@ -30,9 +30,9 @@
 # Kristina Palaš, 2024
 # Vladimir Vrgoč, 2024
 # Gordana Bilas, 2024
-# Luka Carević <luka@uvid.hr>, 2024
 # Servisi RAM d.o.o. <support@servisiram.hr>, 2024
 # Bole <bole@dajmi5.com>, 2024
+# Luka Carević <luka@uvid.hr>, 2024
 # 
 msgid ""
 msgstr ""
@@ -40,7 +40,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-02-06 13:33+0000\n"
 "PO-Revision-Date: 2022-09-22 05:44+0000\n"
-"Last-Translator: Bole <bole@dajmi5.com>, 2024\n"
+"Last-Translator: Luka Carević <luka@uvid.hr>, 2024\n"
 "Language-Team: Croatian (https://app.transifex.com/odoo/teams/41243/hr/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -12813,7 +12813,7 @@ msgstr "Poslovni entitet"
 #. module: base
 #: model:ir.module.category,name:base.module_category_sales_commissions
 msgid "Commissions"
-msgstr ""
+msgstr "Provizije"
 
 #. module: base
 #: model:res.country,name:base.km
@@ -15399,7 +15399,7 @@ msgstr ""
 #. module: base
 #: model:ir.model.fields,field_description:base.field_res_users__signature
 msgid "Email Signature"
-msgstr ""
+msgstr "E-mail potpis"
 
 #. module: base
 #: model:ir.model.fields,field_description:base.field_res_partner__employee
@@ -16206,8 +16206,8 @@ msgstr "Savezne države pripadaju državama i dio su adresa vaših kontakata."
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_delivery_fedex
-msgid "Fedex Shipping"
-msgstr "Fedex isporuka"
+msgid "Fedex Shipping (Legacy)"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,summary:base.module_l10n_fr_fec
@@ -27059,8 +27059,11 @@ msgstr "Otpremite vaše pakete preko DHL-a i pratite ih online."
 
 #. module: base
 #: model:ir.module.module,description:base.module_delivery_fedex
-msgid "Send your shippings through Fedex and track them online"
-msgstr "Otpremite vaše pakete preko FEDEX-a i pratite ih online."
+msgid ""
+"This is the legacy integration with FedEx that is no longer supported.Please"
+" install the new \"Fedex Shipping\" module and uninstall this one as soon as"
+" possible. This integration will stop working in 2024"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,summary:base.module_delivery_ups_rest
@@ -27545,7 +27548,7 @@ msgstr "Social LinkedIn"
 #: model:ir.module.category,name:base.module_category_marketing_social_marketing
 #: model:ir.module.module,shortdesc:base.module_social
 msgid "Social Marketing"
-msgstr "Socijalni marketing"
+msgstr "Društvene mreže"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_social_media
@@ -28742,6 +28745,15 @@ msgstr ""
 #: code:addons/base/models/res_users.py:0
 #, python-format
 msgid "The \"App Switcher\" action cannot be selected as home action."
+msgstr ""
+
+#. module: base
+#. odoo-python
+#: code:addons/base/models/res_users.py:0
+#, python-format
+msgid ""
+"The action \"%s\" cannot be set as the home action because it requires a "
+"record to be selected beforehand."
 msgstr ""
 
 #. module: base

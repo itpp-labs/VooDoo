@@ -847,6 +847,9 @@ msgid ""
 "        Accounting reports for Türkiye\n"
 "    "
 msgstr ""
+"\n"
+"        Boekhoudkundige rapportages voor Turkije\n"
+"    "
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_uk_reports
@@ -20356,8 +20359,8 @@ msgstr ""
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_delivery_fedex
-msgid "Fedex Shipping"
-msgstr "Fedex verzending"
+msgid "Fedex Shipping (Legacy)"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,summary:base.module_l10n_fr_fec
@@ -32722,8 +32725,11 @@ msgstr "Verzend je verzendingen via DHL en volg ze online"
 
 #. module: base
 #: model:ir.module.module,description:base.module_delivery_fedex
-msgid "Send your shippings through Fedex and track them online"
-msgstr "Verzend je verzendingen via Fedex en volg ze online"
+msgid ""
+"This is the legacy integration with FedEx that is no longer supported.Please"
+" install the new \"Fedex Shipping\" module and uninstall this one as soon as"
+" possible. This integration will stop working in 2024"
+msgstr ""
 
 #. module: base
 #: model:ir.module.module,summary:base.module_delivery_ups_rest
@@ -34426,6 +34432,17 @@ msgstr "De actie \"%s\" kan niet als home-actie worden geselecteerd."
 #, python-format
 msgid "The \"App Switcher\" action cannot be selected as home action."
 msgstr "De \"App Switcher\" actie kan niet geselecteerd worden als home actie."
+
+#. module: base
+#. odoo-python
+#: code:addons/base/models/res_users.py:0
+#, python-format
+msgid ""
+"The action \"%s\" cannot be set as the home action because it requires a "
+"record to be selected beforehand."
+msgstr ""
+"De actie \"%s\" kan niet als startactie worden ingesteld omdat hiervoor "
+"eerst een record moet worden geselecteerd."
 
 #. module: base
 #: model:ir.model.fields,help:base.field_res_country__code
@@ -36139,17 +36156,17 @@ msgstr "Tunesië"
 #. module: base
 #: model:res.country,name:base.tr
 msgid "Türkiye"
-msgstr ""
+msgstr "Turkjije"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_tr
 msgid "Türkiye - Accounting"
-msgstr ""
+msgstr "Turkije - Boekhouding"
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_tr_reports
 msgid "Türkiye - Accounting Reports"
-msgstr ""
+msgstr "Turkije - Boekhoudkundige rapportages"
 
 #. module: base
 #: model:res.country,name:base.tm
