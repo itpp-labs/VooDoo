@@ -494,8 +494,14 @@ class TestUi(odoo.tests.HttpCase):
     def test_31_website_edit_megamenu_big_icons_subtitles(self):
         self.start_tour(self.env['website'].get_client_action_url('/'), 'edit_megamenu_big_icons_subtitles', login='admin')
 
+    def test_32_website_background_colorpicker(self):
+        self.start_tour(self.env['website'].get_client_action_url("/"), "website_background_colorpicker", login="admin")
+
     def test_website_media_dialog_image_shape(self):
         self.start_tour("/", 'website_media_dialog_image_shape', login='admin')
+
+    def test_website_media_dialog_insert_media(self):
+        self.start_tour("/", "website_media_dialog_insert_media", login="admin")
 
     def test_website_text_font_size(self):
         self.start_tour('/@/', 'website_text_font_size', login='admin', timeout=300)
@@ -643,3 +649,6 @@ class TestUi(odoo.tests.HttpCase):
 
     def test_snippet_carousel(self):
         self.start_tour('/', 'snippet_carousel', login='admin')
+
+    def test_media_iframe_video(self):
+        self.start_tour("/", "website_media_iframe_video", login="admin")

@@ -630,7 +630,8 @@ class Channel(models.Model):
         """
         Automatically set the message posted by the current user as seen for themselves.
         """
-        self._set_last_seen_message(message)
+        if message.is_current_user_or_guest_author:
+            self._set_last_seen_message(message)
         return super()._message_post_after_hook(message, msg_vals)
 
     def _check_can_update_message_content(self, message):
@@ -638,6 +639,17 @@ class Channel(models.Model):
         mail.thread behavior completely """
         if not message.message_type == 'comment':
             raise UserError(_("Only messages type comment can have their content updated on model 'discuss.channel'"))
+
+    def _create_attachments_for_post(self, values_list, extra_list):
+        # Create voice metadata from meta information
+        attachments = super()._create_attachments_for_post(values_list, extra_list)
+        voice = attachments.env['ir.attachment']  # keep env, notably for potential sudo
+        for attachment, (_cid, _name, _token, info) in zip(attachments, extra_list):
+            if info.get('voice'):
+                voice += attachment
+        if voice:
+            voice._set_voice_metadata()
+        return attachments
 
     def _message_subscribe(self, partner_ids=None, subtype_ids=None, customer_ids=None):
         """ Do not allow follower subscription on channels. Only members are
