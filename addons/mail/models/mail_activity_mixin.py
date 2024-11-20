@@ -161,7 +161,7 @@ class MailActivityMixin(models.AbstractModel):
 
         search_states_int = {integer_state_value.get(s or False) for s in search_states}
 
-        self.env['mail.activity'].flush_model(['active', 'date_deadline', 'res_model', 'user_id'])
+        self.env['mail.activity'].flush_model(['active', 'date_deadline', 'res_model', 'user_id', 'user_tz'])
         query = SQL(
             """(
             SELECT res_id
@@ -253,7 +253,7 @@ class MailActivityMixin(models.AbstractModel):
     def _read_group_groupby(self, groupby_spec, query):
         if groupby_spec != 'activity_state':
             return super()._read_group_groupby(groupby_spec, query)
-        self.check_field_access_rights('read', ['activity_state'])
+        self._check_field_access(self._fields['activity_state'], 'read')
 
         self.env['mail.activity'].flush_model(['res_model', 'res_id', 'user_id', 'date_deadline'])
         self.env['res.users'].flush_model(['partner_id'])
