@@ -1,4 +1,4 @@
-import { EpsonPrinter } from "@pos_epson_printer/app/epson_printer";
+import { EpsonPrinter } from "@pos_epson_printer/app/utils/payment/epson_printer";
 import { SelfOrder } from "@pos_self_order/app/services/self_order_service";
 import { patch } from "@web/core/utils/patch";
 
@@ -14,10 +14,10 @@ patch(SelfOrder.prototype, {
             })
         );
     },
-    create_printer(printer) {
+    createPrinter(printer) {
         if (printer.printer_type === "epson_epos") {
             return new EpsonPrinter({ ip: printer.epson_printer_ip });
         }
-        return super.create_printer(...arguments);
+        return super.createPrinter(...arguments);
     },
 });
