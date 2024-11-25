@@ -403,6 +403,13 @@ class MailThread(models.AbstractModel):
 
         return super().get_empty_list_help(help_message)
 
+    @api.model
+    def get_views(self, views, options=None):
+        res = super().get_views(views, options)
+        if "form" in res["views"] and isinstance(self.env[self._name], self.env.registry['mail.activity.mixin']):
+            res["models"][self._name]["has_activities"] = True
+        return res
+
     def _condition_to_sql(self, alias: str, fname: str, operator: str, value, query: Query) -> SQL:
         if self.env.su or self.env.user._is_internal():
             return super()._condition_to_sql(alias, fname, operator, value, query)
@@ -2063,9 +2070,6 @@ class MailThread(models.AbstractModel):
     # ------------------------------------------------------------
     # MESSAGE POST MAIN
     # ------------------------------------------------------------
-
-    def _get_allowed_message_post_params(self):
-        return {"attachment_ids", "body", "message_type", "partner_ids", "subtype_xmlid"}
 
     @api.returns('mail.message', lambda value: value.id)
     def message_post(self, *,
@@ -3792,7 +3796,8 @@ class MailThread(models.AbstractModel):
             'is_follower': follows the message related document;
             'lang': partner lang;
             'groups': res.group IDs if linked to a user;
-            'notif': 'inbox', 'email', 'sms' (SMS App);
+            'notif': notification type, one of 'inbox', 'email', 'sms' (SMS App),
+                'whatsapp (WhatsAapp);
             'share': is partner a customer (partner.partner_share);
             'type': partner usage ('customer', 'portal', 'user');
             'uid': user ID (in case of multiple users, internal then first found
@@ -3900,7 +3905,7 @@ class MailThread(models.AbstractModel):
                 lambda pdata: pdata['type'] == 'user',
                 {
                     'active': True,
-                    'has_button_access': self._is_thread_message(msg_vals=msg_vals),
+                    'has_button_access': self.env['mail.message']._is_thread_message(vals=msg_vals, thread=self),
                 }
             ], [
                 'portal',
@@ -3946,7 +3951,7 @@ class MailThread(models.AbstractModel):
         else:
             view_title = _('View')
 
-        is_thread_message = self._is_thread_message(msg_vals=msg_vals)
+        is_thread_message = self.env['mail.message']._is_thread_message(vals=msg_vals, thread=self)
 
         # fill group_data with default_values if they are not complete
         for group_name, _group_func, group_data in groups:
@@ -4139,17 +4144,6 @@ class MailThread(models.AbstractModel):
         if not 'lang' in self.env.context:
             raise ValueError(_('At this point lang should be correctly set'))
         return self.env['ir.model']._get(model_name).display_name  # one query for display name
-
-    def _is_thread_message(self, msg_vals=None):
-        """ Tool method to compute thread validity in notification methods.
-        msg_vals is used as a replacement for self, allowing to force model
-        and res_id independently of current recordset. Void values in dict
-        are kept e.g. model=False is valid. """
-        if msg_vals is None:
-            msg_vals = {}
-        res_model = msg_vals['model'] if 'model' in msg_vals else self._name
-        res_id = msg_vals['res_id'] if 'res_id' in msg_vals else (self.ids[0] if self.ids else False)
-        return bool(res_id) if (res_model and res_model != 'mail.thread') else False
 
     def _truncate_payload(self, payload):
         """
@@ -4386,9 +4380,7 @@ class MailThread(models.AbstractModel):
         self._message_followers_to_store(store, after, limit, filter_recipients)
         return store.get_result()
 
-    def _message_followers_to_store(
-        self, store: Store, after=None, limit=100, filter_recipients=False, reset=False
-    ):
+    def _message_followers_to_store(self, store: Store, after=None, limit=100, filter_recipients=False, reset=False):
         self.ensure_one()
         domain = [
             ("res_id", "=", self.id),
@@ -4541,20 +4533,8 @@ class MailThread(models.AbstractModel):
         message._bus_send_store(message, res)
 
     # ------------------------------------------------------
-    # CONTROLLERS
+    # STORE
     # ------------------------------------------------------
-
-    def _get_mail_thread_data_attachments(self):
-        self.ensure_one()
-        res = self.env['ir.attachment'].search([('res_id', '=', self.id), ('res_model', '=', self._name)], order='id desc')
-        if 'original_id' in self.env['ir.attachment']._fields:
-            # If the image is SVG: We take the png version if exist otherwise we take the svg
-            # If the image is not SVG: We take the original one if exist otherwise we take it
-            svg_ids = res.filtered(lambda attachment: attachment.mimetype == 'image/svg+xml')
-            non_svg_ids = res - svg_ids
-            original_ids = res.mapped('original_id')
-            res = res.filtered(lambda attachment: (attachment in svg_ids and attachment not in original_ids) or (attachment in non_svg_ids and attachment.original_id not in non_svg_ids))
-        return res
 
     def _thread_to_store(self, store: Store, /, *, fields=None, request_list=None):
         if fields is None:
@@ -4620,12 +4600,24 @@ class MailThread(models.AbstractModel):
                 res["suggestedRecipients"] = thread._message_get_suggested_recipients()
             store.add(thread, res, as_thread=True)
 
-    @api.model
-    def get_views(self, views, options=None):
-        res = super().get_views(views, options)
-        if "form" in res["views"] and isinstance(self.env[self._name], self.env.registry['mail.activity.mixin']):
-            res["models"][self._name]["has_activities"] = True
+    def _get_mail_thread_data_attachments(self):
+        self.ensure_one()
+        res = self.env['ir.attachment'].search([('res_id', '=', self.id), ('res_model', '=', self._name)], order='id desc')
+        if 'original_id' in self.env['ir.attachment']._fields:
+            # If the image is SVG: We take the png version if exist otherwise we take the svg
+            # If the image is not SVG: We take the original one if exist otherwise we take it
+            svg_ids = res.filtered(lambda attachment: attachment.mimetype == 'image/svg+xml')
+            non_svg_ids = res - svg_ids
+            original_ids = res.mapped('original_id')
+            res = res.filtered(lambda attachment: (attachment in svg_ids and attachment not in original_ids) or (attachment in non_svg_ids and attachment.original_id not in non_svg_ids))
         return res
+
+    # ------------------------------------------------------
+    # CONTROLLERS SECURITY HELPERS
+    # ------------------------------------------------------
+
+    def _get_allowed_message_post_params(self):
+        return {"attachment_ids", "body", "message_type", "partner_ids", "subtype_xmlid"}
 
     @api.model
     def _get_thread_with_access(self, thread_id, mode="read", **kwargs):
