@@ -1,18 +1,15 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 from collections import defaultdict
-from odoo import http, _
+from odoo import http
 from odoo.http import request
-from odoo.exceptions import UserError
 
 
 class WebsiteMail(http.Controller):
 
-    @http.route(['/website_mail/follow'], type='jsonrpc', auth="public", website=True)
+    @http.route(['/website_mail/follow'], type='jsonrpc', auth="public", website=True, captcha='website_mail_follow')
     def website_message_subscribe(self, id=0, object=None, message_is_follower="on", email=False, **post):
         # TDE FIXME: check this method with new followers
-        if not request.env['ir.http']._verify_request_recaptcha_token('website_mail_follow'):
-            raise UserError(_("Suspicious activity detected by Google reCaptcha."))
         res_id = int(id)
         is_follower = message_is_follower == 'on'
         record = request.env[object].browse(res_id).exists()
@@ -40,7 +37,7 @@ class WebsiteMail(http.Controller):
             record.sudo().message_subscribe(partner_ids)
             return True
 
-    @http.route(['/website_mail/is_follower'], type='jsonrpc', auth="public", website=True)
+    @http.route(['/website_mail/is_follower'], type='jsonrpc', auth="public", website=True, readonly=True)
     def is_follower(self, records, **post):
         """ Given a list of `models` containing a list of res_ids, return
             the res_ids for which the user is follower and some practical info.
