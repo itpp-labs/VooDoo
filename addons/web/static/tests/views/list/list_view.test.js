@@ -6,6 +6,7 @@ import {
     edit,
     hover,
     keyDown,
+    middleClick,
     pointerDown,
     pointerUp,
     press,
@@ -8761,7 +8762,6 @@ test(`list with handle widget`, async () => {
         expect(params.ids).toEqual([3, 2, 1], {
             message: "should write the sequence in correct order",
         });
-        return Promise.resolve();
     });
 
     await mountView({
@@ -10871,7 +10871,7 @@ test(`grouped list view, indentation for empty group`, async () => {
         // Override of the read_group to display the row even if there is no record in it,
         // to mock the behavihour of some fields e.g stage_id on the sale order.
         if (kwargs.groupby[0] === "m2o") {
-            return Promise.resolve({
+            return {
                 groups: [
                     {
                         id: 8,
@@ -10885,7 +10885,7 @@ test(`grouped list view, indentation for empty group`, async () => {
                     },
                 ],
                 length: 1,
-            });
+            };
         }
     });
 
@@ -11573,11 +11573,11 @@ test(`grouped list: have a group with pager, then apply filter`, async () => {
 
     await contains(`.o_group_header:eq(1)`).click();
     expect(`.o_data_row`).toHaveCount(2);
-    expect(queryFirst(`.o_group_header .o_pager`).innerText).toBe("1-2 / 3");
+    expect(`.o_group_header .o_pager:first`).toHaveText("1-2 / 3");
 
     await contains(`.o_group_header .o_pager_next`).click();
     expect(`.o_data_row`).toHaveCount(1);
-    expect(queryFirst(`.o_group_header .o_pager`).innerText).toBe("3-3 / 3");
+    expect(`.o_group_header .o_pager:first`).toHaveText("3-3 / 3");
 
     await toggleSearchBarMenu();
     await toggleMenuItem("Some Filter");
@@ -16476,4 +16476,44 @@ test("open record, with invalid record in list", async () => {
     await contains(".o_data_cell").click();
 
     expect(".o_form_view").toHaveCount(1);
+});
+
+test("Open record in new tab on ctrl+click and middleclick", async () => {
+    await mountView({
+        type: "list",
+        resModel: "res.partner",
+        actionMenus: {},
+        arch: `
+            <list>
+                <field name="name" />
+            </list>`,
+        selectRecord(resId, options) {
+            expect.step(`open record - newWindow: ${options.newWindow}`);
+        },
+    });
+    await contains(".o_data_cell").click({ ctrlKey: true });
+    expect.verifySteps(["open record - newWindow: true"]);
+    await middleClick(".o_data_cell");
+    await animationFrame();
+    expect.verifySteps(["open record - newWindow: true"]);
+});
+
+test("Open record in new tab on ctrl+click and middleclick for an editable list", async () => {
+    await mountView({
+        type: "list",
+        resModel: "res.partner",
+        actionMenus: {},
+        arch: `
+            <list editable="bottom" open_form_view="true">
+                <field name="name" />
+            </list>`,
+        selectRecord(resId, options) {
+            expect.step(`open record - newWindow: ${options.newWindow}`);
+        },
+    });
+    await contains(".o_list_record_open_form_view").click({ ctrlKey: true });
+    expect.verifySteps(["open record - newWindow: true"]);
+    await middleClick(".o_list_record_open_form_view");
+    await animationFrame();
+    expect.verifySteps(["open record - newWindow: true"]);
 });

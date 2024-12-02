@@ -3,6 +3,7 @@ import { click, press, queryAll } from "@odoo/hoot-dom";
 import { animationFrame } from "@odoo/hoot-mock";
 import { reactive } from "@odoo/owl";
 import {
+    contains,
     defineModels,
     getService,
     models,
@@ -92,6 +93,27 @@ test.tags`desktop`("view switcher", async () => {
     expect.verifySteps(["kanban"]);
 });
 
+test.tags`desktop`("view switcher (middle click)", async () => {
+    await mountWithSearch(
+        ControlPanel,
+        { resModel: "foo" },
+        {
+            viewSwitcherEntries: [
+                { type: "list", active: true, icon: "oi-view-list", name: "List" },
+                { type: "kanban", icon: "oi-view-kanban", name: "Kanban" },
+            ],
+        }
+    );
+    expect(`.o_control_panel_navigation .o_cp_switch_buttons`).toHaveCount(1);
+    expect(`.o_switch_view`).toHaveCount(2);
+
+    getService("action").switchView = (viewType, props, options) =>
+        expect.step(`${viewType} -- ${JSON.stringify(props)} -- ${JSON.stringify(options)}`);
+
+    await contains(".o_switch_view.o_kanban").click({ ctrlKey: true });
+    expect.verifySteps([`kanban -- {} -- {"newWindow":true}`]);
+});
+
 test.tags`desktop`("views aria labels", async () => {
     await mountWithSearch(
         ControlPanel,
@@ -179,7 +201,8 @@ test("view switcher hotkey cycles through views", async () => {
     expect(`.o_list_view`).toHaveCount(1);
 });
 
-test.tags("mobile")("Control panel is shown/hide on top when scrolling", async () => {
+test.tags("mobile");
+test("Control panel is shown/hide on top when scrolling", async () => {
     await mountWithSearch(
         ControlPanel,
         { resModel: "foo" },
