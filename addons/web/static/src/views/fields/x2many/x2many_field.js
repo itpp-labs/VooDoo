@@ -1,6 +1,7 @@
 import { makeContext } from "@web/core/context";
 import { _t } from "@web/core/l10n/translation";
 import { Pager } from "@web/core/pager/pager";
+import { evaluateBooleanExpr } from "@web/core/py_js/py";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { getFieldDomain } from "@web/model/relational_model/utils";
@@ -49,10 +50,10 @@ export class X2ManyField extends Component {
             : ["o_field_x2many"];
         this.className = computeViewClassName(this.props.viewMode, this.archInfo.xmlDoc, classes);
 
-        const { activeActions, creates } = this.archInfo;
+        const { activeActions, controls } = this.archInfo;
         if (this.props.viewMode === "kanban") {
-            this.creates = creates.length
-                ? creates
+            this.controls = controls.length
+                ? controls
                 : [
                       {
                           type: "create",
@@ -94,6 +95,7 @@ export class X2ManyField extends Component {
             const activeElement = document.activeElement;
             openRecord({
                 ...params,
+                controls: this.controls,
                 onClose: () => {
                     if (activeElement) {
                         activeElement.focus();
@@ -221,6 +223,10 @@ export class X2ManyField extends Component {
         props.onOpenFormView = this.switchToForm.bind(this);
         props.hasOpenFormViewButton = archInfo.editable ? archInfo.openFormView : false;
         return props;
+    }
+
+    evalInvisible(invisible) {
+        return evaluateBooleanExpr(invisible, this.list.evalContext);
     }
 
     async switchToForm(record) {
