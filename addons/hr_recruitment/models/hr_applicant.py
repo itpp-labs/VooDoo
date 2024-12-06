@@ -193,7 +193,7 @@ class HrApplicant(models.Model):
     @api.depends('candidate_id')
     def _compute_categ_ids(self):
         for applicant in self:
-            applicant.categ_ids = applicant.candidate_id.categ_ids
+            applicant.categ_ids = applicant.candidate_id.categ_ids.ids + applicant.categ_ids.ids
 
     @api.depends('refuse_reason_id', 'date_closed')
     def _compute_application_status(self):
@@ -586,7 +586,7 @@ class HrApplicant(models.Model):
         # do not want to explicitly set user_id to False; however we do not
         # want the gateway user to be responsible if no other responsible is
         # found.
-        self = self.with_context(default_user_id=False)
+        self = self.with_context(default_user_id=False, mail_notify_author=True)  # Allows sending stage updates to the author
         stage = False
         if custom_values and 'job_id' in custom_values:
             stage = self.env['hr.job'].browse(custom_values['job_id'])._get_first_stage()
