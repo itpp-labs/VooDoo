@@ -74,62 +74,70 @@ class IrUiMenu(models.Model):
             raise ValidationError(_('Error! You cannot create recursive menus.'))
 
     @api.model
-    @tools.ormcache('frozenset(self.env.user.groups_id.ids)', 'debug')
+    @tools.ormcache('frozenset(self.env.user._get_group_ids())', 'debug')
     def _visible_menu_ids(self, debug=False):
         """ Return the ids of the menu items visible to the user. """
-        # retrieve all menus, and determine which ones are visible
-        context = {'ir.ui.menu.full_list': True}
-        menus = self.with_context(context).search_fetch([], ['action', 'parent_id']).sudo()
-
-        # first discard all menus with groups the user does not have
         group_ids = set(self.env.user._get_group_ids())
         if not debug:
-            group_ids = group_ids - {self.env['ir.model.data']._xmlid_to_res_id('base.group_no_one', raise_if_not_found=False)}
-        menus = menus.filtered(
-            lambda menu: not (menu.groups_id and group_ids.isdisjoint(menu.groups_id._ids)))
+            group_ids.discard(self.env['ir.model.data']._xmlid_to_res_id('base.group_no_one', raise_if_not_found=False))
+
+        # retrieve menus with a domain to filter out menus with groups the user does not have.
+        # It will be used to determine which ones are visible
+        menus = self.with_context({}).search_fetch(
+            # Don't use 'any' operator in the domain to avoid ir.rule
+            ['|', ('groups_id', '=', False), ('groups_id', 'in', tuple(group_ids))],
+            ['parent_id', 'action'], order='id',
+        ).sudo()
 
         # take apart menus that have an action
-        actions_by_model = defaultdict(set)
+        action_ids_by_model = defaultdict(list)
         for action in menus.mapped('action'):
             if action:
-                actions_by_model[action._name].add(action.id)
-        existing_actions = {
-            action
-            for model_name, action_ids in actions_by_model.items()
-            for action in self.env[model_name].browse(action_ids).exists()
-        }
-        action_menus = menus.filtered(lambda m: m.action and m.action in existing_actions)
-        folder_menus = menus - action_menus
-        visible = self.browse()
+                action_ids_by_model[action._name].append(action.id)
 
-        # process action menus, check whether their action is allowed
-        access = self.env['ir.model.access']
         MODEL_BY_TYPE = {
             'ir.actions.act_window': 'res_model',
             'ir.actions.report': 'model',
             'ir.actions.server': 'model_name',
         }
+        def exists_actions(model_name, action_ids):
+            """ Return existing actions and fetch model name field if exists"""
+            if model_name not in MODEL_BY_TYPE:
+                return self.env[model_name].browse(action_ids).exists()
+            records = self.env[model_name].sudo().with_context(active_test=False).search_fetch(
+                [('id', 'in', action_ids)], [MODEL_BY_TYPE[model_name]], order='id',
+            )
+            if model_name == 'ir.actions.server':
+                # Because it is computed, `search_fetch` doesn't fill the cache for it
+                records.mapped('model_name')
+            return records
 
-        # performance trick: determine the ids to prefetch by type
-        prefetch_ids = defaultdict(list)
-        for action in action_menus.mapped('action'):
-            prefetch_ids[action._name].append(action.id)
-
-        for menu in action_menus:
+        existing_actions = {
+            action
+            for model_name, action_ids in action_ids_by_model.items()
+            for action in exists_actions(model_name, action_ids)
+        }
+        menu_ids = set(menus._ids)
+        visible_ids = set()
+        access = self.env['ir.model.access']
+        # process action menus, check whether their action is allowed
+        for menu in menus:
             action = menu.action
-            action = action.with_prefetch(prefetch_ids[action._name])
-            model_name = action._name in MODEL_BY_TYPE and action[MODEL_BY_TYPE[action._name]]
-            if not model_name or access.check(model_name, 'read', False):
-                # make menu visible, and its folder ancestors, too
-                visible += menu
+            if not action or action not in existing_actions:
+                continue
+            model_fname = MODEL_BY_TYPE.get(action._name)
+            # action[model_fname] has been fetched in batch in `exists_actions`
+            if model_fname and not access.check(action[model_fname], 'read', False):
+                continue
+            # make menu visible, and its folder ancestors, too
+            menu_id = menu.id
+            while menu_id not in visible_ids and menu_id in menu_ids:
+                visible_ids.add(menu_id)
                 menu = menu.parent_id
-                while menu and menu in folder_menus and menu not in visible:
-                    visible += menu
-                    menu = menu.parent_id
+                menu_id =  menu.id
 
-        return set(visible.ids)
+        return frozenset(visible_ids)
 
-    @api.returns('self')
     def _filter_visible_menus(self):
         """ Filter `self` to only keep the menu items that should be visible in
             the menu hierarchy of the current user.
@@ -137,24 +145,6 @@ class IrUiMenu(models.Model):
         """
         visible_ids = self._visible_menu_ids(request.session.debug if request else False)
         return self.filtered(lambda menu: menu.id in visible_ids)
-
-    @api.model
-    def search_fetch(self, domain, field_names, offset=0, limit=None, order=None):
-        menus = super().search_fetch(domain, field_names, order=order)
-        if menus:
-            # menu filtering is done only on main menu tree, not other menu lists
-            if not self._context.get('ir.ui.menu.full_list'):
-                menus = menus._filter_visible_menus()
-            if offset:
-                menus = menus[offset:]
-            if limit:
-                menus = menus[:limit]
-        return menus
-
-    @api.model
-    def search_count(self, domain, limit=None):
-        # to be consistent with search() above
-        return len(self.search(domain, limit=limit))
 
     @api.depends('parent_id')
     def _compute_display_name(self):
@@ -190,9 +180,7 @@ class IrUiMenu(models.Model):
         # cascade-delete submenus blindly. We also can't use ondelete=set null because
         # that is not supported when _parent_store is used (would silently corrupt it).
         # TODO: ideally we should move them under a generic "Orphans" menu somewhere?
-        extra = {'ir.ui.menu.full_list': True,
-                 'active_test': False}
-        direct_children = self.with_context(**extra).search([('parent_id', 'in', self.ids)])
+        direct_children = self.with_context(active_test=False).search([('parent_id', 'in', self.ids)])
         direct_children.write({'parent_id': False})
 
         self.env.registry.clear_cache()
@@ -217,7 +205,7 @@ class IrUiMenu(models.Model):
         :return: the root menu ids
         :rtype: list(int)
         """
-        return self.search([('parent_id', '=', False)])
+        return self.search([('parent_id', '=', False)])._filter_visible_menus()
 
     def _load_menus_blacklist(self):
         return []
@@ -246,92 +234,89 @@ class IrUiMenu(models.Model):
     @api.model
     @tools.ormcache_context('self._uid', 'debug', keys=('lang',))
     def load_menus(self, debug):
-        """ Loads all menu items (all applications and their sub-menus).
-
-        :return: the menu root
-        :rtype: dict('children': menu_nodes)
-        """
-        fields = ['name', 'sequence', 'parent_id', 'action', 'web_icon']
-        menu_roots = self.get_user_roots()
-        menu_roots_data = menu_roots.read(fields) if menu_roots else []
-        menu_root = {
-            'id': False,
-            'name': 'root',
-            'parent_id': [-1, ''],
-            'children': [menu['id'] for menu in menu_roots_data],
-        }
-
-        all_menus = {'root': menu_root}
-
-        if not menu_roots_data:
-            return all_menus
-
-        # menus are loaded fully unlike a regular tree view, cause there are a
-        # limited number of items (752 when all 6.1 addons are installed)
-        menus_domain = [('id', 'child_of', menu_roots.ids)]
         blacklisted_menu_ids = self._load_menus_blacklist()
-        if blacklisted_menu_ids:
-            menus_domain = expression.AND([menus_domain, [('id', 'not in', blacklisted_menu_ids)]])
-        menus = self.search(menus_domain)
-        menu_items = menus.read(fields)
-        xmlids = (menu_roots + menus)._get_menuitems_xmlids()
+        visible_menus = self.search_fetch(
+            [('id', 'not in', blacklisted_menu_ids)],
+            ['name', 'parent_id', 'action', 'web_icon'],
+        )._filter_visible_menus()
 
-        # add roots at the end of the sequence, so that they will overwrite
-        # equivalent menu items from full menu read when put into id:item
-        # mapping, resulting in children being correctly set on the roots.
-        menu_items.extend(menu_roots_data)
+        children_dict = defaultdict(list)  # {parent_id: []} / parent_id == False for root menus
+        for menu in visible_menus:
+            children_dict[menu.parent_id.id].append(menu.id)
 
-        mi_attachments = self.env['ir.attachment'].sudo().search_read(
+        app_info = {}
+        # recursively set app ids to related children
+        def _set_app_id(menu_app_id, menu_id):
+            app_info[menu_id] = menu_app_id
+            for child_id in children_dict[menu_id]:
+                _set_app_id(menu_app_id, child_id)
+
+        for root_menu_id in children_dict[False]:
+            _set_app_id(root_menu_id, root_menu_id)
+
+        # Filter out menus not related to an app (+ keep root menu), it happens when
+        # some parent menu are not visible for group.
+        visible_menus = visible_menus.filtered(lambda menu: menu.id in app_info)
+
+        xmlids = visible_menus._get_menuitems_xmlids()
+        icon_attachments = self.env['ir.attachment'].sudo().search_read(
             domain=[('res_model', '=', 'ir.ui.menu'),
-                    ('res_id', 'in', [menu_item['id'] for menu_item in menu_items if menu_item['id']]),
+                    ('res_id', 'in', visible_menus._ids),
                     ('res_field', '=', 'web_icon_data')],
             fields=['res_id', 'datas', 'mimetype'])
+        icon_attachments_res_id = {attachment['res_id']: attachment for attachment in icon_attachments}
 
-        mi_attachment_by_res_id = {attachment['res_id']: attachment for attachment in mi_attachments}
+        menus_dict = {}
+        action_ids_by_type = defaultdict(list)
+        for menu in visible_menus:
 
-        # set children ids and xmlids
-        menu_items_map = {menu_item["id"]: menu_item for menu_item in menu_items}
-        for menu_item in menu_items:
-            menu_item.setdefault('children', [])
-            parent = menu_item['parent_id'] and menu_item['parent_id'][0]
-            menu_item['xmlid'] = xmlids.get(menu_item['id'], "")
-            if parent in menu_items_map:
-                menu_items_map[parent].setdefault(
-                    'children', []).append(menu_item['id'])
-            attachment = mi_attachment_by_res_id.get(menu_item['id'])
-            if attachment:
-                menu_item['web_icon_data'] = attachment['datas'].decode()
-                menu_item['web_icon_data_mimetype'] = attachment['mimetype']
+            menu_id = menu.id
+            attachment = icon_attachments_res_id.get(menu_id)
+
+            if action := menu.action:
+                action_model = action._name
+                action_id = action.id
+                action_ids_by_type[action_model].append(action_id)
             else:
-                menu_item['web_icon_data'] = False
-                menu_item['web_icon_data_mimetype'] = False
-        all_menus.update(menu_items_map)
+                action_model = False
+                action_id = False
 
-        # sort by sequence
-        for menu_id in all_menus:
-            all_menus[menu_id]['children'].sort(key=lambda id: all_menus[id]['sequence'])
+            menus_dict[menu_id] = {
+                'id': menu_id,
+                'name': menu.name,
+                'app_id': app_info[menu_id],
+                'action_model': action_model,
+                'action_id': action_id,
+                'web_icon': menu.web_icon,
+                'web_icon_data': attachment['datas'].decode() if attachment else False,
+                'web_icon_data_mimetype': attachment['mimetype'] if attachment else False,
+                'xmlid': xmlids.get(menu_id, ""),
+            }
 
-        # recursively set app ids to related children
-        def _set_app_id(app_id, menu):
-            menu['app_id'] = app_id
-            for child_id in menu['children']:
-                _set_app_id(app_id, all_menus[child_id])
+        # prefetch action.path
+        for model_name, action_ids in action_ids_by_type.items():
+            self.env[model_name].sudo().browse(action_ids).fetch(['path'])
 
-        for app in menu_roots_data:
-            app_id = app['id']
-            _set_app_id(app_id, all_menus[app_id])
+        # set children + model_path
+        for menu_dict in menus_dict.values():
+            if menu_dict['action_model']:
+                menu_dict['action_path'] = self.env[menu_dict['action_model']].sudo().browse(menu_dict['action_id']).path
+            else:
+                menu_dict['action_path'] = False
+            menu_dict['children'] = children_dict[menu_dict['id']]
 
-        # filter out menus not related to an app (+ keep root menu)
-        all_menus = {menu['id']: menu for menu in all_menus.values() if menu.get('app_id')}
-        all_menus['root'] = menu_root
-
-        return all_menus
+        menus_dict['root'] = {
+            'id': False,
+            'name': 'root',
+            'children': children_dict[False],
+        }
+        return menus_dict
 
     def _get_menuitems_xmlids(self):
-        menuitems = self.env['ir.model.data'].sudo().search([
-                ('res_id', 'in', self.ids),
-                ('model', '=', 'ir.ui.menu')
-            ])
+        menuitems = self.env['ir.model.data'].sudo().search_fetch(
+            [('res_id', 'in', self.ids), ('model', '=', 'ir.ui.menu')],
+            ['res_id', 'complete_name'],
+        )
 
         return {
             menu.res_id: menu.complete_name
