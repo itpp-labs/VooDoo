@@ -219,6 +219,31 @@ class AccountMove(models.Model):
         related="statement_line_id.statement_id"
     )
 
+    # === Adjusting Entries fields === #
+    adjusting_entry_origin_move_ids = fields.Many2many(
+        comodel_name='account.move',
+        relation='adjusting_entries__account_move',
+        column1='move_id',
+        column2='adjusting_entry_move_id',
+        string="Adjusting Entry Origin Moves",
+    )
+    adjusting_entry_origin_label = fields.Char(compute="_compute_adjusting_entry_origin_label")
+    adjusting_entry_origin_moves_count = fields.Integer(
+        string="Adjusting Entry Origin Moves Count",
+        compute='_compute_adjusting_entry_origin_moves_count',
+    )
+    adjusting_entries_move_ids = fields.Many2many(
+        comodel_name='account.move',
+        relation='adjusting_entries__account_move',
+        column1='adjusting_entry_move_id',
+        column2='move_id',
+        string="Created Adjusting Entries",
+    )
+    adjusting_entries_count = fields.Integer(
+        string="Adjusting Entries Count",
+        compute='_compute_adjusting_entries_count',
+    )
+
     # === Cash basis feature fields === #
     # used to keep track of the tax cash basis reconciliation. This is needed
     # when cancelling the source: it will post the inverse journal entry to
@@ -1171,6 +1196,25 @@ class AccountMove(models.Model):
     def _compute_payment_count(self):
         for invoice in self:
             invoice.payment_count = len(invoice.matched_payment_ids)
+
+    @api.depends('adjusting_entries_move_ids')
+    def _compute_adjusting_entries_count(self):
+        for move in self:
+            move.adjusting_entries_count = len(move.adjusting_entries_move_ids)
+
+    @api.depends('adjusting_entry_origin_move_ids')
+    def _compute_adjusting_entry_origin_moves_count(self):
+        for move in self:
+            move.adjusting_entry_origin_moves_count = len(move.adjusting_entry_origin_move_ids)
+
+    @api.depends_context('lang')
+    @api.depends('adjusting_entry_origin_move_ids')
+    def _compute_adjusting_entry_origin_label(self):
+        for move in self:
+            if len(move.adjusting_entry_origin_move_ids) == 1:
+                move.adjusting_entry_origin_label = dict(self._fields['move_type'].selection)[move.adjusting_entry_origin_move_ids.move_type]
+            else:
+                move.adjusting_entry_origin_label = False
 
     @api.depends('invoice_payment_term_id', 'invoice_date', 'currency_id', 'amount_total_in_currency_signed', 'invoice_date_due')
     def _compute_needed_terms(self):
@@ -3516,12 +3560,13 @@ class AccountMove(models.Model):
 
     def _get_invoice_reference_euro_invoice(self):
         """ This computes the reference based on the RF Creditor Reference.
-            The data of the reference is the database id number of the invoice.
-            For instance, if an invoice is issued with id 43, the check number
-            is 07 so the reference will be 'RF07 43'.
+            The data of the reference is the journal short code and the database
+            id number of the invoice. For instance, if a journal code is INV and
+            an invoice is issued with id 37, the check number is 67 so the
+            reference will be 'RF67 INV0 0003 7'.
         """
         self.ensure_one()
-        return format_structured_reference_iso(self.id)
+        return format_structured_reference_iso(f'{self.journal_id.code}{str(self.id).zfill(6)}')
 
     def _get_invoice_reference_euro_partner(self):
         """ This computes the reference based on the RF Creditor Reference.
@@ -3537,8 +3582,24 @@ class AccountMove(models.Model):
         self.ensure_one()
         partner_ref = self.partner_id.ref
         partner_ref_nr = re.sub(r'\D', '', partner_ref or '')[-21:] or str(self.partner_id.id)[-21:]
-        partner_ref_nr = partner_ref_nr[-21:]
+        partner_ref_nr = f'{self.journal_id.code}{partner_ref_nr}'[-21:]
         return format_structured_reference_iso(partner_ref_nr)
+
+    def _get_invoice_reference_number_invoice(self):
+        """ This computes the reference based on the Number format.
+            Return the number of the invoice, defined on the journal sequence.
+        """
+        ref = self._get_invoice_reference_odoo_invoice() or ''
+        return ''.join(char for char in ref if char.isdigit())
+
+    def _get_invoice_reference_number_partner(self):
+        """ This computes the reference based on the Number format.
+            The data used is the reference set on the partner or its database
+            id otherwise. For instance if the reference of the customer is
+            'customer 97', the reference will be '97'.
+        """
+        ref = self._get_invoice_reference_odoo_partner()
+        return ''.join(char for char in ref if char.isdigit())
 
     def _get_invoice_reference_odoo_invoice(self):
         """ This computes the reference based on the Odoo format.
@@ -3560,8 +3621,6 @@ class AccountMove(models.Model):
 
     def _get_invoice_computed_reference(self):
         self.ensure_one()
-        if self.journal_id.invoice_reference_type == 'none':
-            return ''
         ref_function = getattr(self, f'_get_invoice_reference_{self.journal_id.invoice_reference_model}_{self.journal_id.invoice_reference_type}', None)
         if ref_function is None:
             raise UserError(_("The combination of reference model and reference type on the journal is not implemented"))
@@ -5012,6 +5071,15 @@ class AccountMove(models.Model):
             'domain': [('id', 'in', self.tax_cash_basis_created_move_ids.ids)],
             'views': [(self.env.ref('account.view_move_tree').id, 'list'), (False, 'form')],
         }
+
+    def open_adjusting_entries(self):
+        self.ensure_one()
+        return self.adjusting_entries_move_ids._get_records_action(name="Adjusting Entries")
+
+    def open_adjusting_entry_origin_moves(self):
+        self.ensure_one()
+        label = self.adjusting_entry_origin_label if len(self.adjusting_entries_move_ids) == 1 else 'Invoices'
+        return self.adjusting_entry_origin_move_ids._get_records_action(name=label)
 
     def action_switch_move_type(self):
         if any(move.posted_before for move in self):
