@@ -22,7 +22,7 @@ export class PosPayment extends Base {
     }
 
     setAmount(value) {
-        this.pos_order_id.assetEditable();
+        this.pos_order_id.assertEditable();
         this.amount = roundDecimals(
             parseFloat(value) || 0,
             this.pos_order_id.currency.decimal_places
@@ -77,6 +77,10 @@ export class PosPayment extends Base {
             this.setPaymentStatus("retry");
         }
         return isPaymentSuccessful;
+    }
+
+    updateRefundPaymentLine(refundedPaymentLine) {
+        this.transaction_id = refundedPaymentLine.transaction_id;
     }
 }
 

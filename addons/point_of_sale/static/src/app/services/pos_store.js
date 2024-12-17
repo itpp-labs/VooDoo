@@ -251,7 +251,7 @@ export class PosStore extends WithLazyGetterTrap {
         this.config = this.data.models["pos.config"].getFirst();
         this.company = this.data.models["res.company"].getFirst();
         this.user = this.data.models["res.users"].getFirst();
-        this.currency = this.data.models["res.currency"].getFirst();
+        this.currency = this.config.currency_id;
         this.pickingType = this.data.models["stock.picking.type"].getFirst();
         this.models = this.data.models;
 
@@ -580,7 +580,7 @@ export class PosStore extends WithLazyGetterTrap {
     async addLineToCurrentOrder(vals, opts = {}, configure = true) {
         let merge = true;
         let order = this.getOrder();
-        order.assetEditable();
+        order.assertEditable();
 
         if (!order) {
             order = await this.addNewOrder();

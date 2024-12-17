@@ -41,6 +41,30 @@ export class Homepage extends Component {
         }, 10000);
     }
 
+    get numDevices() {
+        return Object.values(this.state.data.devices)
+            .map((devices) => devices.length)
+            .reduce((a, b) => a + b, 0);
+    }
+
+    get networkStatus() {
+        if (
+            !this.store.isLinux ||
+            this.state.data.network_interfaces.some((netInterface) => !netInterface.is_wifi)
+        ) {
+            return "Ethernet";
+        }
+        const wifiInterface = this.state.data.network_interfaces.find(
+            (netInterface) => netInterface.ssid
+        );
+        if (wifiInterface) {
+            return this.state.data.is_access_point_up
+                ? "Wi-Fi access point"
+                : `Wi-Fi: ${wifiInterface.ssid}`;
+        }
+        return "Not Connected";
+    }
+
     async loadInitialData() {
         try {
             const data = await this.store.rpc({
@@ -84,8 +108,8 @@ export class Homepage extends Component {
         </t>
     </LoadingFullScreen>
 
-    <div t-if="!this.state.loading" class="w-100 d-flex flex-column align-items-center justify-content-center" style="background-color: #F1F1F1; height: 100vh">
-        <div class="bg-white p-4 rounded overflow-auto position-relative" style="width: 100%; max-width: 600px;">
+    <div t-if="!this.state.loading" class="w-100 d-flex flex-column align-items-center justify-content-center background">
+        <div class="bg-white p-4 rounded overflow-auto position-relative w-100 main-container">
             <div class="position-absolute end-0 top-0 mt-3 me-4 d-flex gap-1">
                 <IconButton onClick.bind="toggleAdvanced" icon="this.store.advanced ? 'fa-cog' : 'fa-cogs'" />
                 <IconButton onClick.bind="restartOdooService" icon="'fa-power-off'" />
@@ -113,7 +137,7 @@ export class Homepage extends Component {
             </SingleData>
             <SingleData t-if="this.store.advanced" name="'IP address'" value="state.data.ip" icon="'fa-globe'" />
             <SingleData t-if="this.store.advanced" name="'MAC address'" value="state.data.mac.toUpperCase()" icon="'fa-address-card'" />
-            <SingleData t-if="this.store.isLinux" name="'Internet Status'" value="state.data.network_status"  icon="'fa-wifi'">
+            <SingleData t-if="this.store.isLinux" name="'Internet Status'" value="networkStatus" icon="'fa-wifi'">
                 <t t-set-slot="button">
                     <WifiDialog />
                 </t>
@@ -129,7 +153,7 @@ export class Homepage extends Component {
                     <SixDialog />
                 </t>
             </SingleData>
-            <SingleData name="'Devices'" value="state.data.iot_device_status.length + ' devices'" icon="'fa-plug'">
+            <SingleData name="'Devices'" value="numDevices + ' devices'" icon="'fa-plug'">
                 <t t-set-slot="button">
                     <DeviceDialog />
                 </t>
@@ -143,7 +167,7 @@ export class Homepage extends Component {
             </div>
         </div>
     </div>
-    <div t-else="" class="w-100 d-flex align-items-center justify-content-center" style="background-color: #F1F1F1; height: 100vh">
+    <div t-else="" class="w-100 d-flex align-items-center justify-content-center background">
         <div class="spinner-border" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>

@@ -17,6 +17,7 @@ import time
 import threading
 
 from collections import namedtuple
+from collections.abc import Iterable
 from email import message_from_string
 from email.message import EmailMessage
 from xmlrpc import client as xmlrpclib
@@ -418,7 +419,10 @@ class MailThread(models.AbstractModel):
             return super()._condition_to_sql(alias, field_expr, operator, value, query)
         user_partner = self.env.user.partner_id
         allow_partner_ids = set((user_partner | user_partner.commercial_partner_id).ids)
-        operand = value if isinstance(value, (list, tuple)) else [value]
+        if isinstance(value, Iterable) and not isinstance(value, str):
+            operand = value
+        else:
+            operand = {value}
         if not allow_partner_ids.issuperset(operand):
             raise AccessError(self.env._("Portal users can only filter threads by themselves as followers."))
         return super(MailThread, self.sudo())._condition_to_sql(alias, field_expr, operator, value, query)
@@ -4618,7 +4622,7 @@ class MailThread(models.AbstractModel):
     # ------------------------------------------------------
 
     def _get_allowed_message_post_params(self):
-        return {"attachment_ids", "body", "message_type", "partner_ids", "subtype_xmlid"}
+        return {"attachment_ids", "body", "email_add_signature", "message_type", "partner_ids", "subtype_xmlid"}
 
     @api.model
     def _get_thread_with_access(self, thread_id, mode="read", **kwargs):
