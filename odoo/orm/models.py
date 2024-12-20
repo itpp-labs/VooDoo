@@ -201,7 +201,7 @@ def check_companies_domain_parent_of(self, companies):
     ])]
 
 
-class MetaModel(api.Meta):
+class MetaModel(type):
     """ The metaclass of all model classes.
         Its main purpose is to register the models per module.
     """
@@ -1621,7 +1621,6 @@ class BaseModel(metaclass=MetaModel):
 
     @api.model
     @api.readonly
-    @api.returns('self')
     def search(self, domain: DomainType, offset=0, limit=None, order=None) -> Self:
         """ search(domain[, offset=0][, limit=None][, order=None])
 
@@ -1643,7 +1642,6 @@ class BaseModel(metaclass=MetaModel):
 
     @api.model
     @api.readonly
-    @api.returns('self')
     def search_fetch(self, domain: DomainType, field_names: Sequence[str], offset=0, limit=None, order=None) -> Self:
         """ search_fetch(domain, field_names[, offset=0][, limit=None][, order=None])
 
@@ -4328,7 +4326,7 @@ class BaseModel(metaclass=MetaModel):
         with self.env.protecting(self._fields.values(), self):
             self.modified(self._fields, before=True)
 
-        for sub_ids in cr.split_for_in_conditions(self.ids):
+        for sub_ids in split_every(cr.IN_MAX, self.ids):
             records = self.browse(sub_ids)
 
             cr.execute(SQL(
@@ -5740,7 +5738,6 @@ class BaseModel(metaclass=MetaModel):
                             translations[lang][from_lang_term] = to_lang_term
                     new.update_field_translations(name, translations)
 
-    @api.returns('self')
     def copy(self, default: ValuesType | None = None) -> Self:
         """ copy(default=None)
 
@@ -5757,7 +5754,6 @@ class BaseModel(metaclass=MetaModel):
             old_record.copy_translations(new_record, excluded=default or ())
         return new_records
 
-    @api.returns('self')
     def exists(self) -> Self:
         """  exists() -> records
 
@@ -6713,7 +6709,7 @@ class BaseModel(metaclass=MetaModel):
     def __iter__(self) -> typing.Iterator[Self]:
         """ Return an iterator over ``self``. """
         if len(self._ids) > PREFETCH_MAX and self._prefetch_ids is self._ids:
-            for ids in self.env.cr.split_for_in_conditions(self._ids):
+            for ids in split_every(PREFETCH_MAX, self._ids):
                 for id_ in ids:
                     yield self.__class__(self.env, (id_,), ids)
         else:
@@ -6723,7 +6719,7 @@ class BaseModel(metaclass=MetaModel):
     def __reversed__(self) -> typing.Iterator[Self]:
         """ Return an reversed iterator over ``self``. """
         if len(self._ids) > PREFETCH_MAX and self._prefetch_ids is self._ids:
-            for ids in self.env.cr.split_for_in_conditions(reversed(self._ids)):
+            for ids in split_every(PREFETCH_MAX, reversed(self._ids)):
                 for id_ in ids:
                     yield self.__class__(self.env, (id_,), ids)
         elif self._ids:
