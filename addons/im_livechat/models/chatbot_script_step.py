@@ -338,13 +338,17 @@ class ChatbotScriptStep(models.Model):
             return self._process_step_forward_operator(discuss_channel)
         return discuss_channel._chatbot_post_message(self.chatbot_script_id, plaintext2html(self.message))
 
-    def _process_step_forward_operator(self, discuss_channel):
+    def _process_step_forward_operator(self, discuss_channel, users=None):
         """ Special type of step that will add a human operator to the conversation when reached,
         which stops the script and allow the visitor to discuss with a real person.
 
         In case we don't find any operator (e.g: no-one is available) we don't post any messages.
         The script will continue normally, which allows to add extra steps when it's the case
-        (e.g: ask for the visitor's email and create a lead). """
+        (e.g: ask for the visitor's email and create a lead).
+
+        When specific available users are not provided, the currently available users of the
+        livechat channel are used as candidates.
+        """
 
         human_operator = False
         posted_message = self.env["mail.message"]
@@ -358,6 +362,7 @@ class ChatbotScriptStep(models.Model):
                 else None,
                 country_id=discuss_channel.country_id.id,
                 expertises=self.operator_expertise_ids,
+                users=users,
             )
 
         # handle edge case where we found yourself as available operator -> don't do anything
@@ -377,7 +382,17 @@ class ChatbotScriptStep(models.Model):
                 lambda m: m.partner_id == self.chatbot_script_id.operator_partner_id
             ):
                 channel_sudo._action_unfollow(partner=bot_member.partner_id)
-            channel_sudo.name = (human_operator.livechat_username or human_operator.name,)
+            # finally, rename the channel to include the operator's name
+            channel_sudo.name = " ".join(
+                [
+                    self.env.user.display_name
+                    if not self.env.user._is_public()
+                    else discuss_channel.anonymous_name,
+                    human_operator.livechat_username
+                    if human_operator.livechat_username
+                    else human_operator.name,
+                ]
+            )
             channel_sudo._broadcast(human_operator.partner_id.ids)
             discuss_channel.channel_pin(pinned=True)
 
