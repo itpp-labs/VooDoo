@@ -42,14 +42,6 @@ class AccountEdiXmlCii(models.AbstractModel):
             'seller_postal_address': self._check_required_fields(
                 vals['record']['company_id']['partner_id']['commercial_partner_id'], 'country_id'
             ),
-            # [BR-DE-9] The element "Buyer post code" (BT-53) must be transmitted. (only mandatory in Germany ?)
-            'buyer_postal_address': self._check_required_fields(
-                vals['record']['partner_id'], 'zip'
-            ),
-            # [BR-DE-4] The element "Seller post code" (BT-38) must be transmitted. (only mandatory in Germany ?)
-            'seller_post_code': self._check_required_fields(
-                vals['record']['company_id']['partner_id']['commercial_partner_id'], 'zip'
-            ),
             # [BR-CO-26]-In order for the buyer to automatically identify a supplier, the Seller identifier (BT-29),
             # the Seller legal registration identifier (BT-30) and/or the Seller VAT identifier (BT-31) shall be present.
             'seller_identifier': self._check_required_fields(
@@ -164,14 +156,6 @@ class AccountEdiXmlCii(models.AbstractModel):
             tax_details['base_amount_currency'] += fixed_tax_details['tax_amount_currency']
             tax_details['base_amount'] += fixed_tax_details['tax_amount']
 
-        if 'siret' in invoice.company_id._fields and invoice.company_id.siret:
-            seller_siret = invoice.company_id.siret
-        else:
-            seller_siret = invoice.company_id.company_registry
-
-        buyer_siret = invoice.commercial_partner_id.company_registry
-        if 'siret' in invoice.commercial_partner_id._fields and invoice.commercial_partner_id.siret:
-            buyer_siret = invoice.commercial_partner_id.siret
         template_values = {
             **invoice._prepare_edi_vals_to_export(),
             'tax_details': tax_details,
@@ -181,8 +165,8 @@ class AccountEdiXmlCii(models.AbstractModel):
             'scheduled_delivery_time': self._get_scheduled_delivery_time(invoice),
             'intracom_delivery': False,
             'ExchangedDocument_vals': self._get_exchanged_document_vals(invoice),
-            'seller_specified_legal_organization': seller_siret,
-            'buyer_specified_legal_organization': buyer_siret,
+            'seller_specified_legal_organization': invoice.company_id.company_registry,
+            'buyer_specified_legal_organization': invoice.commercial_partner_id.company_registry,
             'ship_to_trade_party': invoice.partner_shipping_id if 'partner_shipping_id' in invoice._fields and invoice.partner_shipping_id
                 else invoice.commercial_partner_id,
             # Chorus Pro fields
