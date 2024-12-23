@@ -248,7 +248,6 @@ test("many2many kanban: edition", async () => {
                             <t t-name="card">
                                 <div>
                                     <a
-                                        t-if="!read_only_mode"
                                         type="delete"
                                         class="fa fa-times float-end delete_icon"
                                     />
@@ -416,7 +415,7 @@ test("many2many kanban: create action disabled", async () => {
                         <templates>
                             <t t-name="card">
                                 <div>
-                                    <a t-if="!read_only_mode" type="delete" class="fa fa-times float-end delete_icon"/>
+                                    <a type="delete" class="fa fa-times float-end delete_icon"/>
                                     <field name="name"/>
                                 </div>
                             </t>
@@ -666,7 +665,6 @@ test("add record in a many2many non editable list with context", async () => {
             abc: 2,
             allowed_company_ids: [1],
             bin_size: true,
-            current_company_id: 1,
             lang: "en",
             tz: "taht",
             uid: 7,

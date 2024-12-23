@@ -9165,7 +9165,6 @@ test(`navigation with tab on a one2many list with create="0"`, async () => {
             </form>
         `,
         resId: 1,
-        mode: "edit",
     });
     expect(`.o_field_widget[name=o2m] .o_data_row`).toHaveCount(2);
 
@@ -17078,7 +17077,6 @@ test(`context keys not passed down the stack and not to fields`, async () => {
                 allowed_company_ids: [1],
                 bin_size: true,
                 list_view_ref: "foo_view_ref",
-                current_company_id: 1,
             },
         },
     ]);
@@ -17112,7 +17110,6 @@ test(`context keys not passed down the stack and not to fields`, async () => {
                 uid: 7,
                 allowed_company_ids: [1],
                 bin_size: true,
-                current_company_id: 1,
             },
         },
     ]);
@@ -17293,7 +17290,6 @@ test(`list: remove a record from sorted recordlist`, async () => {
             </form>
         `,
         resId: 1,
-        mode: "edit",
     });
     // 3 th (1 for delete button, 2 for columns)
     expect(`th`).toHaveCount(3, { message: "should have 2 columns and delete buttons" });

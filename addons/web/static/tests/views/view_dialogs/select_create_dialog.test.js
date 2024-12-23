@@ -134,7 +134,6 @@ test("SelectCreateDialog use domain, group_by and search default on desktop", as
                     context: {
                         allowed_company_ids: [1],
                         bin_size: true,
-                        current_company_id: 1,
                         lang: "en",
                         tz: "taht",
                         uid: 7,
@@ -162,7 +161,6 @@ test("SelectCreateDialog use domain, group_by and search default on desktop", as
                     context: {
                         allowed_company_ids: [1],
                         bin_size: true,
-                        current_company_id: 1,
                         lang: "en",
                         tz: "taht",
                         uid: 7,
@@ -247,7 +245,6 @@ test("SelectCreateDialog use domain, group_by and search default on mobile", asy
                     context: {
                         allowed_company_ids: [1],
                         bin_size: true,
-                        current_company_id: 1,
                         lang: "en",
                         tz: "taht",
                         uid: 7,
@@ -275,7 +272,6 @@ test("SelectCreateDialog use domain, group_by and search default on mobile", asy
                     context: {
                         allowed_company_ids: [1],
                         bin_size: true,
-                        current_company_id: 1,
                         lang: "en",
                         tz: "taht",
                         uid: 7,
@@ -337,9 +333,11 @@ test("SelectCreateDialog correctly evaluates domains", async () => {
 });
 
 test.tags("desktop");
-test("SelectCreateDialog list view in readonly", async () => {
+test("SelectCreateDialog list view is readonly", async () => {
+    Partner._fields.sequence = fields.Integer();
     Partner._views["list"] = /* xml */ `
         <list string="Partner" editable="bottom">
+            <field name="sequence" widget="handle"/>
             <field name="name"/>
             <field name="foo"/>
         </list>
@@ -358,6 +356,10 @@ test("SelectCreateDialog list view in readonly", async () => {
 
     expect(".o_list_view tbody tr td .o_field_char input").toHaveCount(0, {
         message: "list view should not be editable in a SelectCreateDialog",
+    });
+    expect(".o_handle_cell").toHaveCount(4);
+    expect(".o_row_handle.o_disabled").toHaveCount(3, {
+        message: "handles should be disabled in readonly",
     });
 });
 

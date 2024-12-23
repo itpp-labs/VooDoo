@@ -54,6 +54,10 @@ class AccountTestInvoicingCommon(ProductCommon):
 
         cls.maxDiff = None
         cls.company_data = cls.collect_company_accounting_data(cls.env.company)
+        cls.product_category.with_company(cls.env.company).write({
+            'property_account_income_categ_id': cls.company_data['default_account_revenue'].id,
+            'property_account_expense_categ_id': cls.company_data['default_account_expense'].id,
+        })
 
         # ==== Taxes ====
         cls.tax_sale_a = cls.company_data['default_tax_sale']
@@ -194,11 +198,19 @@ class AccountTestInvoicingCommon(ProductCommon):
     def setup_other_company(cls, **kwargs):
         # OVERRIDE
         company = cls._create_company(**{'name': 'company_2'} | kwargs)
-        return cls.collect_company_accounting_data(company)
+        data = cls.collect_company_accounting_data(company)
+        cls.product_category.with_company(company).write({
+            'property_account_income_categ_id': data['default_account_revenue'].id,
+            'property_account_expense_categ_id': data['default_account_expense'].id,
+        })
+        return data
 
     @classmethod
     def setup_independent_company(cls, **kwargs):
-        return cls._create_company(name='company_1_data', **kwargs)
+        if cls.env.registry.loaded:
+            # Only create a new company for post-install tests
+            return cls._create_company(name='company_1_data', **kwargs)
+        return super().setup_independent_company(**kwargs)
 
     @classmethod
     def setup_independent_user(cls):
