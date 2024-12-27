@@ -99,12 +99,12 @@ patch(PosOrder.prototype, {
     },
     setupState(vals) {
         super.setupState(...arguments);
-        this.uiState.disabledRewards = new Set(vals.disabledRewards);
+        this.uiState.disabledRewards = new Set(vals?.disabledRewards || []);
     },
     serializeState() {
         const state = super.serializeState(...arguments);
         if (this.uiState?.disabledRewards) {
-            state.disabledRewards = [...this.uiState.disabledRewards];
+            state.disabledRewards = [...(this.uiState.disabledRewards || [])];
         }
         return state;
     },
@@ -1460,5 +1460,12 @@ patch(PosOrder.prototype, {
             return resultLines;
         }
         return lines;
+    },
+
+    _isRefundAndSalesNotAllowed(values, options) {
+        // Allow gift cards to be added to a refund
+        return (
+            super._isRefundAndSalesNotAllowed(values, options) && !options.eWalletGiftCardProgram
+        );
     },
 });

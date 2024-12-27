@@ -256,6 +256,7 @@ export class PosStore extends WithLazyGetterTrap {
         this.currency = this.config.currency_id;
         this.pickingType = this.data.models["stock.picking.type"].getFirst();
         this.models = this.data.models;
+        this.models["pos.session"].getFirst().login_number = parseInt(odoo.login_number);
 
         // Check cashier
         this.checkPreviousLoggedCashier();
@@ -587,14 +588,10 @@ export class PosStore extends WithLazyGetterTrap {
         };
 
         // Handle refund constraints
-        if (
-            order.doNotAllowRefundAndSales() &&
-            order._isRefundOrder() &&
-            (!values.qty || values.qty > 0)
-        ) {
+        if (order._isRefundAndSalesNotAllowed(values, options)) {
             this.dialog.add(AlertDialog, {
-                title: _t("Refund and Sales not allowed"),
-                body: _t("It is not allowed to mix refunds and sales"),
+                title: _t("Oops.."),
+                body: _t("Ensure you validate the refund before taking another order."),
             });
             return;
         }
@@ -1986,9 +1983,7 @@ export class PosStore extends WithLazyGetterTrap {
     }
 
     async onTicketButtonClick() {
-        if (this.isTicketScreenShown) {
-            this.closeScreen();
-        } else {
+        if (!this.isTicketScreenShown) {
             if (this.config.shouldLoadOrders) {
                 try {
                     this.setLoadingOrderState(true);
