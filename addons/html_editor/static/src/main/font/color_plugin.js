@@ -150,7 +150,7 @@ export class ColorPlugin extends Plugin {
                 const hasAnySelectedNodeColor = (mode) => {
                     const nodes = this.dependencies.selection
                         .getTraversedNodes()
-                        .filter(isTextNode);
+                        .filter((n) => isTextNode(n) || n.classList.contains("o_selected_td"));
                     return hasAnyNodesColor(nodes, mode);
                 };
                 while (hasAnySelectedNodeColor(mode) && max > 0) {
@@ -210,7 +210,7 @@ export class ColorPlugin extends Plugin {
 
         const hexColor = rgbToHex(color).toLowerCase();
         const selectedNodes = selectionNodes.filter((node) => {
-            if (mode === "backgroundColor") {
+            if (mode === "backgroundColor" && color) {
                 return !closestElement(node, "table.o_selected_table");
             }
             const li = closestElement(node, "li");
