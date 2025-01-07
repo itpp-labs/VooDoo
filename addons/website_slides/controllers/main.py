@@ -339,7 +339,7 @@ class WebsiteSlides(WebsiteProfile):
     @http.route('/slides', type='http', auth="public", website=True, sitemap=True, readonly=True)
     def slides_channel_home(self, **post):
         """ Home page for eLearning platform. Is mainly a container page, does not allow search / filter. """
-        channels_all = tools.lazy(lambda: request.env['slide.channel'].search(request.website.website_domain()))
+        channels_all = tools.lazy(lambda: request.env['slide.channel'].search(expression.AND([request.website.website_domain(), [('is_visible', '=', True)]])))
         if not request.env.user._is_public():
             #If a course is completed, we don't want to see it in first position but in last
             channels_my = tools.lazy(lambda: channels_all.filtered(lambda channel: channel.is_member).sorted(lambda channel: 0 if channel.completed else channel.completion, reverse=True)[:3])
@@ -950,7 +950,7 @@ class WebsiteSlides(WebsiteProfile):
             raise werkzeug.exceptions.NotFound()
         # redirection to channel's homepage for category slides
         if slide.is_category:
-            return request.redirect(slide.channel_id.website_url)
+            return request.redirect(slide.channel_id.website_absolute_url)
 
         if slide.can_self_mark_completed and not slide.user_has_completed \
            and slide.channel_id.channel_type == 'training' and slide.slide_category != 'video':
@@ -998,7 +998,7 @@ class WebsiteSlides(WebsiteProfile):
 
         if status == 'authorized':
             return request.redirect(
-                '%s?%s' % (user_slide_authorization['slide'].website_url, werkzeug.urls.url_encode(kwargs)))
+                '%s?%s' % (user_slide_authorization['slide'].website_absolute_url, werkzeug.urls.url_encode(kwargs)))
 
         channel_id = user_slide_authorization['channel_id']
         return request.redirect('/slides/%s?%s' % (channel_id, werkzeug.urls.url_encode({
