@@ -85,7 +85,9 @@ def _mock_call_peppol_proxy(func, self, *args, **kwargs):
         'get_document': _mock_get_document,
         'send_document': _mock_send_document,
         'ack': lambda _user, _args, _kwargs: {},
-        # service routes are not available in demo mode
+        # service routes are not available in demo mode, mocked by safety
+        'add_services': lambda _user, _args, _kwargs: {},
+        'remove_services': lambda _user, _args, _kwargs: {},
     }[endpoint](self, args, kwargs)
 
 
@@ -140,8 +142,6 @@ def handle_demo(func, self, *args, **kwargs):
     First handle the decision: "Are we in demo mode?", and conditionally decide which function to
     execute.
     """
-    demo_mode = self.env.company._get_peppol_edi_mode() == 'demo'
-
-    if not demo_mode or modules.module.current_test:
-        return func(self, *args, **kwargs)
-    return _demo_behaviour[func.__name__](func, self, *args, **kwargs)
+    if self.env.company._get_peppol_edi_mode() == 'demo':
+        return _demo_behaviour[func.__name__](func, self, *args, **kwargs)
+    return func(self, *args, **kwargs)
