@@ -152,6 +152,9 @@ class SQL:
     def __eq__(self, other):
         return isinstance(other, SQL) and self.__code == other.__code and self.__params == other.__params
 
+    def __hash__(self):
+        return hash((self.__code, self.__params))
+
     def __iter__(self):
         """ Yields ``self.code`` and ``self.params``. This was introduced for
         backward compatibility, as it enables to access the SQL and parameters
@@ -160,6 +163,7 @@ class SQL:
             sql = SQL(...)
             code, params = sql
         """
+        warnings.warn("Deprecated since 19.0, use code and params properties directly", DeprecationWarning)
         yield self.code
         yield self.params
 
