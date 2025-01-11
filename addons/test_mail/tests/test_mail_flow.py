@@ -132,6 +132,8 @@ class TestMailFlow(MailCommon, TestRecipients):
                     'message_values': {
                         'author_id': self.env['res.partner'],
                         'email_from': self.test_emails[0],
+                        'incoming_email_cc': email_cc,
+                        'incoming_email_to': email_to,
                         'mail_server_id': self.env['ir.mail_server'],
                         'parent_id': self.env['mail.message'],
                         'notified_partner_ids': self.env['res.partner'],
@@ -165,40 +167,36 @@ class TestMailFlow(MailCommon, TestRecipients):
         # ------------------------------------------------------------
         suggested_all = lead_as_emp._message_get_suggested_recipients()
         expected_all = [
-            {  # mail.thread.cc: email_cc field
-                'create_values': {},
-                'email': 'pay@zboing.com',
-                'lang': None,
-                'name': 'pay@zboing.com',
-                'reason': 'CC Email',
-            },
-            {  # mail.thread.cc: email_cc field (linked to partner)
-                'email': 'portal@zboing.com',
-                'lang': None,
-                'name': 'Portal Zboing',
-                'reason': 'CC Email',
-                'partner_id': self.customer_portal_zboing.id,
-            },
-            {  # then primary emailadditional_values
+            {  # first primary email
                 'create_values': {
                     'lang': 'fr_FR',
                     'mobile': False,
-                    'name': 'Sylvie Lelitre (Zboing)',
                     'phone': '+32455001122',
                 },
-                'email': '"Sylvie Lelitre" <sylvie.lelitre@zboing.com>',
-                'lang': None,
+                'email': 'sylvie.lelitre@zboing.com',
                 'name': 'Sylvie Lelitre (Zboing)',
+                'partner_id': False,
                 'reason': 'Customer Email',
+            },
+            {  # mail.thread.cc: email_cc field
+                'create_values': {},
+                'email': 'pay@zboing.com',
+                'name': '',
+                'partner_id': False,
+                'reason': 'CC Email',
+            },
+            {  # mail.thread.cc: email_cc field (linked to partner)
+                'create_values': {},
+                'email': 'portal@zboing.com',
+                'name': 'Portal Zboing',
+                'reason': 'CC Email',
+                'partner_id': self.customer_portal_zboing.id,
             },
         ]
         for suggested, expected in zip(suggested_all, expected_all):
             self.assertDictEqual(suggested, expected)
         # check recipients, which creates them (simulating discuss in a quick way)
-        self.env["res.partner"]._find_or_create_from_emails(
-            [sug['email'] for sug in suggested_all],
-            {email_normalize(sug['email']): sug.get('create_values') or {} for sug in suggested_all},
-        )
+        lead_as_emp._partner_find_from_emails_single([sug['email'] for sug in suggested_all])
         partner_sylvie = self.env['res.partner'].search(
             [('email_normalized', '=', 'sylvie.lelitre@zboing.com')]
         )
@@ -239,6 +237,8 @@ class TestMailFlow(MailCommon, TestRecipients):
                     'message_values': {
                         'author_id': self.partner_employee,
                         'email_from': self.partner_employee.email_formatted,
+                        'incoming_email_cc': False,
+                        'incoming_email_to': False,
                         'mail_server_id': self.env['ir.mail_server'],
                         'notified_partner_ids': external_partners + self.partner_employee_2,
                         'parent_id': incoming_email,
@@ -283,6 +283,8 @@ class TestMailFlow(MailCommon, TestRecipients):
                     'message_values': {
                         'author_id': partner_sylvie,
                         'email_from': partner_sylvie.email_formatted,
+                        'incoming_email_cc': f'{self.test_emails[3]}, {self.test_emails[4]}',
+                        'incoming_email_to': expected_chatter_reply_to,  # reply_all not already implemented, hence just alias
                         'mail_server_id': self.env['ir.mail_server'],
                         # notified: followers, behaves like classic post
                         'notified_partner_ids': internal_partners + self.partner_portal,
