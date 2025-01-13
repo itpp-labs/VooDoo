@@ -1,5 +1,6 @@
 import { Record } from "@mail/core/common/record";
 import { Thread } from "@mail/core/common/thread_model";
+import { _t } from "@web/core/l10n/translation";
 
 import { patch } from "@web/core/utils/patch";
 
@@ -24,31 +25,19 @@ patch(Thread.prototype, {
         return this.channel_type === "livechat" || super.hasMemberList;
     },
     get canLeave() {
-        return this.channel_type !== "livechat" && super.canLeave;
-    },
-    get canUnpin() {
         if (this.channel_type === "livechat") {
             return !this.selfMember || this.selfMember.message_unread_counter === 0;
         }
-        return super.canUnpin;
+        return super.canLeave;
     },
-
     get correspondents() {
         return super.correspondents.filter((correspondent) => !correspondent.is_bot);
     },
 
     computeCorrespondent() {
-        let correspondent = super.computeCorrespondent();
+        const correspondent = super.computeCorrespondent();
         if (this.channel_type === "livechat" && !correspondent) {
-            // For livechat threads, the correspondent is the first
-            // channel member that is not the operator.
-            const orderedChannelMembers = [...this.channel_member_ids].sort((a, b) => a.id - b.id);
-            const isFirstMemberOperator = orderedChannelMembers[0]?.persona.eq(
-                this.livechat_operator_id
-            );
-            correspondent = isFirstMemberOperator
-                ? orderedChannelMembers[1]
-                : orderedChannelMembers[0];
+            return this.livechatVisitorMember;
         }
         return correspondent;
     },
@@ -82,5 +71,11 @@ patch(Thread.prototype, {
         if (this.store.env.services.ui.isSmall && this.channel_type === "livechat") {
             this.store.discuss.activeTab = "livechat";
         }
+    },
+    async leaveChannel({ force = false } = {}) {
+        if (this.channel_type === "livechat" && this.channel_member_ids.length <= 2 && !force) {
+            await this.askLeaveConfirmation(_t("Leaving will end the livechat. Proceed leaving?"));
+        }
+        super.leave();
     },
 });

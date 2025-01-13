@@ -19,7 +19,7 @@ class DiscussChannel(models.Model):
     anonymous_name = fields.Char('Anonymous Name')
     channel_type = fields.Selection(selection_add=[('livechat', 'Livechat Conversation')], ondelete={'livechat': 'cascade'})
     duration = fields.Float('Duration', compute='_compute_duration', help='Duration of the session in hours')
-    livechat_active = fields.Boolean('Is livechat ongoing?', help='Livechat session is active until visitor leaves the conversation.')
+    livechat_active = fields.Boolean('Is livechat ongoing?', help='Livechat session is active until visitor or operator leaves the conversation.')
     livechat_channel_id = fields.Many2one('im_livechat.channel', 'Channel', index='btree_not_null')
     livechat_operator_id = fields.Many2one('res.partner', string='Operator', index='btree_not_null')
     chatbot_current_step_id = fields.Many2one('chatbot.script.step', string='Chatbot Current Step')
@@ -52,6 +52,7 @@ class DiscussChannel(models.Model):
         fields = [
             "anonymous_name",
             "chatbot_current_step",
+            "livechat_active",
             Store.One("country_id", ["code", "name"], rename="anonymous_country"),
             self._field_store_repr("livechat_operator_id"),
         ]
@@ -123,6 +124,7 @@ class DiscussChannel(models.Model):
                 member.sudo()._rtc_leave_call()
             # sudo: discuss.channel - visitor left the conversation, state must be updated
             self.sudo().livechat_active = False
+            self.sudo()._bus_send_store(Store(self, "livechat_active"))
             # avoid useless notification if the channel is empty
             if not self.message_ids:
                 return
@@ -230,14 +232,41 @@ class DiscussChannel(models.Model):
         """
         This method is called just before _notify_thread() method which is calling the _to_store()
         method. We need a 'chatbot.message' record before it happens to correctly display the message.
-        It's created only if the mail channel is linked to a chatbot step.
+        It's created only if the mail channel is linked to a chatbot step. We also need to save the
+        user answer if the current step is a question selection.
         """
         if self.chatbot_current_step_id:
-            self.env['chatbot.message'].sudo().create({
-                'mail_message_id': message.id,
-                'discuss_channel_id': self.id,
-                'script_step_id': self.chatbot_current_step_id.id,
-            })
+            selected_answer = (
+                self.env["chatbot.script.answer"]
+                .browse(self.env.context.get("selected_answer_id"))
+                .exists()
+            )
+            if selected_answer in self.chatbot_current_step_id.answer_ids:
+                # sudo - chatbot.message: finding the question message to update the user answer is allowed.
+                question_msg = (
+                    self.env["chatbot.message"]
+                    .sudo()
+                    .search(
+                        [
+                            ("discuss_channel_id", "=", self.id),
+                            ("script_step_id", "=", self.chatbot_current_step_id.id),
+                        ],
+                        order="id DESC",
+                        limit=1,
+                    )
+                )
+                question_msg.user_script_answer_id = selected_answer
+                if store := self.env.context.get("message_post_store"):
+                    store.add(message, for_current_user=True).add(question_msg.mail_message_id)
+
+            self.env["chatbot.message"].sudo().create(
+                {
+                    "mail_message_id": message.id,
+                    "discuss_channel_id": self.id,
+                    "script_step_id": self.chatbot_current_step_id.id,
+                }
+            )
+
         return super()._message_post_after_hook(message, msg_vals)
 
     def _chatbot_restart(self, chatbot_script):
@@ -252,3 +281,13 @@ class DiscussChannel(models.Model):
 
     def _types_allowing_seen_infos(self):
         return super()._types_allowing_seen_infos() + ["livechat"]
+
+    def _types_allowing_unfollow(self):
+        return super()._types_allowing_unfollow() + ["livechat"]
+
+    def _action_unfollow(self, partner=None, guest=None):
+        if partner and self.channel_type == "livechat" and len(self.channel_member_ids) <= 2:
+            # sudo: discuss.channel - last operator left the conversation, state must be updated
+            self.sudo().livechat_active = False
+            self._bus_send_store(Store(self, "livechat_active"))
+        super()._action_unfollow(partner, guest)
