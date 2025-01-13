@@ -6,7 +6,6 @@ import {
     isEmptyBlock,
     isProtected,
     isProtecting,
-    isVisible,
     paragraphRelatedElements,
 } from "@html_editor/utils/dom_info";
 import {
@@ -15,6 +14,7 @@ import {
     getAdjacents,
     selectElements,
     ancestors,
+    childNodes,
 } from "@html_editor/utils/dom_traversal";
 import { childNodeIndex } from "@html_editor/utils/position";
 import { leftLeafOnlyNotBlockPath } from "@html_editor/utils/dom_state";
@@ -24,6 +24,7 @@ import { callbacksForCursorUpdate } from "@html_editor/utils/selection";
 import { getListMode, switchListMode } from "@html_editor/utils/list";
 import { withSequence } from "@html_editor/utils/resource";
 import { FONT_SIZE_CLASSES, getFontSizeOrClass } from "@html_editor/utils/formatting";
+import { getTextColorOrClass } from "@html_editor/utils/color";
 
 function isListActive(listMode) {
     return (selection) => {
@@ -543,54 +544,56 @@ export class ListPlugin extends Plugin {
         cursors.restore();
     }
 
+    /**
+     * @param {HTMLLIElement} li
+     */
     outdentTopLevelLI(li) {
         const cursors = this.dependencies.selection.preserveSelection();
         const ul = li.parentNode;
+        // Transform LI's children into blocks
+        wrapInlinesInBlocks(li, cursors);
+        if (!li.hasChildNodes()) {
+            // Outdenting an empty LI produces an empty P
+            const p = this.document.createElement("p");
+            p.append(this.document.createElement("br"));
+            li.append(p);
+            cursors.remapNode(li, p);
+        }
+        // Move LI's children to after UL
+        const blocksToMove = childNodes(li);
+        for (const block of blocksToMove.toReversed()) {
+            cursors.update(callbacksForCursorUpdate.after(ul, block));
+            ul.after(block);
+        }
+        // Preserve style properties
         const dir = li.getAttribute("dir") || ul.getAttribute("dir");
-        let p;
-        let toMove = li.lastChild;
-        const movedNodes = [];
-        const listColor = li.style.color;
+        const textAlign = ul.style.getPropertyValue("text-align");
+        const liColorStyle = getTextColorOrClass(li);
         const liFontSizeStyle = getFontSizeOrClass(li);
-        while (toMove) {
-            if (isBlock(toMove)) {
-                if (p && isVisible(p)) {
-                    cursors.update(callbacksForCursorUpdate.after(ul, p));
-                    ul.after(p);
-                    movedNodes.push(p);
-                }
-                p = undefined;
-                cursors.update(callbacksForCursorUpdate.after(ul, toMove));
-                ul.after(toMove);
-                movedNodes.push(toMove);
-            } else {
-                p = p || this.document.createElement("P");
-                if (dir) {
-                    p.setAttribute("dir", dir);
-                    p.style.setProperty("text-align", ul.style.getPropertyValue("text-align"));
-                }
-                cursors.update(callbacksForCursorUpdate.prepend(p, toMove));
-                p.prepend(toMove);
+        const wrapChildren = (parent, tag) => {
+            const wrapper = this.document.createElement(tag);
+            wrapper.append(...parent.childNodes);
+            parent.replaceChildren(wrapper);
+            cursors.remapNode(parent, wrapper);
+            return wrapper;
+        };
+        for (const block of blocksToMove) {
+            // text direction
+            if (dir && !block.getAttribute("dir")) {
+                block.setAttribute("dir", dir);
             }
-            toMove = li.lastChild;
-        }
-        if (p && isVisible(p)) {
-            cursors.update(callbacksForCursorUpdate.after(ul, p));
-            ul.after(p);
-            movedNodes.push(p);
-        }
-        for (const node of movedNodes) {
-            const childNodes = node.childNodes;
-            if (listColor) {
-                const font = document.createElement("font");
-                font.append(...childNodes);
-                node.replaceChildren(font);
-                this.dependencies.color.colorElement(font, listColor, "color");
+            // text alignment
+            if (textAlign && !block.style.getPropertyValue("text-align")) {
+                block.style.setProperty("text-align", textAlign);
             }
-            if (liFontSizeStyle && !isEmptyBlock(node)) {
-                const span = document.createElement("span");
-                span.append(...childNodes);
-                node.replaceChildren(span);
+            // text color
+            if (liColorStyle) {
+                const font = wrapChildren(block, "font");
+                this.dependencies.color.colorElement(font, liColorStyle.value, "color");
+            }
+            // font-size
+            if (liFontSizeStyle && !isEmptyBlock(block)) {
+                const span = wrapChildren(block, "span");
                 if (liFontSizeStyle.type === "font-size") {
                     span.style.fontSize = liFontSizeStyle.value;
                 } else if (liFontSizeStyle.type === "class") {
@@ -598,8 +601,10 @@ export class ListPlugin extends Plugin {
                 }
             }
         }
+        // Remove LI
         cursors.update(callbacksForCursorUpdate.remove(li));
         li.remove();
+        // Remove UL if left empty
         if (!ul.firstElementChild) {
             cursors.update(callbacksForCursorUpdate.remove(ul));
             ul.remove();
