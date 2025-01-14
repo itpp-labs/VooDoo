@@ -447,16 +447,12 @@ export class PosStore extends WithLazyGetterTrap {
     }
 
     async _loadMissingPricelistItems(products) {
-        if (!products.length) {
+        const validProducts = products.filter((product) => typeof product.id === "number");
+        if (!validProducts.length) {
             return;
         }
-
-        const product_tmpl_ids = products
-            .filter((p) => typeof p.id === "number")
-            .map((product) => product.product_tmpl_id.id);
-        const product_ids = products
-            .filter((p) => typeof p.id === "number")
-            .map((product) => product.id);
+        const product_tmpl_ids = validProducts.map((product) => product.raw.product_tmpl_id);
+        const product_ids = validProducts.map((product) => product.id);
         await this.data.callRelated("pos.session", "get_pos_ui_product_pricelist_item_by_product", [
             odoo.pos_session_id,
             product_tmpl_ids,
@@ -1382,9 +1378,7 @@ export class PosStore extends WithLazyGetterTrap {
     }
 
     isProductQtyZero(qty) {
-        const dp = this.models["decimal.precision"].find(
-            (dp) => dp.name === "Product Unit of Measure"
-        );
+        const dp = this.models["decimal.precision"].find((dp) => dp.name === "Product Unit");
         return floatIsZero(qty, dp.digits);
     }
 
@@ -1770,6 +1764,12 @@ export class PosStore extends WithLazyGetterTrap {
             }
 
             order.setPreset(preset);
+            if (preset.identification === "name" && !order.floating_order_name && !order.table_id) {
+                order.floating_order_name = order.getPartner()?.name;
+                if (!order.floating_order_name) {
+                    this.editFloatingOrderName(order);
+                }
+            }
 
             if (preset.use_timing && !order.preset_time) {
                 await this.syncPresetSlotAvaibility(preset);
