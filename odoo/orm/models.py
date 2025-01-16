@@ -4803,7 +4803,7 @@ class BaseModel(metaclass=MetaModel):
                     (data['record'], {
                         name: data['inversed'][name]
                         for name in inv_names
-                        if name in data['inversed']
+                        if name in data['inversed'] and name not in data['stored']
                     })
                     for data in data_list
                     if not inv_names.isdisjoint(data['inversed'])
@@ -6308,7 +6308,10 @@ class BaseModel(metaclass=MetaModel):
                         else:
                             stack.append({record.id for record in self if record[key] & value_companies.parent_ids})
                     else:
-                        stack.append(set(self.with_context(active_test=False).search([('id', 'in', self.ids), leaf], order='id')._ids))
+                        hierarchy_domain = [('id', 'in', self.ids), leaf]
+                        if self._active_name:
+                            hierarchy_domain.append((self._active_name, 'in', [True, False]))
+                        stack.append(set(self._search(hierarchy_domain)))
                     continue
 
                 # determine the field with the final type for values
@@ -6332,7 +6335,7 @@ class BaseModel(metaclass=MetaModel):
                 if comparator in ('any', 'not any') and isinstance(value, Query):
                     comparator = 'in' if comparator == 'any' else 'not in'
                     value = set(value)
-                if comparator in ('like', 'ilike', '=like', '=ilike', 'not ilike', 'not like'):
+                if comparator.endswith('like'):
                     if comparator.endswith('ilike'):
                         # ilike uses unaccent and lower-case comparison
                         # we may get something which is not a string
@@ -6363,7 +6366,7 @@ class BaseModel(metaclass=MetaModel):
                             yield '$'
                         # no need to match r'.*' in else because we only use .match()
 
-                    like_regex = re.compile("".join(build_like_regex(unaccent(value), comparator.startswith("="))))
+                    like_regex = re.compile("".join(build_like_regex(unaccent(value), '=' in comparator)))
                 falsy_value = field.falsy_value
                 if falsy_value is not None and comparator in ('=', '!=') and not value and falsy_value is not False:
                     comparator = 'in' if comparator == '=' else 'not in'
@@ -6425,7 +6428,7 @@ class BaseModel(metaclass=MetaModel):
                             ok = any(x is not False and x is not None and inequality(x, value) for x in data)
                         else:
                             ok = any(inequality(x or falsy_value, value) for x in data)
-                    elif comparator in ('like', 'ilike', '=like', '=ilike', 'not ilike', 'not like'):
+                    elif comparator.endswith('like'):
                         ok = any(like_regex.match(unaccent(x)) for x in data)
                         if comparator.startswith('not'):
                             ok = not ok
