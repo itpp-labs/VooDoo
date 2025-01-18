@@ -23,7 +23,7 @@ class ProjectCustomerPortal(CustomerPortal):
             values['project_count'] = request.env['project.project'].search_count([]) \
                 if request.env['project.project'].has_access('read') else 0
         if 'task_count' in counters:
-            values['task_count'] = request.env['project.task'].sudo().search_count([('project_id', '!=', False), ('message_partner_ids', 'in', request.env.user.partner_id.ids), ('project_privacy_visibility', '=', 'portal')]) \
+            values['task_count'] = request.env['project.task'].search_count([('project_id', '!=', False)])\
                 if request.env['project.task'].has_access('read') else 0
         return values
 
@@ -156,7 +156,7 @@ class ProjectCustomerPortal(CustomerPortal):
                 },
             },
             # FIXME: See if we prefer to give only the currency that the portal user just need to see the correct information in project sharing
-            currencies=request.env['ir.http'].get_currencies(),
+            currencies=request.env['res.currency'].get_all_currencies(),
         )
         session_info['user_context']['allow_milestones'] = project.allow_milestones
         return session_info
