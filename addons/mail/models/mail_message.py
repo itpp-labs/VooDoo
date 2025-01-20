@@ -938,7 +938,7 @@ class MailMessage(models.Model):
             # sudo: mail.message - reading reactions on accessible message is allowed
             Store.Many("reaction_ids", rename="reactions", sudo=True),
             # sudo: res.partner: reading limited data of recipients is acceptable
-            Store.Many("partner_ids", ["name", "write_date"], rename="recipients", sudo=True),
+            Store.Many("partner_ids", ["avatar_128", "name"], rename="recipients", sudo=True),
             "res_id",  # keep for iOS app
             "subject",
             # sudo: mail.message.subtype - reading description on accessible message is allowed
@@ -1087,10 +1087,10 @@ class MailMessage(models.Model):
             }
             # sudo: mail.message: access to author is allowed
             if guest_author := message.sudo().author_guest_id:
-                data["author"] = Store.One(guest_author, ["name", "write_date"])
+                data["author"] = Store.One(guest_author, ["avatar_128", "name"])
             # sudo: mail.message: access to author is allowed
             elif author := message.sudo().author_id:
-                data["author"] = Store.One(author, ["name", "is_company", "user", "write_date"])
+                data["author"] = Store.One(author, ["avatar_128", "name", "is_company", "user"])
             store.add(message, data)
 
     def _extras_to_store(self, store: Store, format_reply):
@@ -1182,6 +1182,7 @@ class MailMessage(models.Model):
     @api.model
     def _get_reply_to(self, values):
         """ Return a specific reply_to for the document """
+        author_id = values.get('author_id')
         model = values.get('model', self._context.get('default_model'))
         res_id = values.get('res_id', self._context.get('default_res_id')) or False
         email_from = values.get('email_from')
@@ -1191,7 +1192,7 @@ class MailMessage(models.Model):
             records = self.env[model].browse([res_id])
         else:
             records = self.env[model] if model else self.env['mail.thread']
-        return records.sudo()._notify_get_reply_to(default=email_from)[res_id]
+        return records.sudo()._notify_get_reply_to(default=email_from, author_id=author_id)[res_id]
 
     @api.model
     def _get_message_id(self, values):

@@ -45,6 +45,7 @@ export class PosOrder extends Base {
         // !!Keep all uiState in one object!!
         if (!this.uiState) {
             this.uiState = {
+                unmerge: {},
                 lastPrint: false,
                 lineToRefund: {},
                 displayed: true,
@@ -101,6 +102,15 @@ export class PosOrder extends Base {
         return this.preset_time && this.preset_time.isValid
             ? this.preset_time.toFormat("HH:mm")
             : false;
+    }
+
+    get presetRequirementsFilled() {
+        return (
+            (!this.preset_id?.needsPartner ||
+                (this.partner_id?.name && this.partner_id?.pos_contact_address)) &&
+            (!this.preset_id?.needsName || this.partner_id?.name || this.floating_order_name) &&
+            (!this.preset_id?.needsSlot || this.preset_time)
+        );
     }
 
     getEmailItems() {

@@ -4,6 +4,7 @@ from markupsafe import Markup
 from unittest.mock import patch
 
 from odoo import fields
+from odoo.tools.misc import limited_field_access_token
 from odoo.addons.base.tests.common import TransactionCaseWithUserDemo
 from odoo.addons.mail.tests.common import MailCommon
 from odoo.addons.mail.tools.discuss import Store
@@ -418,7 +419,7 @@ class TestBaseAPIPerformance(BaseMailPerformance):
         test_record, _test_template = self._create_test_records()
         customer = self.env['res.partner'].browse(self.customer.ids)
         attachments = self.env['ir.attachment'].with_user(self.env.user).create(self.test_attachments_vals)
-        with self.assertQueryCount(admin=9, employee=9):  # tm 8/8
+        with self.assertQueryCount(admin=15, employee=15):  # tm 14/14
             composer_form = Form(
                 self.env['mail.compose.message'].with_context({
                     'default_composition_mode': 'comment',
@@ -494,7 +495,7 @@ class TestBaseAPIPerformance(BaseMailPerformance):
                 'default_template_id': test_template.id,
             }).create({})
 
-        with self.assertQueryCount(admin=35, employee=35):
+        with self.assertQueryCount(admin=34, employee=34):
             composer._action_send_mail()
 
         # notifications
@@ -518,7 +519,7 @@ class TestBaseAPIPerformance(BaseMailPerformance):
                 'default_template_id': test_template.id,
             }).create({})
 
-        with self.assertQueryCount(admin=44, employee=44):
+        with self.assertQueryCount(admin=43, employee=43):
             composer._action_send_mail()
 
         # notifications
@@ -539,7 +540,7 @@ class TestBaseAPIPerformance(BaseMailPerformance):
         test_template.write({'attachment_ids': [(5, 0)]})
 
         customer = self.env['res.partner'].browse(self.customer.ids)
-        with self.assertQueryCount(admin=13, employee=13):  # tm 12/12
+        with self.assertQueryCount(admin=15, employee=15):  # tm 14/14
             composer_form = Form(
                 self.env['mail.compose.message'].with_context({
                     'default_composition_mode': 'comment',
@@ -569,7 +570,7 @@ class TestBaseAPIPerformance(BaseMailPerformance):
         test_record, test_template = self._create_test_records()
 
         customer = self.env['res.partner'].browse(self.customer.ids)
-        with self.assertQueryCount(admin=13, employee=13):  # tm 12/12
+        with self.assertQueryCount(admin=15, employee=15):  # tm 14/14
             composer_form = Form(
                 self.env['mail.compose.message'].with_context({
                     'default_composition_mode': 'comment',
@@ -766,16 +767,13 @@ class TestBaseAPIPerformance(BaseMailPerformance):
         with self.assertQueryCount(admin=1, employee=1):
             test_records = self.env['mail.test.container'].browse(test_records_sudo.ids)
             reply_to = test_records._notify_get_reply_to(
-                default=self.env.user.email_formatted
+                default=self.env.user.email_formatted,
             )
 
         for record in test_records:
             self.assertEqual(
                 reply_to[record.id],
-                formataddr((
-                    f"{record.env.company.name} {record.name}",
-                    f"{record.alias_name}@{self.alias_domain}"
-                ))
+                formataddr((self.env.user.name, f"{record.alias_name}@{self.alias_domain}"))
             )
 
 
@@ -836,7 +834,7 @@ class TestMailAPIPerformance(BaseMailPerformance):
             'mail_message_id': message.id,
             'recipient_ids': [(4, pid) for pid in self.partners.ids],
         })
-        with self.assertQueryCount(admin=8, employee=8):
+        with self.assertQueryCount(admin=9, employee=9):
             self.env['mail.mail'].sudo().browse(mail.ids).send()
 
     @mute_logger('odoo.tests', 'odoo.addons.mail.models.mail_mail', 'odoo.models.unlink')
@@ -875,7 +873,7 @@ class TestMailAPIPerformance(BaseMailPerformance):
             unlinked_mails |= set(records.ids)
         unlinked_mails = set()
 
-        with self.assertQueryCount(admin=30, employee=30), \
+        with self.assertQueryCount(admin=31, employee=31), \
              patch.object(type(self.env['mail.mail']), 'unlink', _patched_unlink):
             self.env['mail.mail'].sudo().browse(mails.ids).send()
 
@@ -1443,6 +1441,9 @@ class TestMessageToStorePerformance(BaseMailPerformance):
                                     "name": "Jeannette Testouille",
                                 },
                                 {
+                                    "avatar_128_access_token": limited_field_access_token(
+                                        self.env.user.partner_id, "avatar_128"
+                                    ),
                                     "id": self.env.user.partner_id.id,
                                     "isInternalUser": True,
                                     "is_company": False,
@@ -1546,6 +1547,9 @@ class TestMessageToStorePerformance(BaseMailPerformance):
                                     "name": "Jeannette Testouille",
                                 },
                                 {
+                                    "avatar_128_access_token": limited_field_access_token(
+                                        self.env.user.partner_id, "avatar_128"
+                                    ),
                                     "id": self.env.user.partner_id.id,
                                     "isInternalUser": True,
                                     "is_company": False,
