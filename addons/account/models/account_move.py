@@ -2530,7 +2530,11 @@ class AccountMove(models.Model):
         return self.currency_id == currency \
             and self.move_type in ('out_invoice', 'out_receipt', 'in_invoice', 'in_receipt') \
             and self.invoice_payment_term_id.early_discount \
-            and (not reference_date or reference_date <= self.invoice_payment_term_id._get_last_discount_date(self.invoice_date)) \
+            and (
+                not reference_date
+                or not self.invoice_date
+                or reference_date <= self.invoice_payment_term_id._get_last_discount_date(self.invoice_date)
+            ) \
             and not (payment_terms.matched_debit_ids + payment_terms.matched_credit_ids)
 
     # -------------------------------------------------------------------------
@@ -4589,9 +4593,8 @@ class AccountMove(models.Model):
                 'in_receipt': _('Draft Purchase Receipt'),
                 'entry': _('Draft Entry'),
             }[self.move_type]
-            name += ' '
         if self.name and self.name != '/':
-            name += self.name
+            name = f"{name} {self.name}".strip()
             if self.env.context.get('input_full_display_name'):
                 if self.partner_id:
                     name += f', {self.partner_id.name}'
@@ -5834,7 +5837,7 @@ class AccountMove(models.Model):
     def _get_invoice_proforma_pdf_report_filename(self):
         """ Get the filename of the generated proforma PDF invoice report. """
         self.ensure_one()
-        return f"{self.name.replace('/', '_')}_proforma.pdf"
+        return f"{self._get_move_display_name().replace(' ', '_').replace('/', '_')}_proforma.pdf"
 
     def _prepare_edi_vals_to_export(self):
         ''' The purpose of this helper is to prepare values in order to export an invoice through the EDI system.
