@@ -1385,18 +1385,17 @@ msgstr ""
 #: model:ir.module.module,description:base.module_l10n_sa_edi
 msgid ""
 "\n"
-"        E-invoice implementation for the Kingdom of Saudi Arabia\n"
+"E-invoice implementation for Saudi Arabia; Integration with ZATCA\n"
 "    "
 msgstr ""
 "\n"
-"        تنفيذ نظام الفوترة الإلكترونية للمملكة العربية السعودية\n"
-"    "
+"تنفيذ الفاتورة الإلكترونية للمملكة العربية السعودية؛ التكامل مع هيئة الزكاة والضريبة والجمارك (ZATCA)\n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_sa_edi_pos
 msgid ""
 "\n"
-"        E-invoice implementation for the Kingdom of Saudi Arabia (PoS)\n"
+"E-invoice implementation for Saudi Arabia; Integration with ZATCA (POS)\n"
 "    "
 msgstr ""
 
@@ -2171,14 +2170,15 @@ msgstr ""
 #: model:ir.module.module,description:base.module_l10n_eg_edi_eta
 msgid ""
 "\n"
-"       This module integrate with the ETA Portal to automatically sign and send your invoices to the tax Authority.\n"
-"       Special thanks to Plementus <info@plementus.com> for their help in developing this module.\n"
+"Egypt Tax Authority Invoice Integration\n"
+"==============================================================================\n"
+"Integrates with the ETA portal to automatically send and sign the Invoices to the Tax Authority.\n"
 "    "
 msgstr ""
 "\n"
-"       يندمج هذا التطبيق مع بوابة مصلحة الضرائب المصرية للتوقيع على فواتيرك وإرسالها تلقائياً إلى مصلحة الضرائب.\n"
-"       مع جزيل الشكر والتقدير إلى Plementus <info@plementus.com> لمساعدتهم في تطوير هذا التطبيق.\n"
-"    "
+"تكامل الفواتير مع مصلحة الضرائب المصرية\n"
+"==============================================================================\n"
+"التكامل مع بوابة مصلحة الضرائب المصرية (ETA) لإرسال وتوقيع الفواتير تلقائيًا إلى مصلحة الضرائب.\n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_ke_edi_tremol
@@ -3097,7 +3097,7 @@ msgstr ""
 #: model:ir.module.module,description:base.module_l10n_sa_hr_payroll_account
 msgid ""
 "\n"
-"Accounting Data for KSA Payroll Rules.\n"
+"Accounting Data for Saudi Arabia Payroll Rules.\n"
 "=======================================================\n"
 "\n"
 "    "
@@ -6916,16 +6916,25 @@ msgstr ""
 #: model:ir.module.module,description:base.module_l10n_sa_hr_payroll
 msgid ""
 "\n"
-"Kingdom of Saudi Arabia Payroll and End of Service rules.\n"
+"Saudi Arabia Payroll and End of Service rules.\n"
 "===========================================================\n"
-"\n"
+"- Basic Calculation\n"
+"- End of Service Calculation\n"
+"- Other Input Rules (Overtime, Salary Attachments, etc.)\n"
+"- Split Structures for EOS and Monthly Salaries\n"
+"- GOSI Employee Deduction\n"
+"- Unpaid leaves\n"
 "    "
 msgstr ""
 "\n"
-"قواعد كشوف المرتبات ونهاية الخدمة في المملكة العربية السعودية.\n"
+"قواعد الرواتب ونهاية الخدمة في المملكة العربية السعودية.\n"
 "===========================================================\n"
-"\n"
-"    "
+"- الحسابات الأساسية\n"
+"- حساب نهاية الخدمة\n"
+"- قواعد الإدخال الأخرى (ساعات العمل الإضافية، الحجز على الرواتب، إلخ)\n"
+"- هياكل مقسمة لنهاية الخدمة والرواتب الشهرية\n"
+"- خصم الموظف في التأمينات الاجتماعية (GOSI)\n"
+"- الإجازات غير المدفوعة\n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_stock_landed_costs
@@ -7915,10 +7924,30 @@ msgstr ""
 #: model:ir.module.module,description:base.module_l10n_sa
 msgid ""
 "\n"
-"Odoo Arabic localization for most Saudi Arabia.\n"
+"Saudi Arabia Accounting Module\n"
+"===========================================================\n"
+"Saudi Arabia Accounting Basic Charts and Localization\n"
+"\n"
+"Activates:\n"
+"\n"
+"- Chart of Accounts\n"
+"- Taxes\n"
+"- Vat Filling Report\n"
+"- Withholding Tax Report\n"
+"- Fiscal Positions\n"
 msgstr ""
 "\n"
-"الأقلمة العربية لأودو، لمعظم المملكة العربية السعودية.\n"
+"وحدة المحاسبة في المملكة العربية السعودية\n"
+"===========================================================\n"
+"مخططات المحاسبة الأساسية والتوطين في المملكة العربية السعودية\n"
+"\n"
+"يُفعّل:\n"
+"\n"
+"- دليل الحسابات\n"
+"- الضرائب\n"
+"- تقرير تقديم ضريبة القيمة المضافة\n"
+"- تقرير ضريبة الاستقطاع\n"
+"- المواقع المالية\n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_web_enterprise
@@ -9392,14 +9421,35 @@ msgstr ""
 #: model:ir.module.module,description:base.module_l10n_eg
 msgid ""
 "\n"
-"This is the base module to manage the accounting chart for Egypt in Odoo.\n"
+"Egypt Accounting Module\n"
 "==============================================================================\n"
+"Egypt Accounting Basic Charts and Localization.\n"
+"\n"
+"Activates:\n"
+"\n"
+"- Chart of Accounts\n"
+"- Taxes\n"
+"- VAT Return\n"
+"- Withholding Tax Report\n"
+"- Schedule Tax Report\n"
+"- Other Taxes Report\n"
+"- Fiscal Positions\n"
 "    "
 msgstr ""
 "\n"
-"هذا هو تطبيق الأساس لإدارة شجرة الحسابات لمصر في أودو.\n"
+"وحدة المحاسبة في مصر\n"
 "==============================================================================\n"
-"    "
+"مخططات المحاسبة الأساسية والتوطين في مصر.\n"
+"\n"
+"يُفعّل:\n"
+"\n"
+"- دليل الحسابات\n"
+"- الضرائب\n"
+"- إقرار ضريبة القيمة المضافة\n"
+"- تقرير ضريبة الاستقطاع\n"
+"- تقرير جدول الضرائب\n"
+"- تقرير الضرائب الأخرى\n"
+"- المواقع المالية\n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_ee
@@ -11069,27 +11119,44 @@ msgid ""
 "\n"
 "United Arab Emirates Payroll and End of Service rules.\n"
 "=======================================================\n"
+"- Basic Salary Calculations\n"
+"- EOS Calculations\n"
 "\n"
 "    "
 msgstr ""
 "\n"
-"قواعد كشوف المرتبات ونهاية الخدمة في الإمارات العربية المتحدة.\n"
-"===========================================================\n"
-"\n"
-"    "
+"قواعد الرواتب ونهاية الخدمة في دولة الإمارات العربية المتحدة.\n"
+"=======================================================\n"
+"- حسابات الراتب الأساسي\n"
+"- حسابات نهاية الخدمة\n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_ae
 msgid ""
 "\n"
-"United Arab Emirates accounting chart and localization.\n"
+"United Arab Emirates Accounting Module\n"
 "=======================================================\n"
+"United Arab Emirates accounting basic charts and localization.\n"
+"\n"
+"Activates:\n"
+"\n"
+"- Chart of Accounts\n"
+"- Taxes\n"
+"- Tax Report\n"
+"- Fiscal Positions\n"
 "    "
 msgstr ""
 "\n"
-"الأقلمة وشجرة الحسابات في الإمارات العربية المتحدة.\n"
+"وحدة المحاسبة في دولة الإمارات العربية المتحدة\n"
 "=======================================================\n"
-"    "
+"مخططات المحاسبة الأساسية والتوطين في دولة الإمارات العربية المتحدة.\n"
+"\n"
+"يُفعّل:\n"
+"\n"
+"- دليل الحسابات\n"
+"- الضرائب\n"
+"- تقرير الضرائب\n"
+"- المواقع المالية\n"
 
 #. module: base
 #: model:ir.module.module,description:base.module_l10n_us
@@ -19385,8 +19452,8 @@ msgstr "مصر - المحاسبة "
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_eg_edi_eta
-msgid "Egyptian E-Invoice Integration"
-msgstr "دمج لفواتير الإلكترونية المصرية "
+msgid "Egypt E-Invoicing"
+msgstr "الفوترة الإلكترونية في مصر"
 
 #. module: base
 #: model:ir.model.fields,help:base.field_res_partner__partner_share
@@ -23700,12 +23767,12 @@ msgstr "K - الأنشطة المالية والتأمين "
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_sa_hr_payroll
-msgid "K.S.A. - Payroll"
+msgid "Saudi Arabia - Payroll"
 msgstr "المملكة العربية السعودية - كشوف المرتبات "
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_sa_hr_payroll_account
-msgid "K.S.A. - Payroll with Accounting"
+msgid "Saudi Arabia - Payroll with Accounting"
 msgstr "المملكة العربية السعودية - كشوف المرتبات مع المحاسبة "
 
 #. module: base
@@ -36205,12 +36272,12 @@ msgstr "U - أنشطة المنظمات والكيانات الإقليمية ا
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_ae_hr_payroll
-msgid "U.A.E. - Payroll"
+msgid "United Arab Emirates - Payroll"
 msgstr "الإمارات العربية المتحدة - كشوف المرتبات "
 
 #. module: base
 #: model:ir.module.module,shortdesc:base.module_l10n_ae_hr_payroll_account
-msgid "U.A.E. - Payroll with Accounting"
+msgid "United Arab Emirates - Payroll with Accounting"
 msgstr "الإمارات العربية المتحدة - كشوف المرتبات مع المحاسبة "
 
 #. module: base
