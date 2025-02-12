@@ -42,7 +42,7 @@ if typing.TYPE_CHECKING:
     from odoo.fields import Field
     from odoo.models import BaseModel
     from odoo.sql_db import BaseCursor, Connection, Cursor
-    from odoo.modules import graph
+    from odoo.modules import module_graph
 
 
 _logger = logging.getLogger('odoo.registry')
@@ -120,10 +120,30 @@ class Registry(Mapping[str, type["BaseModel"]]):
 
     @classmethod
     @locked
-    def new(cls, db_name: str, force_demo: bool = False, status: None = None, update_module: bool = False) -> Registry:
-        """ Create and return a new registry for the given database name. """
-        if status is not None:
-            warnings.warn("Deprecated since 19.0, do not set status", DeprecationWarning)
+    def new(
+        cls,
+        db_name: str,
+        *,
+        update_module: bool = False,
+        install_modules: Collection[str] = (),
+        upgrade_modules: Collection[str] = (),
+        new_db_demo: bool | None = None,
+    ) -> Registry:
+        """Create and return a new registry for the given database name.
+
+        :param db_name: The name of the database to associate with the Registry instance.
+
+        :param update_module: If True, update modules while loading the registry. Defaults to ``False``.
+
+        :param install_modules: Names of modules to install. Their direct or indirect dependency
+                                modules will also be installed. Defaults to an empty tuple.
+
+        :param upgrade_modules: Names of modules to upgrade. Their direct or indirect dependent
+                                modules will also be upgraded. Defaults to an empty tuple.
+
+        :param new_db_demo: Whether to install demo data for the new database. If set to ``None``, the value will be
+                            determined by the ``not config['without_demo']``. Defaults to ``None``
+        """
         t0 = time.time()
         registry: Registry = object.__new__(cls)
         registry.init(db_name)
@@ -140,7 +160,15 @@ class Registry(Mapping[str, type["BaseModel"]]):
             # This should be a method on Registry
             from odoo.modules.loading import load_modules, reset_modules_state  # noqa: PLC0415
             try:
-                load_modules(registry, force_demo, update_module=update_module)
+                if new_db_demo is None:
+                    new_db_demo = not config['without_demo']
+                load_modules(
+                    registry,
+                    update_module=update_module or bool(upgrade_modules or install_modules),
+                    upgrade_modules=upgrade_modules,
+                    install_modules=install_modules,
+                    new_db_demo=new_db_demo,
+                )
             except Exception:
                 reset_modules_state(db_name)
                 raise
@@ -178,6 +206,9 @@ class Registry(Mapping[str, type["BaseModel"]]):
         self._ordinary_tables: set[str] | None = None  # cached names of regular tables
         self._constraint_queue: deque[tuple] = deque()  # queue of functions to call on finalization of constraints
         self.__caches: dict[str, LRU] = {cache_name: LRU(cache_size) for cache_name, cache_size in _REGISTRY_CACHES.items()}
+
+        # update context during loading modules
+        self._force_upgrade_scripts = set()  # force the execution of the upgrade script for these modules
 
         # modules fully loaded (maintained during init phase by `loading` module)
         self._init_modules: set[str] = set()
@@ -285,7 +316,7 @@ class Registry(Mapping[str, type["BaseModel"]]):
                 queue.extend(func(model))
         return models
 
-    def load(self, cr: Cursor, module: graph.Node) -> OrderedSet[str]:
+    def load(self, cr: Cursor, module: module_graph.ModuleNode) -> OrderedSet[str]:
         """ Load a given module in the registry, and return the names of the
         modified models.
 
