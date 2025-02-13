@@ -586,6 +586,16 @@ class MockEmail(common.BaseCase, MockSmtplibCase):
         self.assertTrue(bool(mail))
         if content:
             self.assertIn(content, mail.body_html)
+
+        # specific check for message_id being in references: we don't care about
+        # actual value, just that they are set and message_id present in references
+        references_message_id_check = (email_values or {}).pop('references_message_id_check', False)
+        if references_message_id_check:
+            message_id = mail['message_id']
+            self.assertTrue(message_id, 'Mail: expected value set for message_id')
+            self.assertIn(message_id, mail.references, 'Mail: expected message_id to be part of references')
+            email_values = dict({'message_id': message_id, 'references': mail.references}, **(email_values or {}))
+
         for fname, expected_fvalue in (fields_values or {}).items():
             with self.subTest(fname=fname, expected_fvalue=expected_fvalue):
                 if fname == 'headers':
@@ -761,6 +771,16 @@ class MockEmail(common.BaseCase, MockSmtplibCase):
                         sorted(tools.mail.email_split_and_format_normalize(fvalue)),
                         f'Message: expected {fvalue} for {fname}, got {message[fname]}',
                     )
+                # not really a field but hey, have to find shortcuts
+                elif fname == 'tracking_field_names':
+                    found = message.sudo().mapped('tracking_value_ids.field_id.name')
+                    self.assertEqual(
+                        sorted(found), sorted(fvalue),
+                        f'Message: expected {fvalue} for {fname}, got {found}',
+                    )
+                # tracking values themselves, a shortcut
+                elif fname == 'tracking_values':
+                    self.assertTracking(message, fvalue, strict=True)
                 else:
                     self.assertEqual(
                         message[fname], fvalue,
@@ -813,7 +833,7 @@ class MockEmail(common.BaseCase, MockSmtplibCase):
           either a partner record;
         :param values: dictionary of additional values to check email content;
         """
-        direct_check = ['body_alternative', 'email_from', 'references', 'reply_to', 'subject']
+        direct_check = ['body_alternative', 'email_from', 'message_id', 'references', 'reply_to', 'subject']
         content_check = ['body_alternative_content', 'body_content', 'references_content']
         email_list_check = ['email_bcc', 'email_cc', 'email_to']
         other_check = ['attachments', 'attachments_info', 'body', 'headers']
@@ -958,6 +978,52 @@ class MockEmail(common.BaseCase, MockSmtplibCase):
             for key, val in options.items():
                 with self.subTest(key=key):
                     self.assertEqual(payload_options[key], val)
+
+    # ------------------------------------------------------------
+    # OTHER ASSERTS
+    # ------------------------------------------------------------
+
+    def assertTracking(self, message, data, strict=False):
+        tracking_values = message.sudo().tracking_value_ids
+        if strict:
+            self.assertEqual(len(tracking_values), len(data),
+                             'Tracking: tracking does not match')
+
+        suffix_mapping = {
+            'boolean': 'integer',
+            'char': 'char',
+            'date': 'datetime',
+            'datetime': 'datetime',
+            'integer': 'integer',
+            'float': 'float',
+            'many2many': 'char',
+            'one2many': 'char',
+            'selection': 'char',
+            'text': 'text',
+        }
+        for field_name, value_type, old_value, new_value in data:
+            tracking = tracking_values.filtered(lambda track: track.field_id.name == field_name)
+            self.assertEqual(len(tracking), 1, f'Tracking: not found for {field_name}')
+            msg_base = f'Tracking: {field_name} ({value_type}: '
+            if value_type in suffix_mapping:
+                old_value_fname = f'old_value_{suffix_mapping[value_type]}'
+                new_value_fname = f'new_value_{suffix_mapping[value_type]}'
+                self.assertEqual(tracking[old_value_fname], old_value,
+                                 msg_base + f'expected {old_value}, received {tracking[old_value_fname]})')
+                self.assertEqual(tracking[new_value_fname], new_value,
+                                 msg_base + f'expected {new_value}, received {tracking[new_value_fname]})')
+            if value_type == 'many2one':
+                self.assertEqual(tracking.old_value_integer, old_value and old_value.id or False)
+                self.assertEqual(tracking.new_value_integer, new_value and new_value.id or False)
+                self.assertEqual(tracking.old_value_char, old_value and old_value.display_name or '')
+                self.assertEqual(tracking.new_value_char, new_value and new_value.display_name or '')
+            elif value_type == 'monetary':
+                new_value, currency = new_value
+                self.assertEqual(tracking.currency_id, currency)
+                self.assertEqual(tracking.old_value_float, old_value)
+                self.assertEqual(tracking.new_value_float, new_value)
+            if value_type not in suffix_mapping and value_type not in {'many2one', 'monetary'}:
+                self.assertEqual(1, 0, f'Tracking: unsupported tracking test on {value_type}')
 
 
 class MailCase(MockEmail):
@@ -1566,48 +1632,6 @@ class MailCase(MockEmail):
             self.assertTrue(recipient_notif)
             self.assertEqual(recipient_notif.is_read, rinfo['is_read'])
             self.assertEqual(recipient_notif.notification_type, rinfo['type'])
-
-    def assertTracking(self, message, data, strict=False):
-        tracking_values = message.sudo().tracking_value_ids
-        if strict:
-            self.assertEqual(len(tracking_values), len(data),
-                             'Tracking: tracking does not match')
-
-        suffix_mapping = {
-            'boolean': 'integer',
-            'char': 'char',
-            'date': 'datetime',
-            'datetime': 'datetime',
-            'integer': 'integer',
-            'float': 'float',
-            'many2many': 'char',
-            'one2many': 'char',
-            'selection': 'char',
-            'text': 'text',
-        }
-        for field_name, value_type, old_value, new_value in data:
-            tracking = tracking_values.filtered(lambda track: track.field_id.name == field_name)
-            self.assertEqual(len(tracking), 1, f'Tracking: not found for {field_name}')
-            msg_base = f'Tracking: {field_name} ({value_type}: '
-            if value_type in suffix_mapping:
-                old_value_fname = f'old_value_{suffix_mapping[value_type]}'
-                new_value_fname = f'new_value_{suffix_mapping[value_type]}'
-                self.assertEqual(tracking[old_value_fname], old_value,
-                                 msg_base + f'expected {old_value}, received {tracking[old_value_fname]})')
-                self.assertEqual(tracking[new_value_fname], new_value,
-                                 msg_base + f'expected {new_value}, received {tracking[new_value_fname]})')
-            if value_type == 'many2one':
-                self.assertEqual(tracking.old_value_integer, old_value and old_value.id or False)
-                self.assertEqual(tracking.new_value_integer, new_value and new_value.id or False)
-                self.assertEqual(tracking.old_value_char, old_value and old_value.display_name or '')
-                self.assertEqual(tracking.new_value_char, new_value and new_value.display_name or '')
-            elif value_type == 'monetary':
-                new_value, currency = new_value
-                self.assertEqual(tracking.currency_id, currency)
-                self.assertEqual(tracking.old_value_float, old_value)
-                self.assertEqual(tracking.new_value_float, new_value)
-            if value_type not in suffix_mapping and value_type not in {'many2one', 'monetary'}:
-                self.assertEqual(1, 0, f'Tracking: unsupported tracking test on {value_type}')
 
 
 class MailCommon(common.TransactionCase, MailCase):
