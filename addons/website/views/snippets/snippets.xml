@@ -219,6 +219,9 @@
                 <t t-snippet="website.s_timeline_list" string="Timeline List" group="content">
                     <keywords>history, story, events, milestones, chronology, sequence, progression, achievements, changelog, updates, announcements, recent, latest</keywords>
                 </t>
+                <t t-snippet="website.s_timeline_images" string="Timeline Images" group="content">
+                    <keywords>history, story, events, milestones, chronology, sequence, progression, achievements, changelog, updates, announcements, recent, latest, picture, photo, illustration, media, visual</keywords>
+                </t>
                 <t t-snippet="website.s_process_steps" string="Steps" t-forbid-sanitize="true" group="content">
                     <keywords>process, progression, guide, workflow, sequence, instructions, stages, procedure, roadmap</keywords>
                 </t>
@@ -1296,7 +1299,7 @@
     </div>
 
     <div data-js="TopMenuVisibility"
-         data-selector="[data-main-object^='website.page('] #wrapwrap > header"
+         data-selector="[data-main-object]:has(input.o_page_option_data[name='header_visible']) #wrapwrap > header"
          data-no-check="true">
         <we-select string="Header Position" data-no-preview="true"
                    data-dependencies="!header_sidebar_opt">
@@ -1309,7 +1312,7 @@
     </div>
 
     <div data-js="topMenuColor"
-         data-selector="[data-main-object^='website.page('] #wrapwrap > header"
+         data-selector="[data-main-object]:has(input.o_page_option_data[name='header_color']):has(input.o_page_option_data[name='header_text_color']) #wrapwrap > header"
          data-no-check="true">
         <we-colorpicker string="Background"
             class="o_we_sublevel_1"
@@ -1584,7 +1587,7 @@
     </div>
 
     <div data-js="HideFooter"
-        data-selector="[data-main-object^='website.page('] #wrapwrap > footer"
+        data-selector="[data-main-object]:has(input.o_page_option_data[name='footer_visible']) #wrapwrap > footer"
         data-no-check="true"
         groups="website.group_website_designer">
         <we-checkbox string="Page Visibility"

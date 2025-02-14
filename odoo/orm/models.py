@@ -1102,7 +1102,9 @@ class BaseModel(metaclass=MetaModel):
             # Get all following rows which have relational values attached to
             # the current record (no non-relational values)
             record_span = itertools.takewhile(
-                only_o2m_values, itertools.islice(data, index + 1, None))
+                only_o2m_values,
+                (data[j] for j in range(index + 1, len(data))),
+            )
             # stitch record row back on for relational fields
             record_span = list(itertools.chain([row], record_span))
 
@@ -1911,7 +1913,7 @@ class BaseModel(metaclass=MetaModel):
 
         if field.relational:
             # groups is a recordset; determine order on groups's model
-            groups = self.env[field.comodel_name].browse([value.id for value in values])
+            groups = self.env[field.comodel_name].browse(value.id for value in values)
             values = group_expand(self, groups, domain).sudo()
             if read_group_order == groupby + ' desc':
                 values.browse(reversed(values._ids))
@@ -1953,7 +1955,7 @@ class BaseModel(metaclass=MetaModel):
         # add folding information if present
         if field.relational and groups._fold_name in groups._fields:
             fold = {group.id: group[groups._fold_name]
-                    for group in groups.browse([key for key in result if key])}
+                    for group in groups.browse(key for key in result if key)}
             for key, line in result.items():
                 line['__fold'] = fold.get(key, False)
 
@@ -5555,7 +5557,7 @@ class BaseModel(metaclass=MetaModel):
         return self.with_context(allowed_company_ids=allowed_company_ids)
 
     @api.private
-    def with_context(self, *args, **kwargs) -> Self:
+    def with_context(self, ctx: dict[str, typing.Any] | None = None, /, **kwargs) -> Self:
         """ with_context([context][, **overrides]) -> Model
 
         Returns a new version of this recordset attached to an extended
@@ -5575,23 +5577,22 @@ class BaseModel(metaclass=MetaModel):
 
             The returned recordset has the same prefetch object as ``self``.
         """  # noqa: RST210
-        if (args and 'force_company' in args[0]) or 'force_company' in kwargs:
-            _logger.warning(
-                "Context key 'force_company' is no longer supported. "
+        context = dict(ctx if ctx is not None else self.env.context, **kwargs)
+        if 'force_company' in context:
+            warnings.warn(
+                "Since 19.0, context key 'force_company' is no longer supported. "
                 "Use with_company(company) instead.",
-                stack_info=True,
+                DeprecationWarning,
             )
-        if (args and 'company' in args[0]) or 'company' in kwargs:
-            _logger.warning(
+        if 'company' in context:
+            warnings.warn(
                 "Context key 'company' is not recommended, because "
                 "of its special meaning in @depends_context.",
-                stack_info=True,
             )
-        context = dict(args[0] if args else self._context, **kwargs)
-        if 'allowed_company_ids' not in context and 'allowed_company_ids' in self._context:
+        if 'allowed_company_ids' not in context and 'allowed_company_ids' in self.env.context:
             # Force 'allowed_company_ids' to be kept when context is overridden
             # without 'allowed_company_ids'
-            context['allowed_company_ids'] = self._context['allowed_company_ids']
+            context['allowed_company_ids'] = self.env.context['allowed_company_ids']
         return self.with_env(self.env(context=context))
 
     @api.private
@@ -6121,24 +6122,45 @@ class BaseModel(metaclass=MetaModel):
 
     def __iter__(self) -> typing.Iterator[Self]:
         """ Return an iterator over ``self``. """
-        if len(self._ids) > PREFETCH_MAX and self._prefetch_ids is self._ids:
-            for ids in split_every(PREFETCH_MAX, self._ids):
-                for id_ in ids:
-                    yield self.__class__(self.env, (id_,), ids)
+        ids = self._ids
+        size = len(ids)
+        if size <= 1:
+            # detect and handle small recordsets (single `1f`)
+            # early return if no records and avoid allocation if we have a one
+            if size == 1:
+                yield self
+            return
+        cls = self.__class__
+        env = self.env
+        prefetch_ids = self._prefetch_ids
+        if size > PREFETCH_MAX and prefetch_ids is ids:
+            for sub_ids in split_every(PREFETCH_MAX, ids):
+                for id_ in sub_ids:
+                    yield cls(env, (id_,), sub_ids)
         else:
-            for id_ in self._ids:
-                yield self.__class__(self.env, (id_,), self._prefetch_ids)
+            for id_ in ids:
+                yield cls(env, (id_,), prefetch_ids)
 
     def __reversed__(self) -> typing.Iterator[Self]:
         """ Return an reversed iterator over ``self``. """
-        if len(self._ids) > PREFETCH_MAX and self._prefetch_ids is self._ids:
-            for ids in split_every(PREFETCH_MAX, reversed(self._ids)):
-                for id_ in ids:
-                    yield self.__class__(self.env, (id_,), ids)
-        elif self._ids:
-            prefetch_ids = ReversedIterable(self._prefetch_ids)
-            for id_ in reversed(self._ids):
-                yield self.__class__(self.env, (id_,), prefetch_ids)
+        # same as __iter__ but reversed
+        ids = self._ids
+        size = len(ids)
+        if size <= 1:
+            if size == 1:
+                yield self
+            return
+        cls = self.__class__
+        env = self.env
+        prefetch_ids = self._prefetch_ids
+        if size > PREFETCH_MAX and prefetch_ids is ids:
+            for sub_ids in split_every(PREFETCH_MAX, reversed(ids)):
+                for id_ in sub_ids:
+                    yield cls(env, (id_,), sub_ids)
+        else:
+            prefetch_ids = ReversedIterable(prefetch_ids)
+            for id_ in reversed(ids):
+                yield cls(env, (id_,), prefetch_ids)
 
     def __contains__(self, item):
         """ Test whether ``item`` (record or field name) is an element of ``self``.
@@ -6182,7 +6204,7 @@ class BaseModel(metaclass=MetaModel):
             if self._name != other._name:
                 raise TypeError(f"inconsistent models in: {self} - {other}")
             other_ids = set(other._ids)
-            return self.browse([id for id in self._ids if id not in other_ids])
+            return self.browse(id_ for id_ in self._ids if id_ not in other_ids)
         except AttributeError:
             raise TypeError(f"unsupported operand types in: {self} - {other!r}")
 
@@ -6194,7 +6216,7 @@ class BaseModel(metaclass=MetaModel):
             if self._name != other._name:
                 raise TypeError(f"inconsistent models in: {self} & {other}")
             other_ids = set(other._ids)
-            return self.browse(OrderedSet(id for id in self._ids if id in other_ids))
+            return self.browse(OrderedSet(id_ for id_ in self._ids if id_ in other_ids))
         except AttributeError:
             raise TypeError(f"unsupported operand types in: {self} & {other!r}")
 
