@@ -2,7 +2,7 @@
 
 import ast
 import calendar
-from collections import defaultdict
+from collections import Counter, defaultdict
 from contextlib import ExitStack, contextmanager
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
@@ -12,6 +12,7 @@ import logging
 from markupsafe import Markup
 import math
 import re
+import os
 from textwrap import shorten
 
 from odoo import api, fields, models, _, Command, SUPERUSER_ID, modules, tools
@@ -194,6 +195,13 @@ class AccountMove(models.Model):
         'move_id',
         string='Journal Items',
         copy=True,
+    )
+
+    # === Link to the partial that created this exchange move === #
+    exchange_diff_partial_ids = fields.One2many(
+        comodel_name='account.partial.reconcile',
+        inverse_name='exchange_move_id',
+        string='Related reconciliation',
     )
 
     # === Payment fields === #
@@ -1072,13 +1080,13 @@ class AccountMove(models.Model):
             for line in move.line_ids:
                 if move.is_invoice(True):
                     # === Invoices ===
-                    if line.display_type == 'tax' or (line.display_type == 'rounding' and line.tax_repartition_line_id):
+                    if line.display_type in ('tax', 'non_deductible_tax') or (line.display_type == 'rounding' and line.tax_repartition_line_id):
                         # Tax amount.
                         total_tax += line.balance
                         total_tax_currency += line.amount_currency
                         total += line.balance
                         total_currency += line.amount_currency
-                    elif line.display_type in ('product', 'rounding'):
+                    elif line.display_type in ('product', 'rounding', 'non_deductible_product', 'non_deductible_product_total'):
                         # Untaxed amount.
                         total_untaxed += line.balance
                         total_untaxed_currency += line.amount_currency
@@ -1162,8 +1170,7 @@ class AccountMove(models.Model):
                 reconciliation_vals = [x for x in reconciliation_vals if x['source_line_account_type'] in ('asset_receivable', 'liability_payable')]
 
             new_pmt_state = 'not_paid' if invoice.payment_state != 'blocked' else 'blocked'
-            if invoice.state == 'posted':
-
+            if invoice.state == 'posted' or (invoice.state == 'draft' and not currency.is_zero(invoice.amount_total)):
                 # Posted invoice/expense entry.
                 if payment_state_matters:
 
@@ -1192,18 +1199,18 @@ class AccountMove(models.Model):
                                             and reverse_move_types == {'entry'})
                             if in_reverse or out_reverse or misc_reverse:
                                 new_pmt_state = 'reversed'
-                    elif invoice.matched_payment_ids.filtered(lambda p: not p.move_id and p.state == 'in_process'):
+                    elif invoice.state == 'posted' and invoice.matched_payment_ids.filtered(lambda p: not p.move_id and p.state == 'in_process'):
                         new_pmt_state = invoice._get_invoice_in_payment_state()
                     elif reconciliation_vals:
                         new_pmt_state = 'partial'
-                    elif invoice.matched_payment_ids.filtered(lambda p: not p.move_id and p.state == 'paid'):
+                    elif invoice.state == 'posted' and invoice.matched_payment_ids.filtered(lambda p: not p.move_id and p.state == 'paid'):
                         new_pmt_state = invoice._get_invoice_in_payment_state()
             invoice.payment_state = new_pmt_state
 
     @api.depends('payment_state', 'state')
     def _compute_status_in_payment(self):
         for move in self:
-            move.status_in_payment = move.state if move.state in ('draft', 'cancel') else move.payment_state
+            move.status_in_payment = move.state if move.state == 'cancel' else move.payment_state
 
     @api.depends('matched_payment_ids')
     def _compute_payment_count(self):
@@ -1528,6 +1535,76 @@ class AccountMove(models.Model):
             sign=self.direction_sign,
         )
 
+    def _prepare_non_deductible_base_line_for_taxes_computation(self, non_deductible_line):
+        """ Convert an account.move.line having display_type='non_deductible' into a base line for the taxes computation.
+
+        :param non_deductible_line: An account.move.line.
+        :return: A base line returned by '_prepare_base_line_for_taxes_computation'.
+        """
+        self.ensure_one()
+        sign = self.direction_sign
+        rate = self.invoice_currency_rate
+        return self.env['account.tax']._prepare_base_line_for_taxes_computation(
+            non_deductible_line,
+            price_unit=sign * non_deductible_line.amount_currency,
+            quantity=1.0,
+            sign=sign,
+            special_mode='total_excluded',
+            special_type='non_deductible',
+
+            is_refund=self.move_type in ('out_refund', 'in_refund'),
+            rate=rate,
+        )
+
+    def _prepare_non_deductible_base_lines_for_taxes_computation_from_base_lines(self, base_lines):
+        """ Anticipate the non deductible lines to be generated from the base lines passed as parameter.
+        When the record is in draft (not saved), the accounting items are not there so we can't
+        call '_prepare_non_deductible_base_line_for_taxes_computation'.
+
+        :param base_lines: The base lines generated by '_prepare_product_base_line_for_taxes_computation'.
+        :return: A list of base lines representing the non deductible lines.
+        """
+        self.ensure_one()
+        non_deductible_product_lines = base_lines.filtered(lambda line: line.display_type == 'product' and float_compare(line.deductible_amount, 100, precision_digits=2))
+        if not non_deductible_product_lines:
+            return []
+
+        sign = self.direction_sign
+        rate = self.invoice_currency_rate
+
+        non_deductible_lines_base_total_currency = 0.0
+        non_deductible_lines = []
+        for line in non_deductible_product_lines:
+            percentage = 1 - line.deductible_amount / 100
+            non_deductible_subtotal = line.currency_id.round(line.price_subtotal * percentage)
+            non_deductible_base_currency = line.company_currency_id.round(sign * non_deductible_subtotal / rate) if rate else 0.0
+            non_deductible_lines_base_total_currency += non_deductible_base_currency
+
+            non_deductible_lines += [
+                self.env['account.tax']._prepare_base_line_for_taxes_computation(
+                    None,
+                    price_unit=-non_deductible_base_currency,
+                    quantity=1.0,
+                    sign=1,
+                    special_mode='total_excluded',
+                    special_type='non_deductible',
+                    tax_ids=line.tax_ids.filtered(lambda tax: tax.amount_type != 'fixed'),
+                    currency_id=self.currency_id,
+                )
+            ]
+        non_deductible_lines += [
+            self.env['account.tax']._prepare_base_line_for_taxes_computation(
+                None,
+                price_unit=non_deductible_lines_base_total_currency,
+                quantity=1.0,
+                sign=1,
+                special_mode='total_excluded',
+                special_type=False,
+                currency_id=self.currency_id,
+            )
+        ]
+        return non_deductible_lines
+
     def _get_rounded_base_and_tax_lines(self, round_from_tax_lines=True):
         """ Small helper to extract the base and tax lines for the taxes computation from the current move.
         The move could be stored or not and could have some features generating extra journal items acting as
@@ -1556,6 +1633,8 @@ class AccountMove(models.Model):
             cash_rounding_amls = self.line_ids \
                 .filtered(lambda line: line.display_type == 'rounding' and not line.tax_repartition_line_id)
             base_lines += [self._prepare_cash_rounding_base_line_for_taxes_computation(line) for line in cash_rounding_amls]
+            non_deductible_base_lines = self.line_ids.filtered(lambda line: line.display_type in ('non_deductible_product', 'non_deductible_product_total'))
+            base_lines += [self._prepare_non_deductible_base_line_for_taxes_computation(line) for line in non_deductible_base_lines]
             AccountTax._add_tax_details_in_base_lines(base_lines, self.company_id)
             tax_amls = self.line_ids.filtered('tax_repartition_line_id')
             tax_lines = [self._prepare_tax_line_for_taxes_computation(tax_line) for tax_line in tax_amls]
@@ -1563,6 +1642,7 @@ class AccountMove(models.Model):
         else:
             # The move is not stored yet so the only thing we have is the invoice lines.
             base_lines += self._prepare_epd_base_lines_for_taxes_computation_from_base_lines(base_amls)
+            base_lines += self._prepare_non_deductible_base_lines_for_taxes_computation_from_base_lines(base_amls)
             AccountTax._add_tax_details_in_base_lines(base_lines, self.company_id)
             AccountTax._round_base_lines_tax_details(base_lines, self.company_id)
         return base_lines, tax_lines
@@ -2096,7 +2176,7 @@ class AccountMove(models.Model):
                             first_tax_line = tax_lines[0]
                             tax_group_old_amount = sum(tax_lines.mapped('amount_currency'))
                             sign = -1 if move.is_inbound() else 1
-                            delta_amount = tax_group_old_amount * sign - tax_group['tax_amount_currency']
+                            delta_amount = (tax_group_old_amount - tax_group.get('non_deductible_tax_amount_currency', 0.0)) * sign - tax_group['tax_amount_currency']
 
                             if not move.currency_id.is_zero(delta_amount):
                                 first_tax_line.amount_currency -= delta_amount * sign
@@ -2776,7 +2856,7 @@ class AccountMove(models.Model):
         fake_base_line = AccountTax._prepare_base_line_for_taxes_computation(None)
 
         def get_base_lines(move):
-            return move.line_ids.filtered(lambda line: line.display_type in ('product', 'epd', 'rounding', 'cogs'))
+            return move.line_ids.filtered(lambda line: line.display_type in ('product', 'epd', 'rounding', 'cogs', 'non_deductible_product'))
 
         def get_tax_lines(move):
             return move.line_ids.filtered('tax_repartition_line_id')
@@ -2890,6 +2970,52 @@ class AccountMove(models.Model):
             AccountTax._add_accounting_data_in_base_lines_tax_details(base_lines_values, move.company_id, include_caba_tags=move.always_tax_exigible)
             tax_results = AccountTax._prepare_tax_lines(base_lines_values, move.company_id, tax_lines=tax_lines_values)
 
+            non_deductible_tax_line = move.line_ids.filtered(lambda line: line.display_type == 'non_deductible_tax')
+            non_deductible_lines_values = [
+                line_values
+                for line_values in base_lines_values
+                if line_values['special_type'] == 'non_deductible'
+                and line_values['tax_ids']
+            ]
+
+            if not non_deductible_lines_values and non_deductible_tax_line:
+                to_delete.append(non_deductible_tax_line.id)
+
+            elif non_deductible_lines_values:
+                non_deductible_tax_values = {
+                    'tax_amount': 0.0,
+                    'tax_amount_currency': 0.0,
+                }
+                for line_values in non_deductible_lines_values:
+                    non_deductible_tax_values['tax_amount'] += -line_values['sign'] * (line_values['tax_details']['total_included'] - line_values['tax_details']['total_excluded'])
+                    non_deductible_tax_values['tax_amount_currency'] += -line_values['sign'] * (line_values['tax_details']['total_included_currency'] - line_values['tax_details']['total_excluded_currency'])
+
+                # Update the non-deductible tax lines values
+                non_deductable_tax_line_values = {
+                    'move_id': move.id,
+                    'account_id': (
+                        non_deductible_tax_line.account_id
+                        or move.journal_id.non_deductible_account_id
+                        or move.journal_id.default_account_id
+                    ).id,
+                    'display_type': 'non_deductible_tax',
+                    'name': _('private part (taxes)'),
+                    'balance': non_deductible_tax_values['tax_amount'],
+                    'amount_currency': non_deductible_tax_values['tax_amount_currency'],
+                    'sequence': max(move.line_ids.mapped('sequence')) + 1,
+                }
+                if non_deductible_tax_line:
+                    tax_results['tax_lines_to_update'].append((
+                        {'record': non_deductible_tax_line},
+                        'unused_grouping_key',
+                        {
+                            'amount_currency': non_deductable_tax_line_values['amount_currency'],
+                            'balance': non_deductable_tax_line_values['balance'],
+                        }
+                    ))
+                else:
+                    to_create.append(non_deductable_tax_line_values)
+
             for base_line, to_update in tax_results['base_lines_to_update']:
                 line = base_line['record']
                 if is_write_needed(line, to_update):
@@ -2914,6 +3040,101 @@ class AccountMove(models.Model):
             self.env['account.move.line'].browse(to_delete).with_context(dynamic_unlink=True).unlink()
         if to_create:
             self.env['account.move.line'].create(to_create)
+
+    @contextmanager
+    def _sync_non_deductible_base_lines(self, container):
+        def has_non_deductible_lines(move):
+            return (
+                move.state == 'draft'
+                and move.is_purchase_document()
+                and any(move.line_ids.filtered(lambda line: line.display_type == 'product' and line.deductible_amount < 100))
+            )
+
+        # Collect data to avoid recomputing value unecessarily
+        product_lines_before = {
+            move: Counter(
+                (line.name, line.price_subtotal, line.tax_ids, line.deductible_amount)
+                for line in move.line_ids
+                if line.display_type == 'product'
+            )
+            for move in container['records']
+        }
+
+        yield
+
+        to_delete = []
+        to_create = []
+        for move in container['records']:
+            product_lines_now = Counter(
+                (line.name, line.price_subtotal, line.tax_ids, line.deductible_amount)
+                for line in move.line_ids
+                if line.display_type == 'product'
+            )
+
+            has_changed_product_lines = bool(
+                product_lines_before.get(move, Counter()) - product_lines_now
+                or product_lines_now - product_lines_before.get(move, Counter())
+            )
+            if not has_changed_product_lines:
+                # No difference between before and now, then nothing to do
+                continue
+
+            non_deductible_base_lines = move.line_ids.filtered(lambda line: line.display_type in ('non_deductible_product', 'non_deductible_product_total'))
+            to_delete += non_deductible_base_lines.ids
+
+            if not has_non_deductible_lines(move):
+                continue
+
+            non_deductible_base_total = 0.0
+            non_deductible_base_currency_total = 0.0
+
+            sign = move.direction_sign
+            rate = move.invoice_currency_rate
+
+            for line in move.line_ids.filtered(lambda line: line.display_type == 'product'):
+                if float_compare(line.deductible_amount, 100, precision_rounding=2) == 0:
+                    continue
+
+                percentage = (1 - line.deductible_amount / 100)
+                non_deductible_subtotal = line.currency_id.round(line.price_subtotal * percentage)
+                non_deductible_base = line.currency_id.round(sign * non_deductible_subtotal)
+                non_deductible_base_currency = line.company_currency_id.round(sign * non_deductible_subtotal / rate) if rate else 0.0
+                non_deductible_base_total += non_deductible_base
+                non_deductible_base_currency_total += non_deductible_base_currency
+
+                to_create.append({
+                    'move_id': move.id,
+                    'account_id': line.account_id.id,
+                    'display_type': 'non_deductible_product',
+                    'name': line.name,
+                    'balance': -1 * non_deductible_base,
+                    'amount_currency': -1 * non_deductible_base_currency,
+                    'tax_ids': [Command.set(line.tax_ids.filtered(lambda tax: tax.amount_type != 'fixed').ids)],
+                    'sequence': line.sequence + 1,
+                })
+
+            to_create.append({
+                'move_id': move.id,
+                'account_id': (
+                    move.journal_id.non_deductible_account_id
+                    or move.journal_id.default_account_id
+                ).id,
+                'display_type': 'non_deductible_product_total',
+                'name': _('private part'),
+                'balance': non_deductible_base_total,
+                'amount_currency': non_deductible_base_currency_total,
+                'tax_ids': [Command.clear()],
+                'sequence': max(move.line_ids.mapped('sequence')) + 1,
+            })
+
+        while to_create and to_delete:
+            line_data = to_create.pop()
+            line_id = to_delete.pop()
+            self.env['account.move.line'].browse(line_id).write(line_data)
+        if to_create:
+            self.env['account.move.line'].create(to_create)
+        if to_delete:
+            self.env['account.move.line'].browse(to_delete).with_context(dynamic_unlink=True).unlink()
 
     @contextmanager
     def _sync_dynamic_line(self, existing_key_fname, needed_vals_fname, needed_dirty_fname, line_type, container):
@@ -3066,6 +3287,7 @@ class AccountMove(models.Model):
                     container=invoice_container,
                 ))
                 stack.enter_context(self._sync_tax_lines(tax_container))
+                stack.enter_context(self._sync_non_deductible_base_lines(invoice_container))
                 stack.enter_context(self._sync_dynamic_line(
                     existing_key_fname='epd_key',
                     needed_vals_fname='line_ids.epd_needed',
@@ -3356,6 +3578,7 @@ class AccountMove(models.Model):
         self._set_next_made_sequence_gap(True)
         self = self.with_context(skip_invoice_sync=True, dynamic_unlink=True)  # no need to sync to delete everything
         logger_message = self._get_unlink_logger_message()
+        self.line_ids.remove_move_reconcile()
         self.line_ids.unlink()
         res = super().unlink()
         if logger_message:
@@ -4803,7 +5026,9 @@ class AccountMove(models.Model):
         self.ensure_one()
         lock_date = self.company_id._get_user_fiscal_lock_date(self.journal_id)
         is_part_of_audit_trail = self.posted_before and self.company_id.check_account_audit_trail
-        return not self.inalterable_hash and self.date > lock_date and not is_part_of_audit_trail
+        posted_caba_entry = self.state == 'posted' and (self.tax_cash_basis_rec_id or self.tax_cash_basis_origin_move_id)
+        posted_exchange_diff_entry = self.state == 'posted' and self.exchange_diff_partial_ids
+        return not self.inalterable_hash and self.date > lock_date and not is_part_of_audit_trail and not posted_caba_entry and not posted_exchange_diff_entry
 
     def _is_protected_by_audit_trail(self):
         return any(move.posted_before and move.company_id.check_account_audit_trail for move in self)
@@ -4948,10 +5173,48 @@ class AccountMove(models.Model):
         # reconcile if state is in draft and move has reversal_entry_id set
         draft_reverse_moves = to_post.filtered(lambda move: move.reversed_entry_id and move.reversed_entry_id.state == 'posted')
 
+        # deal with the eventually related draft moves to the ones we want to post
+        partials_to_unlink = self.env['account.partial.reconcile']
+
+        for aml in self.line_ids:
+            for partials, counterpart_field in [(aml.matched_debit_ids, 'debit_move_id'), (aml.matched_credit_ids, 'credit_move_id')]:
+                for partial in partials:
+                    counterpart_move =  partial[counterpart_field].move_id
+                    if counterpart_move.state == 'posted' or counterpart_move in to_post:
+                        if partial.exchange_move_id:
+                            to_post |= partial.exchange_move_id
+                            # If the draft invoice changed since it was reconciled, in a way that would affect the exchange diff,
+                            # any existing reconcilation and draft exchange move would be deleted already (to force the user to 
+                            # re-do the reconciliation).
+                            # This is ensured by the the checks in env['account.move.line'].write(): 
+                            #     see env[account.move.line]._get_lock_date_protected_fields()['reconciliation']
+
+                        if partial._get_draft_caba_move_vals() != partial.draft_caba_move_vals:
+                            # draft invoice changed since it was reconciled, the cash basis entry isn't correct anymore
+                            # and the user has to re-do the reconciliation. Existing draft cash basis move will be unlinked
+                            partials_to_unlink |= partial
+
+                        elif move.tax_cash_basis_created_move_ids:
+                            to_post |= move.tax_cash_basis_created_move_ids.filtered(lambda m: m.tax_cash_basis_rec_id == partial)
+                        elif counterpart_move.tax_cash_basis_created_move_ids:
+                            to_post |= counterpart_move.tax_cash_basis_created_move_ids.filtered(lambda m: m.tax_cash_basis_rec_id == partial)
+
+        if partials_to_unlink:
+            partials_to_unlink.unlink()
+
         to_post.write({
             'state': 'posted',
             'posted_before': True,
         })
+
+        # Add the move number to the non_deductible lines for easier auditing
+        if non_deductible_lines := self.line_ids.filtered(lambda line: (line.display_type in ('non_deductible_product_total', 'non_deductible_tax'))):
+            for line in non_deductible_lines:
+                line.name = (
+                    _('%s - private part', line.move_id.name)
+                    if line.display_type == 'non_deductible_product_total'
+                    else _('%s - private part (taxes)', line.move_id.name)
+                )
 
         draft_reverse_moves.reversed_entry_id._reconcile_reversed_moves(draft_reverse_moves, self._context.get('move_reverse_cancel', False))
         to_post.line_ids._reconcile_marked()
@@ -5282,6 +5545,37 @@ class AccountMove(models.Model):
         self.mapped('line_ids.analytic_line_ids').unlink()
         self.mapped('line_ids').remove_move_reconcile()
         self.state = 'draft'
+
+        self._detach_attachments()
+
+    def _get_fields_to_detach(self):
+        """"
+        Returns a list of field names to detach on resetting an invoice to draft. Can be overridden by other modules to
+        add more fields.
+        """
+        return ['invoice_pdf_report_file']
+
+    def _detach_attachments(self):
+        """
+        Called by button_draft to detach specific attachments for the current journal entries to allow regeneration.
+        """
+        files_to_detach = self.sudo().env['ir.attachment'].search([
+            ('res_model', '=', 'account.move'),
+            ('res_id', 'in', self.ids),
+            ('res_field', 'in', self._get_fields_to_detach()),
+        ])
+        if files_to_detach:
+            files_to_detach.res_field = False
+            today = format_date(self.env, fields.Date.context_today(self))
+            for attachment in files_to_detach:
+                attachment_name, attachment_extension = os.path.splitext(attachment.name)
+                attachment.name = _(
+                    '%(attachment_name)s (detached by %(user)s on %(date)s)%(attachment_extension)s',
+                    attachment_name=attachment_name,
+                    attachment_extension=attachment_extension,
+                    user=self.env.user.name,
+                    date=today,
+                )
 
     def _check_draftable(self):
         exchange_move_ids = set()
