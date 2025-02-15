@@ -144,7 +144,7 @@ class TestDiscussFullPerformance(HttpCase, MailCommon):
         self.users = self.env['res.users'].create([
             {
                 'email': 'e.e@example.com',
-                'groups_id': [Command.link(self.group_user.id)],
+                'group_ids': [Command.link(self.group_user.id)],
                 'login': 'emp',
                 'name': 'Ernest Employee',
                 'notification_type': 'inbox',
@@ -591,7 +591,7 @@ class TestDiscussFullPerformance(HttpCase, MailCommon):
                 "livechat_active": False,
                 "livechat_operator_id": False,
                 "livechatChannel": False,
-                "member_count": len(self.group_user.users),
+                "member_count": len(self.group_user.all_user_ids),
                 "message_needaction_counter_bus_id": bus_last_id,
                 "message_needaction_counter": 0,
                 "mute_until_dt": False,
