@@ -4,6 +4,7 @@ import { EventBus } from "@odoo/owl";
 import { contains, getMockEnv, swipeLeft, swipeRight } from "@web/../tests/web_test_helpers";
 
 import { createElement } from "@web/core/utils/xml";
+import { CalendarModel } from "@web/views/calendar/calendar_model";
 import { Field } from "@web/views/fields/field";
 
 export const DEFAULT_DATE = luxon.DateTime.local(2021, 7, 16, 8, 0, 0, 0);
@@ -59,7 +60,6 @@ export const FAKE_FILTER_SECTIONS = [
             model: "filter_partner",
             field: "partner_id",
         },
-        canCollapse: true,
         canAddFilter: true,
         filters: [
             {
@@ -71,16 +71,6 @@ export const FAKE_FILTER_SECTIONS = [
                 recordId: null,
                 canRemove: false,
                 hasAvatar: true,
-            },
-            {
-                type: "all",
-                label: "Everybody's calendar",
-                active: false,
-                value: "all",
-                colorIndex: null,
-                recordId: null,
-                canRemove: false,
-                hasAvatar: false,
             },
             {
                 type: "record",
@@ -116,7 +106,6 @@ export const FAKE_FILTER_SECTIONS = [
             model: null,
             field: null,
         },
-        canCollapse: false,
         canAddFilter: false,
         filters: [
             {
@@ -704,6 +693,8 @@ export async function toggleFilter(sectionName, filterValue) {
         await click(otherCalendarPanel);
         await animationFrame();
     }
+    await advanceTime(CalendarModel.DEBOUNCED_LOAD_DELAY);
+    await animationFrame();
 }
 
 /**
@@ -728,6 +719,8 @@ export async function toggleSectionFilter(sectionName) {
         await click(otherCalendarPanel);
         await animationFrame();
     }
+    await advanceTime(CalendarModel.DEBOUNCED_LOAD_DELAY);
+    await animationFrame();
 }
 
 /**
@@ -742,5 +735,6 @@ export async function removeFilter(sectionName, filterValue) {
     instantScrollTo(button);
 
     await click(button);
+    await advanceTime(CalendarModel.DEBOUNCED_LOAD_DELAY);
     await animationFrame();
 }
