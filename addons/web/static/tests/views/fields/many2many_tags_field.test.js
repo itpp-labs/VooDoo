@@ -383,7 +383,7 @@ test("Many2ManyTagsField view a domain on desktop", async () => {
     Partner._records[0].timmy = [12];
     PartnerType._records.push({ id: 99, name: "red", color: 8 });
     onRpc("name_search", (args) => {
-        expect(args.kwargs.args).toEqual([["id", "<", 50]]);
+        expect(args.kwargs.domain).toEqual([["id", "<", 50]]);
     });
 
     await mountView({
@@ -779,7 +779,7 @@ test("Many2ManyTagsField keeps focus when being edited", async () => {
     expect(".o_field_many2many_tags input").toBeFocused();
 });
 
-test("Many2ManyTagsField: tags title attribute", async () => {
+test("Many2ManyTagsField: tags data-tooltip attribute", async () => {
     Turtle._records[0].partner_ids = [2];
 
     await mountView({
@@ -795,7 +795,7 @@ test("Many2ManyTagsField: tags title attribute", async () => {
             </form>`,
     });
 
-    expect(".o_field_many2many_tags .o_tag.badge").toHaveAttribute("title", "second record");
+    expect(".o_field_many2many_tags .o_tag.badge").toHaveAttribute("data-tooltip", "second record");
 });
 
 test("Many2ManyTagsField: toggle colorpicker with multiple tags", async () => {
@@ -818,13 +818,13 @@ test("Many2ManyTagsField: toggle colorpicker with multiple tags", async () => {
     await contains(".o_field_many2many_tags .badge").click();
     expect(".o_colorlist").toHaveCount(1);
 
-    await contains(".o_field_many2many_tags [title=silver]").click();
+    await contains(".o_field_many2many_tags [data-tooltip=silver]").click();
     expect(".o_colorlist").toHaveCount(1);
 
-    await contains(".o_field_many2many_tags [title=silver]").click();
+    await contains(".o_field_many2many_tags [data-tooltip=silver]").click();
     expect(".o_colorpicker").toHaveCount(0);
 
-    await contains(".o_field_many2many_tags [title=silver]").click();
+    await contains(".o_field_many2many_tags [data-tooltip=silver]").click();
     expect(".o_colorlist").toHaveCount(1);
 
     await contains(getFixture()).click();
@@ -1761,7 +1761,7 @@ test("Many2ManyTagsField doesn't use virtualId for 'name_search' on desktop", as
     onRpc("name_search", ({ kwargs }) => {
         expect.step("name_search");
         // no virtualId in domain
-        expect(kwargs.args).toEqual([]);
+        expect(kwargs.domain).toEqual([]);
     });
     await mountView({
         type: "form",
