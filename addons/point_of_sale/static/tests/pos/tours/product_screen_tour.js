@@ -352,6 +352,8 @@ registry.category("web_tour.tours").add("SearchProducts", {
             ProductScreen.searchProduct("CHAIR"),
             ProductScreen.clickDisplayedProduct("Test chair 1"),
             ProductScreen.clickDisplayedProduct("Test CHAIR 2"),
+            ProductScreen.searchProduct("clémentine"),
+            ProductScreen.clickDisplayedProduct("clémentine"),
         ].flat(),
 });
 
@@ -515,5 +517,20 @@ registry.category("web_tour.tours").add("SortOrderlinesByCategories", {
                 "Product_11 Category sequence 2",
                 "Product_22 Category sequence 2",
             ]),
+        ].flat(),
+});
+registry.category("web_tour.tours").add("CustomerPopupTour", {
+    steps: () =>
+        [
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
+            ProductScreen.clickPartnerButton(),
+            negateStep(PartnerList.checkCustomerShown("Z partner to search")),
+            PartnerList.searchCustomerValue("Z partner to search", true),
+            ProductScreen.clickCustomer("Z partner to search"),
+            ProductScreen.clickPartnerButton(),
+            negateStep(PartnerList.checkCustomerShown("Z partner to scroll")),
+            PartnerList.scrollBottom(),
+            ProductScreen.clickCustomer("Z partner to scroll"),
         ].flat(),
 });
