@@ -266,6 +266,8 @@ export class PosOrder extends Base {
             if (this.last_order_preparation_change.lines[line.preparationKey]) {
                 this.last_order_preparation_change.lines[line.preparationKey]["quantity"] =
                     line.getQuantity();
+                this.last_order_preparation_change.lines[line.preparationKey]["note"] =
+                    line.getNote();
             } else {
                 this.last_order_preparation_change.lines[line.preparationKey] = {
                     attribute_value_names: line.attribute_value_ids.map((a) => a.name),
@@ -837,9 +839,9 @@ export class PosOrder extends Base {
         );
 
         if (newPartner) {
-            newPartnerFiscalPosition = newPartner.property_account_position_id
+            newPartnerFiscalPosition = newPartner.fiscal_position_id
                 ? this.models["account.fiscal.position"].find(
-                      (position) => position.id === newPartner.property_account_position_id?.id
+                      (position) => position.id === newPartner.fiscal_position_id?.id
                   )
                 : defaultFiscalPosition;
             newPartnerPricelist =
