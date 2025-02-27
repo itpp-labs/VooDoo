@@ -1547,6 +1547,9 @@ class BaseModel(metaclass=MetaModel):
                 or a string `'field:granularity'`. Right now, the only supported granularities
                 are `'day'`, `'week'`, `'month'`, `'quarter'` or `'year'`, and they only make sense for
                 date/datetime fields.
+                Additionally integer date parts are also supported:
+                `'year_number'`, `'quarter_number'`, `'month_number'`, `'iso_week_number'`, `'day_of_year'`, `'day_of_month'`,
+                'day_of_week', 'hour_number', 'minute_number' and 'second_number'.
         :param list aggregates: list of aggregates specification.
                 Each element is `'field:agg'` (aggregate field with aggregation function `'agg'`).
                 The possible aggregation functions are the ones provided by
@@ -1803,12 +1806,34 @@ class BaseModel(metaclass=MetaModel):
                 continue
 
             field = self._fields.get(term)
+            __, __, granularity = parse_read_group_spec(term)
             if (
                 traverse_many2one and field and field.type == 'many2one'
                 and self.env[field.comodel_name]._order != 'id'
             ):
                 if sql_order := self._order_to_sql(f'{term} {direction} {nulls}', query):
                     orderby_terms.append(sql_order)
+            elif granularity == 'day_of_week':
+                """
+                Day offset relative to the first day of week in the user lang
+                formula: ((7 - first_week_day) + day_in_SQL) % 7
+
+                               | week starts on
+                           SQL | mon   sun   sat
+                               |  1  |  7  |  6   <-- first_week_day (in odoo)
+                          -----|-----------------
+                    mon     1  |  0  |  1  |  2
+                    tue     2  |  1  |  2  |  3
+                    wed     3  |  2  |  3  |  4
+                    thu     4  |  3  |  4  |  5
+                    fri     5  |  4  |  5  |  6
+                    sat     6  |  5  |  6  |  0
+                    sun     0  |  6  |  0  |  1
+                """
+                timezone = self.env.context.get('tz')
+                first_week_day = int(get_lang(self.env, timezone).week_start)
+                sql_expr = SQL("mod(7 - %s + %s::int, 7)", first_week_day, groupby_terms[term])
+                orderby_terms.append(SQL("%s %s %s", sql_expr, sql_direction, sql_nulls))
             else:
                 sql_expr = groupby_terms[term]
                 orderby_terms.append(SQL("%s %s %s", sql_expr, sql_direction, sql_nulls))
@@ -4799,7 +4824,7 @@ class BaseModel(metaclass=MetaModel):
         ):
             domain &= Domain(self._active_name, '=', True)
 
-        domain = domain._optimize(self)
+        domain = domain._optimize_for_sql(self)
         if domain.is_false():
             return self.browse()._as_query()
         query = Query(self.env, self._table, self._table_sql)
@@ -4831,7 +4856,7 @@ class BaseModel(metaclass=MetaModel):
         domain = self.env['ir.rule']._compute_domain(self._name, mode)
         if not domain.is_true():
             model = self.sudo()
-            domain = domain._optimize(model)
+            domain = domain._optimize_for_sql(model)
             query.add_where(domain._to_sql(model, query.table, query))
 
     def _order_to_sql(self, order: str, query: Query, alias: (str | None) = None,
@@ -4965,7 +4990,7 @@ class BaseModel(metaclass=MetaModel):
             sec_domain = Domain.TRUE
         else:
             sec_domain = self.env['ir.rule']._compute_domain(self._name, 'read')
-            sec_domain = sec_domain._optimize(self.sudo())
+            sec_domain = sec_domain._optimize_for_sql(self.sudo())
 
         # build the query
         if sec_domain.is_false() or (not limit and limit is not None and limit is not False):
