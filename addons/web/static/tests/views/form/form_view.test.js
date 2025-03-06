@@ -4,6 +4,7 @@ import {
     click,
     hover,
     manuallyDispatchProgrammaticEvent,
+    middleClick,
     press,
     queryAll,
     queryAllAttributes,
@@ -9325,6 +9326,39 @@ test(`Can switch to form view on inline tree`, async () => {
     expect.verifySteps(["doAction"]);
 });
 
+test(`x2many field, open form view in new window`, async () => {
+    mockService("action", {
+        doAction(params, options) {
+            if (options?.newWindow) {
+                expect.step("opened in a new window");
+                return;
+            }
+            super.doAction(params);
+        },
+        loadState() {},
+    });
+    Partner._records[0].child_ids = [2];
+    await mountView({
+        resModel: "partner",
+        type: "form",
+        arch: `
+            <form>
+                <field name="child_ids">
+                    <list editable="top" open_form_view="1">
+                        <field name="foo"/>
+                    </list>
+                </field>
+            </form>
+        `,
+        resId: 1,
+    });
+    expect(`td.o_list_record_open_form_view`).toHaveCount(1);
+
+    await middleClick("td.o_list_record_open_form_view");
+    await animationFrame();
+    expect.verifySteps(["opened in a new window"]);
+});
+
 test(`can toggle column in x2many in sub form view`, async () => {
     Partner._records[2].child_ids = [1, 2];
     Partner._fields.foo = fields.Char({ sortable: true });
@@ -10074,11 +10108,15 @@ test(`"bare" buttons in template should not trigger button click`, async () => {
 test(`form view with inline list view with optional fields and local storage mock`, async () => {
     patchWithCleanup(browser.localStorage, {
         getItem(key) {
-            expect.step(`getItem ${key}`);
+            if (["optional_fields", "debug_open_view"].some((word) => key.startsWith(word))) {
+                expect.step(`getItem ${key}`);
+            }
             return super.getItem(key);
         },
         setItem(key, value) {
-            expect.step(`setItem ${key} to ${value}`);
+            if (["optional_fields", "debug_open_view"].some((word) => key.startsWith(word))) {
+                expect.step(`setItem ${key} to ${value}`);
+            }
             return super.setItem(key, value);
         },
     });
@@ -10101,8 +10139,6 @@ test(`form view with inline list view with optional fields and local storage moc
 
     const localStorageKey = "partner,form,123456789,child_ids,list,bar,foo";
     expect.verifySteps([
-        "getItem web.emoji.frequent",
-        "getItem pwaService.installationState",
         `getItem optional_fields,${localStorageKey}`,
         `getItem debug_open_view,${localStorageKey}`,
     ]);
@@ -10131,11 +10167,15 @@ test.tags("desktop");
 test(`form view with list_view_ref with optional fields and local storage mock`, async () => {
     patchWithCleanup(browser.localStorage, {
         getItem(key) {
-            expect.step(`getItem ${key}`);
+            if (["optional_fields", "debug_open_view"].some((word) => key.startsWith(word))) {
+                expect.step(`getItem ${key}`);
+            }
             return super.getItem(key);
         },
         setItem(key, value) {
-            expect.step(`setItem ${key} to ${value}`);
+            if (["optional_fields", "debug_open_view"].some((word) => key.startsWith(word))) {
+                expect.step(`setItem ${key} to ${value}`);
+            }
             return super.setItem(key, value);
         },
     });
@@ -10166,8 +10206,6 @@ test(`form view with list_view_ref with optional fields and local storage mock`,
 
     const localStorageKey = "partner,form,123456789,child_ids,list,bar,foo";
     expect.verifySteps([
-        "getItem web.emoji.frequent",
-        "getItem pwaService.installationState",
         `getItem optional_fields,${localStorageKey}`,
         `getItem debug_open_view,${localStorageKey}`,
     ]);
