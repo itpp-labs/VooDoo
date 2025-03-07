@@ -12,6 +12,7 @@ import * as ProductScreenPos from "@point_of_sale/../tests/pos/tours/utils/produ
 import * as ProductScreenResto from "@pos_restaurant/../tests/tours/utils/product_screen_util";
 import * as Order from "@point_of_sale/../tests/generic_helpers/order_widget_util";
 import * as TicketScreen from "@point_of_sale/../tests/pos/tours/utils/ticket_screen_util";
+import * as combo from "@point_of_sale/../tests/pos/tours/utils/combo_popup_util";
 import { inLeftSide } from "@point_of_sale/../tests/pos/tours/utils/common";
 import { negateStep } from "@point_of_sale/../tests/generic_helpers/utils";
 import { registry } from "@web/core/registry";
@@ -74,8 +75,8 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
             Chrome.clickPlanButton(),
 
             // Create first order
-            FloorScreen.clickTable("105"),
-            Chrome.isTabActive("T 105"),
+            FloorScreen.clickTable("5"),
+            Chrome.isTabActive("5"),
             ProductScreen.clickDisplayedProduct("Coca-Cola", true),
             inLeftSide(Order.hasLine({ productName: "Coca-Cola", run: "dblclick" })),
             ProductScreen.clickDisplayedProduct("Water", true),
@@ -91,14 +92,14 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
                 content:
                     "acknowledge printing error ( because we don't have printer in the test. )",
             },
-            FloorScreen.clickTable("105"),
+            FloorScreen.clickTable("5"),
             ProductScreen.orderlinesHaveNoChange(),
             checkOrderChanges([]),
             ProductScreen.totalAmountIs("4.40"),
 
             // Create 2nd order (paid)
             Chrome.clickPlanButton(),
-            FloorScreen.clickTable("102"),
+            FloorScreen.clickTable("2"),
             ProductScreen.clickDisplayedProduct("Coca-Cola", true),
             ProductScreen.clickDisplayedProduct("Minute Maid", true),
             ProductScreen.totalAmountIs("4.40"),
@@ -112,8 +113,8 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
             ReceiptScreen.clickNextOrder(),
 
             // order on another table with a product variant
-            FloorScreen.orderCountSyncedInTableIs("105", "0"),
-            FloorScreen.clickTable("104"),
+            FloorScreen.orderCountSyncedInTableIs("5", "0"),
+            FloorScreen.clickTable("4"),
             ProductScreen.clickDisplayedProduct("Desk Organizer", false),
             {
                 ...Dialog.confirm(),
@@ -127,7 +128,7 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
                 content:
                     "acknowledge printing error ( because we don't have printer in the test. )",
             },
-            FloorScreen.clickTable("104"),
+            FloorScreen.clickTable("4"),
             ProductScreen.orderlinesHaveNoChange(),
             checkOrderChanges([]),
             ProductScreen.totalAmountIs("5.87"),
@@ -138,17 +139,17 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
 
             // After clicking next order, floor screen is shown.
             // It should have 1 as number of draft synced order.
-            FloorScreen.orderCountSyncedInTableIs("105", "0"),
-            FloorScreen.clickTable("105"),
+            FloorScreen.orderCountSyncedInTableIs("5", "0"),
+            FloorScreen.clickTable("5"),
             ProductScreen.totalAmountIs("4.40"),
 
             // Create another draft order and go back to floor
             Chrome.clickPlanButton(),
-            FloorScreen.clickTable("102"),
+            FloorScreen.clickTable("2"),
             ProductScreen.clickDisplayedProduct("Coca-Cola", true),
             ProductScreen.clickDisplayedProduct("Minute Maid", true),
             Chrome.clickPlanButton(),
-            FloorScreen.orderCountSyncedInTableIs("105", "0"),
+            FloorScreen.orderCountSyncedInTableIs("5", "0"),
 
             // Delete the first order then go back to floor
             Chrome.clickOrders(),
@@ -168,7 +169,7 @@ registry.category("web_tour.tours").add("pos_restaurant_sync", {
             Chrome.clickPlanButton(),
 
             // There should be 0 synced draft order as we already deleted -00002.
-            FloorScreen.clickTable("105"),
+            FloorScreen.clickTable("5"),
             ProductScreen.orderIsEmpty(),
         ].flat(),
 });
@@ -433,6 +434,72 @@ registry.category("web_tour.tours").add("PreparationPrinterContent", {
         ].flat(),
 });
 
+registry.category("web_tour.tours").add("test_combo_preparation_receipt", {
+    checkDelay: 50,
+    steps: () =>
+        [
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
+            FloorScreen.clickTable("5"),
+            ProductScreen.clickDisplayedProduct("Office Combo"),
+            combo.select("Combo Product 2"),
+            combo.select("Combo Product 4"),
+            combo.select("Combo Product 6"),
+            Dialog.confirm(),
+            ProductScreen.clickDisplayedProduct("Office Combo"),
+            combo.select("Combo Product 1"),
+            combo.select("Combo Product 5"),
+            combo.select("Combo Product 8"),
+            Dialog.confirm(),
+            {
+                content: "Check if order preparation has product correctly ordered",
+                trigger: "body",
+                run: async () => {
+                    const order = posmodel.getOrder();
+                    const orderChange = posmodel.changesToOrder(
+                        order,
+                        posmodel.config.preparationCategories,
+                        false
+                    );
+                    const { orderData, changes } = posmodel.generateOrderChange(
+                        order,
+                        orderChange,
+                        Array.from(posmodel.config.preparationCategories),
+                        false
+                    );
+
+                    orderData.changes = {
+                        title: "new",
+                        data: changes.new,
+                    };
+
+                    const rendered = renderToElement("point_of_sale.OrderChangeReceipt", {
+                        data: orderData,
+                    });
+                    const orderLines = [...rendered.querySelectorAll(".orderline")];
+                    const orderLinesInnerText = orderLines.map((orderLine) => orderLine.innerText);
+                    const expectedOrderLines = [
+                        "Office Combo",
+                        "Combo Product 2",
+                        "Combo Product 4",
+                        "Combo Product 6",
+                        "Office Combo",
+                        "Combo Product 1",
+                        "Combo Product 5",
+                        "Combo Product 8",
+                    ];
+                    for (let i = 0; i < orderLinesInnerText.length; i++) {
+                        if (!orderLinesInnerText[i].includes(expectedOrderLines[i])) {
+                            throw new Error("Order line mismatch");
+                        }
+                    }
+                },
+            },
+            ProductScreen.totalAmountIs("95.00"),
+            ProductScreen.clickPayButton(),
+        ].flat(),
+});
+
 registry.category("web_tour.tours").add("MultiPreparationPrinter", {
     checkDelay: 50,
     steps: () =>
@@ -443,5 +510,39 @@ registry.category("web_tour.tours").add("MultiPreparationPrinter", {
             ProductScreen.clickDisplayedProduct("Product 1"),
             ProductScreen.clickOrderButton(),
             Dialog.bodyIs("Failed in printing Printer 2 changes of the order"),
+            Dialog.confirm(),
+        ].flat(),
+});
+
+registry.category("web_tour.tours").add("LeaveResidualOrder", {
+    checkDelay: 50,
+    steps: () =>
+        [
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
+            FloorScreen.clickTable("5"),
+            ProductScreen.clickDisplayedProduct("Coca-Cola"),
+            ProductScreen.totalAmountIs("2.20"),
+            ProductScreen.clickPayButton(),
+            PaymentScreen.clickPaymentMethod("Bank"),
+            PaymentScreen.clickValidate(),
+            ReceiptScreen.clickNextOrder(),
+            FloorScreen.clickTable("5"),
+            ProductScreen.clickDisplayedProduct("Coca-Cola"),
+            Chrome.clickPlanButton(),
+        ].flat(),
+});
+
+registry.category("web_tour.tours").add("FinishResidualOrder", {
+    checkDelay: 50,
+    steps: () =>
+        [
+            Chrome.startPoS(),
+            FloorScreen.clickTable("5"),
+            ProductScreen.totalAmountIs("2.20"),
+            ProductScreen.clickPayButton(),
+            PaymentScreen.clickPaymentMethod("Bank"),
+            PaymentScreen.clickValidate(),
+            ReceiptScreen.clickNextOrder(),
         ].flat(),
 });

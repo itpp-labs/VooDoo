@@ -65,23 +65,21 @@ class TestFrontendCommon(TestPointOfSaleHttpCommon):
         cls.main_floor = cls.env['restaurant.floor'].create({
             'name': 'Main Floor',
             'pos_config_ids': [(4, cls.pos_config.id)],
-            'floor_prefix': 1,
         })
         cls.second_floor = cls.env['restaurant.floor'].create({
             'name': 'Second Floor',
             'pos_config_ids': [(4, cls.pos_config.id)],
-            'floor_prefix': 2,
         })
 
         cls.main_floor_table_5 = cls.env['restaurant.table'].create([{
-            'table_number': 105,
+            'table_number': 5,
             'floor_id': cls.main_floor.id,
             'seats': 4,
             'position_h': 100,
             'position_v': 100,
         }])
         cls.env['restaurant.table'].create([{
-            'table_number': 104,
+            'table_number': 4,
             'floor_id': cls.main_floor.id,
             'seats': 4,
             'shape': 'square',
@@ -89,7 +87,7 @@ class TestFrontendCommon(TestPointOfSaleHttpCommon):
             'position_v': 100,
         },
         {
-            'table_number': 102,
+            'table_number': 2,
             'floor_id': cls.main_floor.id,
             'seats': 4,
             'position_h': 250,
@@ -97,7 +95,7 @@ class TestFrontendCommon(TestPointOfSaleHttpCommon):
         },
         {
 
-            'table_number': 201,
+            'table_number': 1,
             'floor_id': cls.second_floor.id,
             'seats': 4,
             'shape': 'square',
@@ -105,7 +103,7 @@ class TestFrontendCommon(TestPointOfSaleHttpCommon):
             'position_v': 150,
         },
         {
-            'table_number': 203,
+            'table_number': 3,
             'floor_id': cls.second_floor.id,
             'seats': 4,
             'position_h': 100,
@@ -405,6 +403,21 @@ class TestFrontend(TestFrontendCommon):
         self.pos_config.with_user(self.pos_user).open_ui()
         self.start_pos_tour('test_create_floor_tour', login="pos_admin")
 
+    def test_combo_preparation_receipt(self):
+        setup_product_combo_items(self)
+        pos_printer = self.env['pos.printer'].create({
+            'name': 'Printer',
+            'printer_type': 'epson_epos',
+            'epson_printer_ip': '0.0.0.0',
+            'product_categories_ids': [Command.set(self.env['pos.category'].search([]).ids)],
+        })
+        self.pos_config.write({
+            'is_order_printer' : True,
+            'printer_ids': [Command.set(pos_printer.ids)],
+        })
+        self.pos_config.with_user(self.pos_user).open_ui()
+        self.start_pos_tour('test_combo_preparation_receipt')
+
     def test_multiple_preparation_printer(self):
         """This test make sure that no empty receipt are sent when using multiple printer with different categories
            The tour will check that we tried did not try to print two receipt. We can achieve that by checking the content
@@ -443,3 +456,12 @@ class TestFrontend(TestFrontendCommon):
 
         self.main_pos_config.with_user(self.pos_user).open_ui()
         self.start_tour(f"/pos/ui?config_id={self.main_pos_config.id}", 'MultiPreparationPrinter', login="pos_user")
+
+    def test_user_on_residual_order(self):
+        self.pos_config.write({'printer_ids': False})
+        self.pos_config.with_user(self.pos_admin).open_ui()
+        self.start_pos_tour('LeaveResidualOrder', login="pos_admin")
+        self.start_pos_tour('FinishResidualOrder', login="pos_user")
+        orders = self.env['pos.order'].search([])
+        self.assertEqual(orders[0].user_id.id, self.pos_user.id, "Pos user not registered on order")
+        self.assertEqual(orders[1].user_id.id, self.pos_admin.id, "Pos admin not registered on order")
