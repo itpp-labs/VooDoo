@@ -6,7 +6,6 @@ from odoo.modules.registry import Registry
 from odoo.tests.common import get_db_name, tagged
 from .lint_case import LintCase
 
-
 POSITIONAL_ONLY = inspect.Parameter.POSITIONAL_ONLY
 POSITIONAL_OR_KEYWORD = inspect.Parameter.POSITIONAL_OR_KEYWORD
 VAR_POSITIONAL = inspect.Parameter.VAR_POSITIONAL
@@ -25,13 +24,16 @@ Incompatible definition in {child_module}:
     def {method}{override_signature}"""
 
 
+MODULES_TO_IGNORE = {
+    'pos_blackbox_be',  # TODO cannot update to sanitize without certification
+}
 methods_to_sanitize = {
     method_name
     for method_name in dir(BaseModel)
     if not method_name.startswith('_')
 } - {
     # Not yet sanitized...
-    'write', 'create', 'default_get', 'init'
+    'write', 'default_get'
 }
 
 
@@ -39,9 +41,11 @@ class HitMiss:
     def __init__(self):
         self.hit = 0
         self.miss = 0
+
     @property
     def ratio(self):
         return self.hit / (self.hit + self.miss)
+
 counter = collections.defaultdict(HitMiss)
 
 
@@ -122,9 +126,16 @@ class TestLintOverrideSignatures(LintCase):
     def test_lint_override_signature(self):
         self.failureException = TypeError
         registry = Registry(get_db_name())
+
         for model_name, model_cls in registry.items():
+            if model_cls._module in MODULES_TO_IGNORE:
+                continue
             for method_name, _ in inspect.getmembers(model_cls, inspect.isroutine):
                 if method_name not in methods_to_sanitize:
+                    # TODO sanitize all methods
+                    continue
+                if method_name == 'init' and model_name == 'ir.config_parameter':
+                    # TODO refactor ir.config_parameter
                     continue
 
                 # Find the original function definition
