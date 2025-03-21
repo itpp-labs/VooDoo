@@ -1,10 +1,11 @@
+import { getLocalYearAndWeek } from "@web/core/l10n/dates";
 import { localization } from "@web/core/l10n/localization";
 import { useDebounced } from "@web/core/utils/timing";
-import { getColor } from "../colors";
-import { useCalendarPopover, useFullCalendar } from "../hooks";
-import { CalendarYearPopover } from "./calendar_year_popover";
+import { getColor } from "@web/views/calendar/utils";
+import { useCalendarPopover } from "@web/views/calendar/hooks/calendar_popover_hook";
+import { useFullCalendar } from "@web/views/calendar/hooks/full_calendar_hook";
 import { makeWeekColumn } from "@web/views/calendar/calendar_common/calendar_common_week_column";
-import { getLocalYearAndWeek } from "@web/core/l10n/dates";
+import { CalendarYearPopover } from "@web/views/calendar/calendar_year/calendar_year_popover";
 
 import { Component, useEffect, useRef } from "@odoo/owl";
 
@@ -15,15 +16,10 @@ export class CalendarYearRenderer extends Component {
     static template = "web.CalendarYearRenderer";
     static props = {
         model: Object,
-        displayName: { type: String, optional: true },
-        isWeekendVisible: { type: Boolean, optional: true },
         createRecord: Function,
         editRecord: Function,
         deleteRecord: Function,
-        setDate: { type: Function, optional: true },
-        calendarMode: { type: String, optional: true },
-        multiCreateRecord: { type: Function, optional: true },
-        multiDeleteRecords: { type: Function, optional: true },
+        isWeekendVisible: { type: Boolean, optional: true },
     };
 
     setup() {

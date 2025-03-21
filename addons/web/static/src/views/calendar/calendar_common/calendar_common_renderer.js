@@ -1,16 +1,17 @@
+import { browser } from "@web/core/browser/browser";
 import { getLocalYearAndWeek } from "@web/core/l10n/dates";
-import { is24HourFormat } from "@web/core/l10n/time";
 import { localization } from "@web/core/l10n/localization";
+import { is24HourFormat } from "@web/core/l10n/time";
+import { useBus } from "@web/core/utils/hooks";
 import { renderToFragment, renderToString } from "@web/core/utils/render";
-import { getColor } from "../colors";
-import { useCalendarPopover, useClickHandler, useFullCalendar } from "../hooks";
-import { CalendarCommonPopover } from "./calendar_common_popover";
-import { makeWeekColumn } from "./calendar_common_week_column";
+import { makeWeekColumn } from "@web/views/calendar/calendar_common/calendar_common_week_column";
+import { CalendarCommonPopover } from "@web/views/calendar/calendar_common/calendar_common_popover";
+import { getColor } from "@web/views/calendar/utils";
+import { useCalendarPopover } from "@web/views/calendar/hooks/calendar_popover_hook";
+import { useFullCalendar } from "@web/views/calendar/hooks/full_calendar_hook";
+import { useSquareSelection } from "@web/views/calendar/hooks/square_selection_hook";
 
 import { Component } from "@odoo/owl";
-import { useBus } from "@web/core/utils/hooks";
-import { useSquareSelection } from "@web/views/calendar/square_selection_hook";
-import { CALENDAR_MODES } from "@web/views/calendar/calendar_modes";
 
 const SCALE_TO_FC_VIEW = {
     day: "timeGridDay",
@@ -52,24 +53,19 @@ export class CalendarCommonRenderer extends Component {
     static headerTemplate = "web.CalendarCommonRendererHeader";
     static props = {
         model: Object,
-        displayName: { type: String, optional: true },
         isWeekendVisible: { type: Boolean, optional: true },
         createRecord: Function,
         editRecord: Function,
         deleteRecord: Function,
         setDate: { type: Function, optional: true },
-        calendarMode: { type: String, optional: true },
+        sidePanelMode: String,
         multiCreateRecord: { type: Function, optional: true },
         multiDeleteRecords: { type: Function, optional: true },
     };
 
-    static defaultProps = {
-        calendarMode: CALENDAR_MODES.filter,
-    };
-
     setup() {
         this.fc = useFullCalendar("fullCalendar", this.options);
-        this.click = useClickHandler(this.onClick, this.onDblClick);
+        this.clickTimeoutId = null;
         this.popover = useCalendarPopover(this.constructor.components.Popover);
 
         useBus(this.props.model.bus, "SCROLL_TO_CURRENT_HOUR", () =>
@@ -233,7 +229,16 @@ export class CalendarCommonRenderer extends Component {
         this.props.editRecord(this.props.model.records[info.event.id]);
     }
     onEventClick(info) {
-        this.click(info);
+        if (this.clickTimeoutId) {
+            this.onDblClick(info);
+            browser.clearTimeout(this.clickTimeoutId);
+            this.clickTimeoutId = null;
+        } else {
+            this.clickTimeoutId = browser.setTimeout(() => {
+                this.onClick(info);
+                this.clickTimeoutId = null;
+            }, 250);
+        }
     }
     onEventContent({ event }) {
         const record = this.props.model.records[event.id];

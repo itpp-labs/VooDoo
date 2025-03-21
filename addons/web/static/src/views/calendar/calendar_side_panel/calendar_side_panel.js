@@ -1,19 +1,24 @@
 import { Component, onWillStart, useState } from "@odoo/owl";
 import { FormRenderer } from "@web/views/form/form_renderer";
 import { DateTimePicker } from "@web/core/datetime/datetime_picker";
-import { CalendarFilterPanel } from "@web/views/calendar/filter_panel/calendar_filter_panel";
+import { CalendarFilterSection } from "@web/views/calendar/calendar_filter_section/calendar_filter_section";
 import { Record } from "@web/model/record";
 import { useService } from "@web/core/utils/hooks";
 import { FormArchParser } from "@web/views/form/form_arch_parser";
 import { parseXML } from "@web/core/utils/xml";
 import { extractFieldsFromArchInfo } from "@web/model/relational_model/utils";
-import { CALENDAR_MODES } from "@web/views/calendar/calendar_modes";
+
+export const SIDE_PANEL_MODES = {
+    filter: "FILTER",
+    add: "ADD",
+    delete: "DELETE",
+};
 
 export class CalendarSidePanel extends Component {
     static components = {
         FormRenderer,
         DatePicker: DateTimePicker,
-        FilterPanel: CalendarFilterPanel,
+        FilterSection: CalendarFilterSection,
         Record,
     };
     static template = "web.CalendarSidePanel";
@@ -25,7 +30,7 @@ export class CalendarSidePanel extends Component {
     setup() {
         this.viewService = useService("view");
 
-        this.CALENDAR_MODES = CALENDAR_MODES;
+        this.MODES = SIDE_PANEL_MODES;
         this.state = useState({
             isReady: !this.props.model.hasMultiCreate,
         });

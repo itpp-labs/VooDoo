@@ -265,7 +265,7 @@ export function extractFieldsFromArchInfo({ fieldNodes, widgetNodes }, fields) {
                 activeField.required = "False";
             }
         }
-        if (fields[fieldName].type === "many2one_reference" && fieldNode.views) {
+        if (["many2one", "many2one_reference"].includes(fields[fieldName].type) && fieldNode.views) {
             const viewDescr = fieldNode.views.default;
             activeField.related = extractFieldsFromArchInfo(viewDescr, viewDescr.fields);
         }
@@ -393,6 +393,13 @@ export function getFieldsSpec(activeFields, fields, evalContext, { orderBys, wit
             case "reference": {
                 fieldsSpec[fieldName].fields = {};
                 if (!isAlwaysInvisible) {
+                    if (related) {
+                        fieldsSpec[fieldName].fields = getFieldsSpec(
+                            related.activeFields,
+                            related.fields,
+                            evalContext
+                        );
+                    }
                     fieldsSpec[fieldName].fields.display_name = {};
                     fieldsSpec[fieldName].context = getFieldContextForSpec(
                         activeFields,
@@ -501,11 +508,7 @@ export function parseServerValue(field, value) {
             };
         }
         case "many2one": {
-            if (Array.isArray(value)) {
-                // Used for web_read_group, where the value is an array of [id, display_name]
-                return value;
-            }
-            return value ? [value.id, value.display_name] : false;
+            return createMany2OneValue(value);
         }
         case "properties": {
             return value
@@ -632,7 +635,10 @@ function getValueFromGroupData(field, rawValue) {
         return parseServerValue(field, rawValue[0]);
     }
     const value = parseServerValue(field, rawValue);
-    if (["many2one", "many2many"].includes(field.type)) {
+    if (field.type === "many2one") {
+        return value && value.id;
+    }
+    if (field.type === "many2many") {
         return value ? value[0] : false;
     }
     return value;
@@ -859,4 +865,21 @@ export async function resequence({
         records.splice(0, records.length, ...originalOrder);
         throw error;
     }
+}
+
+/**
+ * @param {object | [number, string] | false} value
+ * @returns {object}
+ */
+export function createMany2OneValue(value) {
+    if (!value) {
+        return false;
+    }
+
+    if (Array.isArray(value)) {
+        value = Object.assign(value, { id: value[0], display_name: value[1] });
+    } else {
+        value = Object.assign([value.id, value.display_name], value);
+    }
+    return value;
 }
