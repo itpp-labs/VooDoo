@@ -167,7 +167,7 @@ class RepairOrder(models.Model):
 
     # Sale Order Binding
     sale_order_id = fields.Many2one(
-        'sale.order', 'Sale Order', check_company=True, readonly=True,
+        'sale.order', 'Sale Order', check_company=True, readonly=True, index='btree_not_null',
         copy=False, help="Sale Order from which the Repair Order comes from.")
     sale_order_line_id = fields.Many2one(
         'sale.order.line', check_company=True, readonly=True,
@@ -179,7 +179,7 @@ class RepairOrder(models.Model):
 
     # Return Binding
     picking_id = fields.Many2one(
-        'stock.picking', 'Return', check_company=True,
+        'stock.picking', 'Return', check_company=True, index='btree_not_null',
         domain="[('return_id', '!=', False), ('product_id', '=?', product_id)]",
         copy=False, help="Return Order from which the product to be repaired comes from.")
     is_returned = fields.Boolean(
@@ -383,11 +383,15 @@ class RepairOrder(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        moves_to_reassign = self.env['stock.move']
         if vals.get('picking_type_id'):
             picking_type = self.env['stock.picking.type'].browse(vals.get('picking_type_id'))
             for repair in self:
+                if repair.state in ('cancel', 'done'):
+                    continue
                 if picking_type != repair.picking_type_id:
                     repair.name = picking_type.sequence_id.next_by_id()
+                    moves_to_reassign |= repair.move_ids
         res = super().write(vals)
         if 'product_id' in vals and self.tracking == 'serial':
             self.write({'product_qty': 1.0})
@@ -400,6 +404,14 @@ class RepairOrder(models.Model):
                 (repair.move_id + repair.move_ids).filtered(lambda m: m.state not in ('done', 'cancel')).write({'date': repair.schedule_date})
             if 'under_warranty' in vals:
                 repair._update_sale_order_line_price()
+        if moves_to_reassign:
+            moves_to_reassign._do_unreserve()
+            moves_to_reassign = moves_to_reassign.filtered(
+                lambda move: move.state in ('confirmed', 'partially_available')
+                and (move._should_bypass_reservation()
+                    or move.picking_type_id.reservation_method == 'at_confirm'
+                    or (move.reservation_date and move.reservation_date <= fields.Date.today())))
+            moves_to_reassign._action_assign()
         return res
 
     @api.ondelete(at_uninstall=False)

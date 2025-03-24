@@ -78,6 +78,7 @@ class StockMove(models.Model):
         'stock.location', 'Source Location',
         help='The operation takes and suggests products from this location.',
         auto_join=True, index=True, required=True,
+        compute='_compute_location_id', store=True, precompute=True, readonly=False,
         check_company=True)
     location_dest_id = fields.Many2one(
         'stock.location', 'Intermediate Location', required=True,
@@ -139,7 +140,7 @@ class StockMove(models.Model):
              "this second option should be chosen.")
     scrapped = fields.Boolean(
         'Scrapped', related='location_dest_id.scrap_location', readonly=True, store=True)
-    scrap_id = fields.Many2one('stock.scrap', 'Scrap operation', readonly=True, check_company=True)
+    scrap_id = fields.Many2one('stock.scrap', 'Scrap operation', readonly=True, check_company=True, index='btree_not_null')
     group_id = fields.Many2one('procurement.group', 'Procurement Group', default=_default_group_id, index=True)
     rule_id = fields.Many2one(
         'stock.rule', 'Stock Rule', ondelete='restrict', help='The stock rule that created this stock move',
@@ -179,7 +180,7 @@ class StockMove(models.Model):
     is_quantity_done_editable = fields.Boolean('Is quantity done editable', compute='_compute_is_quantity_done_editable')
     reference = fields.Char(compute='_compute_reference', string="Reference", store=True)
     move_lines_count = fields.Integer(compute='_compute_move_lines_count')
-    package_level_id = fields.Many2one('stock.package_level', 'Package Level', check_company=True, copy=False)
+    package_level_id = fields.Many2one('stock.package_level', 'Package Level', check_company=True, copy=False, index='btree_not_null')
     picking_type_entire_packs = fields.Boolean(related='picking_type_id.show_entire_packs', readonly=True)
     display_assign_serial = fields.Boolean(compute='_compute_display_assign_serial')
     display_import_lot = fields.Boolean(compute='_compute_display_assign_serial')
@@ -208,7 +209,19 @@ class StockMove(models.Model):
         for move in self:
             move.product_uom = move.product_id.uom_id.id
 
-    @api.depends('picking_id', 'picking_id.location_dest_id')
+    @api.depends('picking_id.location_id')
+    def _compute_location_id(self):
+        for move in self:
+            if move.picked:
+                continue
+            if not (location := move.location_id) or move.picking_id != move._origin.picking_id or move.picking_type_id != move._origin.picking_type_id:
+                if move.picking_id:
+                    location = move.picking_id.location_id
+                elif move.picking_type_id:
+                    location = move.picking_type_id.default_location_src_id
+            move.location_id = location
+
+    @api.depends('picking_id.location_dest_id')
     def _compute_location_dest_id(self):
         for move in self:
             location_dest = False
@@ -591,6 +604,8 @@ Please change the quantity done or the rounding precision in your settings.""",
                 if move.priority == '1':
                     days = move.picking_type_id.reservation_days_before_priority
                 move.reservation_date = fields.Date.to_date(move.date) - timedelta(days=days)
+            elif move.picking_type_id.reservation_method == 'manual':
+                move.reservation_date = False
 
     @api.depends('product_uom', 'move_orig_ids', 'move_dest_ids', 'move_orig_ids.packaging_uom_id', 'move_dest_ids.packaging_uom_id')
     def _compute_packaging_uom_id(self):
@@ -674,7 +689,6 @@ Please change the quantity done or the rounding precision in your settings.""",
         # messages according to the state of the stock.move records.
         receipt_moves_to_reassign = self.env['stock.move']
         move_to_recompute_state = self.env['stock.move']
-        move_to_confirm = self.env['stock.move']
         move_to_check_location = self.env['stock.move']
         if 'quantity' in vals:
             if any(move.state == 'cancel' for move in self):
@@ -729,8 +743,6 @@ Please change the quantity done or the rounding precision in your settings.""",
                 wh_by_moves[move_warehouse] |= move
             for warehouse, moves in wh_by_moves.items():
                 moves.warehouse_id = warehouse.id
-        if move_to_confirm:
-            move_to_confirm._action_assign()
         if receipt_moves_to_reassign:
             receipt_moves_to_reassign._action_assign()
         return res

@@ -12,7 +12,7 @@ from odoo.exceptions import ValidationError
 class StockMoveLine(models.Model):
     _inherit = 'stock.move.line'
 
-    workorder_id = fields.Many2one('mrp.workorder', 'Work Order', check_company=True)
+    workorder_id = fields.Many2one('mrp.workorder', 'Work Order', check_company=True, index='btree_not_null')
     production_id = fields.Many2one('mrp.production', 'Production Order', check_company=True)
     description_bom_line = fields.Char(related='move_id.description_bom_line')
 
@@ -149,9 +149,9 @@ class StockMove(models.Model):
     raw_material_production_id = fields.Many2one(
         'mrp.production', 'Production Order for components', check_company=True, index='btree_not_null')
     unbuild_id = fields.Many2one(
-        'mrp.unbuild', 'Disassembly Order', check_company=True)
+        'mrp.unbuild', 'Disassembly Order', check_company=True, index='btree_not_null')
     consume_unbuild_id = fields.Many2one(
-        'mrp.unbuild', 'Consumed Disassembly Order', check_company=True)
+        'mrp.unbuild', 'Consumed Disassembly Order', check_company=True, index='btree_not_null')
     allowed_operation_ids = fields.One2many(
         'mrp.routing.workcenter', related='raw_material_production_id.bom_id.operation_ids')
     operation_id = fields.Many2one(
@@ -202,7 +202,19 @@ class StockMove(models.Model):
             elif not move.manual_consumption:
                 move.manual_consumption = move._is_manual_consumption()
 
-    @api.depends('raw_material_production_id', 'raw_material_production_id.location_dest_id', 'production_id', 'production_id.location_dest_id')
+    @api.depends('raw_material_production_id.location_src_id', 'production_id.location_src_id')
+    def _compute_location_id(self):
+        ids_to_super = set()
+        for move in self:
+            if move.production_id:
+                move.location_id = move.product_id.with_company(move.company_id).property_stock_production.id
+            elif move.raw_material_production_id:
+                move.location_id = move.raw_material_production_id.location_src_id
+            else:
+                ids_to_super.add(move.id)
+        return super(StockMove, self.browse(ids_to_super))._compute_location_id()
+
+    @api.depends('raw_material_production_id.location_dest_id', 'production_id.location_dest_id')
     def _compute_location_dest_id(self):
         ids_to_super = set()
         for move in self:
