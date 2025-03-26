@@ -924,8 +924,9 @@ class DiscussChannel(models.Model):
                         "name": guest_name,
                         "timezone": timezone,
                     }
-                ).sudo(False)
+                )
                 guest._set_auth_cookie()
+                guest = guest.sudo(False)
                 self = self.with_context(guest=guest)
             self.add_members(guest_ids=guest.ids, post_joined_message=post_joined_message)
         return self.env.user.partner_id if not guest else self.env["res.partner"], guest
@@ -1003,7 +1004,7 @@ class DiscussChannel(models.Model):
             "member_count",
             "name",
             Store.One("parent_channel_id"),
-            Store.Many("rtc_session_ids", mode="ADD", extra=True, rename="rtcSessions"),
+            Store.Many("rtc_session_ids", mode="ADD", extra=True, rename="rtcSessions", sudo=True),
             "uuid",
         ]
         if for_current_user:

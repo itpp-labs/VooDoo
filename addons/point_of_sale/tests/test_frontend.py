@@ -8,9 +8,8 @@ from odoo import Command
 
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 from odoo.tests import tagged
-from odoo.addons.account.tests.common import AccountTestInvoicingHttpCommon
+from odoo.addons.account.tests.common import TestTaxCommon, AccountTestInvoicingHttpCommon
 from odoo.addons.point_of_sale.tests.common_setup_methods import setup_product_combo_items
-from odoo.addons.point_of_sale.models.pos_config import PosConfig
 from datetime import date, timedelta
 from odoo.addons.point_of_sale.tests.common import archive_products
 from odoo.exceptions import UserError
@@ -1618,6 +1617,18 @@ class TestUi(TestPointOfSaleHttpCommon):
             'tracking': 'serial',
             'available_in_pos': True,
         })
+        product2 = self.env['product.product'].create({
+            'name': 'Product B',
+            'is_storable': True,
+            'tracking': 'lot',
+            'available_in_pos': True,
+        })
+        self.env['stock.quant'].with_context(inventory_mode=True).create({
+            'product_id': product2.id,
+            'inventory_quantity': 1,
+            'location_id': self.env.user._get_default_warehouse_id().lot_stock_id.id,
+            'lot_id': self.env['stock.lot'].create({'name': '1001', 'product_id': product2.id}).id,
+        }).sudo().action_apply_inventory()
 
         self.main_pos_config.with_user(self.pos_user).open_ui()
         self.start_tour("/pos/ui?config_id=%d" % self.main_pos_config.id, 'LotTour', login="pos_user")
@@ -1760,3 +1771,41 @@ class MobileTestUi(TestUi):
     browser_size = '375x667'
     touch_enabled = True
     allow_inherited_tests_method = True
+
+
+class TestTaxCommonPOS(TestPointOfSaleHttpCommon, TestTaxCommon):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.partner_a.name = "AAAAAA"  # The POS only load the first 100 partners
+
+    def create_base_line_product(self, base_line, **kwargs):
+        return self.env['product.product'].create({
+            **kwargs,
+            'available_in_pos': True,
+            'list_price': base_line['price_unit'],
+            'taxes_id': [Command.set(base_line['tax_ids'].ids)],
+            'pos_categ_ids': [Command.set(self.pos_desk_misc_test.ids)],
+        })
+
+    def ensure_products_on_document(self, document, product_prefix):
+        for i, base_line in enumerate(document['lines'], start=1):
+            base_line['product_id'] = self.create_base_line_product(base_line, name=f'{product_prefix}_{i}')
+
+    def assert_pos_order_totals(self, order, expected_values):
+        expected_amounts = {}
+        if 'tax_amount_currency' in expected_values:
+            expected_amounts['amount_tax'] = expected_values['tax_amount_currency']
+        if 'total_amount_currency' in expected_values:
+            expected_amounts['amount_total'] = expected_values['total_amount_currency']
+        self.assertRecordValues(order, [expected_amounts])
+
+    def assert_pos_orders_and_invoices(self, tour, tests_with_orders):
+        with self.with_new_session(user=self.pos_user) as session:
+            self.start_pos_tour(tour)
+            orders = self.env['pos.order'].search([('session_id', '=', session.id)], limit=len(tests_with_orders))
+            for index, (order, (test_code, _document, _soft_checking, _amount_type, _amount, expected_values)) in enumerate(zip(orders, tests_with_orders)):
+                with self.subTest(test_code=test_code, index=index):
+                    self.assert_pos_order_totals(order, expected_values)
+                    if order.account_move:
+                        self.assert_invoice_totals(order.account_move, expected_values)

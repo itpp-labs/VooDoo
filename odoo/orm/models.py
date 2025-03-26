@@ -3421,7 +3421,6 @@ class BaseModel(metaclass=MetaModel):
         """ Read from the database in order to fetch ``field`` (:class:`Field`
             instance) for ``self`` in cache.
         """
-        self._check_field_access(field, 'read')
         # determine which fields can be prefetched
         if self._context.get('prefetch_fields', True) and field.prefetch:
             fnames = [
@@ -6428,6 +6427,9 @@ class BaseModel(metaclass=MetaModel):
 
     def __hash__(self):
         return hash((self._name, frozenset(self._ids)))
+
+    def __deepcopy__(self, memo):
+        return self
 
     @typing.overload
     def __getitem__(self, key: int | slice) -> Self: ...
