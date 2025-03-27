@@ -52,12 +52,15 @@ from __future__ import annotations
 
 import collections
 import enum
+import functools
 import itertools
 import logging
+import operator
 import typing
 import warnings
 from datetime import date, datetime, time, timedelta
 
+from odoo.exceptions import UserError
 from odoo.tools import SQL, OrderedSet, Query, classproperty, partition, str2bool
 from .identifiers import NewId
 from .utils import COLLECTION_TYPES
@@ -73,7 +76,6 @@ _logger = logging.getLogger('odoo.domains')
 STANDARD_CONDITION_OPERATORS = frozenset([
     'any', 'not any',
     'in', 'not in',
-    '=', '!=',  # TODO translate them into 'in'
     '<', '>', '<=', '>=',
     'like', 'not like',
     'ilike', 'not ilike',
@@ -181,7 +183,7 @@ class Domain:
     # because we overwrite __new__ so typechecking for abstractmethod is incorrect.
     # We do this so that we can use the Domain as both a factory for multiple
     # types of domains, while still having `isinstance` working for it.
-    __slots__ = '_opt_level'
+    __slots__ = ('_opt_level',)
     _opt_level: OptimizationLevel
 
     def __new__(cls, *args):
@@ -214,6 +216,8 @@ class Domain:
             return _TRUE_DOMAIN
         if arg is False:
             return _FALSE_DOMAIN
+        if arg is NotImplemented:
+            raise NotImplementedError
 
         # parse as a list
         # perf: do this inside __new__ to avoid calling function that return
@@ -249,6 +253,10 @@ class Domain:
     @classproperty
     def FALSE(cls) -> Domain:
         return _FALSE_DOMAIN
+
+    @staticmethod
+    def is_negative_operator(operator: str) -> bool:
+        return operator in NEGATIVE_CONDITION_OPERATORS
 
     @staticmethod
     def AND(items: Iterable) -> Domain:
@@ -410,7 +418,7 @@ class DomainBool(Domain):
     It is NOT considered as a condition and these constants are removed
     from nary domains.
     """
-    __slots__ = 'value'
+    __slots__ = ('value',)
     value: bool
 
     def __new__(cls, value: bool):
@@ -461,7 +469,7 @@ class DomainNot(Domain):
     """Negation domain, contains a single child"""
     OPERATOR = '!'
 
-    __slots__ = 'child'
+    __slots__ = ('child',)
     child: Domain
 
     def __new__(cls, child: Domain):
@@ -504,7 +512,7 @@ class DomainNary(Domain):
     OPERATOR_SQL: SQL = SQL(" ??? ")
     ZERO: DomainBool = _FALSE_DOMAIN  # default for lint checks
 
-    __slots__ = 'children'
+    __slots__ = ('children',)
     children: list[Domain]
 
     def __new__(cls, children: list[Domain]):
@@ -727,6 +735,9 @@ class DomainCondition(Domain):
             isinstance(other, DomainCondition)
             and self.field_expr == other.field_expr
             and self.operator == other.operator
+            # we want stricter equality than this: `OrderedSet([x]) == {x}`
+            # to ensure that optimizations always return OrderedSet values
+            and self.value.__class__ is other.value.__class__
             and self.value == other.value
         )
 
@@ -817,9 +828,7 @@ class DomainCondition(Domain):
             if not field.search:
                 _logger.error("Non-stored field %s cannot be searched.", field, stack_info=_logger.isEnabledFor(logging.DEBUG))
                 return _TRUE_DOMAIN
-            value = list(self.value) if isinstance(self.value, OrderedSet) else self.value
-            domain = field.determine_domain(model, self.operator, value)
-            return Domain(domain)
+            return self._optimize_field_search_method(model)
 
         # optimizations based on operator
         for opt in _OPTIMIZATIONS_BY_OPERATOR[self.operator]:
@@ -841,6 +850,46 @@ class DomainCondition(Domain):
 
         return self
 
+    def _optimize_field_search_method(self, model: BaseModel) -> Domain:
+        field = self._field(model)
+        operator, value = self.operator, self.value
+        # use the `Field.search` function
+        original_exception = None
+        try:
+            computed_domain = field.determine_domain(model, operator, value)
+        except (NotImplementedError, UserError) as e:
+            computed_domain = NotImplemented
+            original_exception = e
+        else:
+            if computed_domain is not NotImplemented:
+                return Domain(computed_domain)
+        # try with the positive operator
+        if (
+            original_exception is None
+            and (inversed_opeator := _INVERSE_OPERATOR.get(operator))
+        ):
+            computed_domain = field.determine_domain(model, inversed_opeator, value)
+            if computed_domain is not NotImplemented:
+                return ~Domain(computed_domain)
+        # backward compatibility to implement only '=' or '!='
+        try:
+            if operator == 'in':
+                return Domain.OR(field.determine_domain(model, '=', v) for v in value)
+            elif operator == 'not in':
+                return Domain.AND(field.determine_domain(model, '!=', v) for v in value)
+        except (NotImplementedError, UserError) as e:
+            if original_exception is None:
+                original_exception = e
+        # raise the error
+        if original_exception:
+            raise original_exception
+        raise UserError(model.env._(
+            "Unsupported operator on %(field_label)s %(model_label)s in %(domain)s",
+            domain=repr(self),
+            field_label=self._field(model).get_description(model.env, ['string'])['string'],
+            model_name=f"{model.env['ir.model']._get(model._name).name!r} ({model._name})",
+        ))
+
     def _to_sql(self, model: BaseModel, alias: str, query: Query) -> SQL:
         return model._condition_to_sql(alias, self.field_expr, self.operator, self.value, query)
 
@@ -853,7 +902,7 @@ ANY_TYPES = (Domain, Query, SQL)
 
 if typing.TYPE_CHECKING:
     ConditionOptimization = Callable[[DomainCondition, BaseModel], Domain]
-    MergeOptimization = Callable[[type[DomainNary], Iterable[Domain], BaseModel], Iterable[Domain]]
+    MergeOptimization = Callable[[type[DomainNary], list[Domain], BaseModel], Iterable[Domain]]
 
 _OPTIMIZATIONS_BY_OPERATOR: dict[str, list[ConditionOptimization]] = collections.defaultdict(list)
 _OPTIMIZATIONS_BY_FIELD_TYPE: dict[str, list[ConditionOptimization]] = collections.defaultdict(list)
@@ -903,8 +952,6 @@ def _optimize_nary_sort_key(domain: Domain) -> tuple[str, str, str]:
         positive_op = NEGATIVE_CONDITION_OPERATORS.get(operator, operator)
         if positive_op == 'in':
             order = "0in"
-        elif positive_op == '=':
-            order = "0eq"
         elif positive_op == 'any':
             order = "1any"
         elif positive_op.endswith('like'):
@@ -1045,22 +1092,26 @@ def _operator_equal_as_in(condition, _):
     Validation for some types and translate collection into 'in'.
     """
     value = condition.value
-    if not isinstance(value, COLLECTION_TYPES):
-        return condition
     operator = 'in' if condition.operator == '=' else 'not in'
-    # TODO make a warning or equality against a collection
-    if not value:  # views sometimes use ('user_ids', '!=', []) to indicate the user is set
-        _logger.debug("The domain condition %r should compare with False.", condition)
-        value = OrderedSet([False])
+    if isinstance(value, COLLECTION_TYPES):
+        # TODO make a warning or equality against a collection
+        if not value:  # views sometimes use ('user_ids', '!=', []) to indicate the user is set
+            _logger.debug("The domain condition %r should compare with False.", condition)
+            value = OrderedSet([False])
+        else:
+            _logger.debug("The domain condition %r should use the 'in' or 'not in' operator.", condition)
+            value = OrderedSet(value)
+    elif isinstance(value, SQL):
+        # transform '=' SQL("x") into 'in' SQL("(x)")
+        value = SQL("(%s)", value)
     else:
-        _logger.debug("The domain condition %r should use the 'in' or 'not in' operator.", condition)
-        value = OrderedSet(value)
+        value = OrderedSet((value,))
     return DomainCondition(condition.field_expr, operator, value)
 
 
 @operator_optimization(['in', 'not in'])
-def _optimize_in_list(condition, _):
-    """Make sure the value is a collection or use 'any' operator"""
+def _optimize_in_set(condition, _model):
+    """Make sure the value is an OrderedSet or use 'any' operator"""
     value = condition.value
     if isinstance(value, ANY_TYPES):
         operator = 'any' if condition.operator == 'in' else 'not any'
@@ -1166,10 +1217,6 @@ def _optimize_relational_name_search(condition, model):
             and isinstance(value, COLLECTION_TYPES)
             and any(isinstance(v, str) for v in value)
         )
-        or (
-            operator in ('=', '!=')
-            and isinstance(value, str)
-        )
     ):
         return condition
     # operator
@@ -1200,13 +1247,8 @@ def _optimize_boolean_in(condition, model):
     """b in boolean_values"""
     value = condition.value
     operator = condition.operator
-    if operator in ('=', '!='):
-        if isinstance(value, bool):
-            return condition
-        operator = 'in' if operator == '=' else 'not in'
-        value = [value]
     if operator not in ('in', 'not in') or not isinstance(value, COLLECTION_TYPES):
-        return condition
+        condition._raise("Cannot compare %r to %s which is not a collection of length 1", condition.field_expr, type(value))
     if not all(isinstance(v, bool) for v in value):
         # parse the values
         if any(isinstance(v, str) for v in value):
@@ -1216,6 +1258,11 @@ def _optimize_boolean_in(condition, model):
             str2bool(v.lower(), False) if isinstance(v, str) else bool(v)
             for v in value
         }
+    if len(value) == 1 and not any(value):
+        # when comparing boolean values, always compare to [True] if possible
+        # it eases the implementation of search methods
+        operator = _INVERSE_OPERATOR[operator]
+        value = [True]
     return DomainCondition(condition.field_expr, operator, value)
 
 
@@ -1318,9 +1365,6 @@ def _optimize_type_binary_attachment(condition, model):
     field = condition._field(model)
     operator = condition.operator
     value = condition.value
-    if operator in ('=', '!='):
-        operator = 'in' if operator == '=' else 'not in'
-        value = [value]
     if field.attachment and not (operator in ('in', 'not in') and set(value) == {False}):
         try:
             condition._raise('Binary field stored in attachment, accepts only existence check; skipping domain')
@@ -1437,6 +1481,82 @@ def _operator_parent_of_domain(comodel: BaseModel, parent):
 # --------------------------------------------------
 # Optimizations: nary
 # --------------------------------------------------
+
+
+def _merge_set_conditions(cls: type[DomainNary], conditions):
+    """Base function to merge equality conditions.
+
+    Combine the 'in' and 'not in' conditions to a single set of values.
+
+    Examples:
+
+        a in {1} or a in {2}  <=>  a in {1, 2}
+        a in {1, 2} and a not in {2, 5}  =>  a in {1}
+    """
+    assert all(isinstance(cond.value, OrderedSet) for cond in conditions)
+
+    # build the sets for 'in' and 'not in' conditions
+    in_sets = [c.value for c in conditions if c.operator == 'in']
+    not_in_sets = [c.value for c in conditions if c.operator == 'not in']
+
+    # combine the sets
+    field_expr = conditions[0].field_expr
+    if cls.OPERATOR == '&':
+        if in_sets:
+            return [DomainCondition(field_expr, 'in', intersection(in_sets) - union(not_in_sets))]
+        else:
+            return [DomainCondition(field_expr, 'not in', union(not_in_sets))]
+    else:
+        if not_in_sets:
+            return [DomainCondition(field_expr, 'not in', intersection(not_in_sets) - union(in_sets))]
+        else:
+            return [DomainCondition(field_expr, 'in', union(in_sets))]
+
+
+def intersection(sets: list[OrderedSet]) -> OrderedSet:
+    """Intersection of a list of OrderedSets"""
+    return functools.reduce(operator.and_, sets)
+
+
+def union(sets: list[OrderedSet]) -> OrderedSet:
+    """Union of a list of OrderedSets"""
+    return OrderedSet(elem for s in sets for elem in s)
+
+
+@nary_condition_optimization(operators=('in', 'not in'))
+def _optimize_merge_set_conditions_mono_value(cls: type[DomainNary], conditions, model):
+    """Merge equality conditions.
+
+    Combine the 'in' and 'not in' conditions to a single set of values.
+    Do not touch x2many fields which have a different semantic.
+
+    Examples:
+
+        a in {1} or a in {2}  <=>  a in {1, 2}
+        a in {1, 2} and a not in {2, 5}  =>  a in {1}
+    """
+    field = conditions[0]._field(model)
+    if field.type in ('many2many', 'one2many', 'properties'):
+        return conditions
+    return _merge_set_conditions(cls, conditions)
+
+
+@nary_condition_optimization(operators=('in',), field_types=['many2many', 'one2many'])
+def _optimize_merge_set_conditions_x2many_in(cls: type[DomainNary], conditions, model):
+    """Merge domains of 'in' conditions for x2many fields like for 'any' operator.
+    """
+    if cls is DomainAnd:
+        return conditions
+    return _merge_set_conditions(cls, conditions)
+
+
+@nary_condition_optimization(operators=('not in',), field_types=['many2many', 'one2many'])
+def _optimize_merge_set_conditions_x2many_not_in(cls: type[DomainNary], conditions, model):
+    """Merge domains of 'not in' conditions for x2many fields like for 'not any' operator.
+    """
+    if cls is DomainOr:
+        return conditions
+    return _merge_set_conditions(cls, conditions)
 
 
 @nary_condition_optimization(['any'], ['many2one', 'one2many', 'many2many'])
